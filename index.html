@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
+    />
+    <meta http-equiv="Referrer-Policy" content="no-referrer" />
+    <meta
+      http-equiv="Permissions-Policy"
+      content="camera=(), microphone=(), geolocation=(), payment=()"
+    />
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
+    <meta http-equiv="Cross-Origin-Resource-Policy" content="same-origin" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <title>304 Online</title>
+    <meta
+      name="description"
+      content="A browser implementation of Sri Lankan 304 with configurable profiles, bot fill, and core game flow."
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <h1>304 Online</h1>
+        <p>
+          Production-ready web game implementation based on documented rules and
+          feature requirements, with secure local room/session persistence and
+          hardening for browser delivery.
+        </p>
+      </header>
+
+      <section id="setup-panel" class="card">
+        <h2>Product-ready web lobby</h2>
+        <div class="hero">
+          <p>
+            Private game rooms, bot-enabled practice, manual seat control, and instant
+            reconnect for active sessions.
+          </p>
+          <button type="button" id="quick-play-btn">Play now (quick practice)</button>
+        </div>
+
+        <form id="setup-form">
+          <label for="player-name">Display name</label>
+          <input id="player-name" name="playerName" value="You" maxlength="24" />
+
+          <label for="join-room-code">Join room by code</label>
+          <input
+            id="join-room-code"
+            name="joinRoomCode"
+            placeholder="e.g. 304-ABCD"
+            maxlength="20"
+          />
+
+          <label for="table-mode">Table size mode</label>
+          <select id="table-mode" name="tableMode">
+            <option value="auto">Auto (1-4 => 4-seat, 5-6 => 6-seat)</option>
+            <option value="classic_4">Classic 4-seat</option>
+            <option value="six_6">Six-seat variant</option>
+          </select>
+
+          <label for="human-count">Human seat count</label>
+          <select id="human-count" name="humanCount">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+
+          <label for="bot-difficulty">Bot difficulty</label>
+          <select id="bot-difficulty" name="botDifficulty">
+            <option value="easy">Easy</option>
+            <option value="normal">Normal</option>
+            <option value="strong">Strong</option>
+          </select>
+
+          <label for="rule-profile">Rule profile</label>
+          <select id="rule-profile" name="ruleProfile">
+            <option value="classic_304_4p">Classic 304 (4-seat)</option>
+            <option value="six_304_36">Six-seat 36-card variant</option>
+          </select>
+
+          <label>
+            <input id="enable-second-bid" type="checkbox" name="enableSecondBidding" checked />
+            Enable second bidding round
+          </label>
+
+          <div class="actions">
+            <button type="submit" id="join-room-btn" data-mode="join">Join room</button>
+            <button type="submit" id="create-room-btn" data-mode="create">Create room</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="lobby-panel" class="card hidden">
+        <h2>Lobby</h2>
+        <p id="room-code">Room created</p>
+        <p>
+          Invite link:
+          <a id="room-link" href="#" aria-label="Shareable invite link"></a>
+        </p>
+        <div id="lobby-seats" class="seat-grid"></div>
+        <p id="lobby-hint"></p>
+        <div class="actions">
+          <button id="start-match-btn" type="button">Start match</button>
+          <button id="create-new-btn" type="button">Change setup</button>
+        </div>
+      </section>
+
+      <section id="game-panel" class="card hidden">
+        <div id="game-message" class="status"></div>
+        <div id="table-wrap">
+          <div id="match-board" class="seat-grid"></div>
+          <div class="board-side">
+            <div id="scoreboard" class="panel"></div>
+            <div id="trump-area" class="panel"></div>
+            <div id="trick-area" class="panel"></div>
+            <div id="hand-audit" class="panel"></div>
+            <div id="bid-history" class="panel"></div>
+          </div>
+        </div>
+        <div id="previous-trick" class="panel"></div>
+        <div id="prompt" class="panel"></div>
+        <div id="my-hand-area"></div>
+        <div id="actions" class="actions"></div>
+        <div id="result-summary" class="panel"></div>
+      </section>
+    </main>
+    <script type="module" src="./src/ui/app.js"></script>
+  </body>
+</html>
