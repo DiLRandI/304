@@ -1,11 +1,12 @@
 # Framework, Hosting, and Supply-Chain Decision Log
 
-## 0. Decision summary and current status (2026-07-08)
+## 0. Decision summary and current status (2026-07-09)
 
 - Current production baseline: custom Node.js + static web client in this repository.
 - Next.js decision: approved for the next frontend generation and product phase.
 - Vercel decision: approved as the host target for that Next.js frontend only after state is externalized.
 - pnpm decision: approved for supply-chain security, reproducibility, and release gating.
+- Canonical phase-2 migration record: `docs/technical/27_PLATFORM_GRADE_DECISION_NEXTJS_VERCEL_PNPM.md`.
 - Executive summary for stakeholders: `docs/technical/18_PLATFORM_DECISION_BRIEF.md`.
 - Official status: this repo is **not** a Next.js application today.
 
@@ -16,7 +17,7 @@ Current runtime confirmation:
 - Migration to Next.js remains the product modernization track after stateful API boundaries are in place.
 - Product decision lock-in for this track is: Next.js for the next platform generation, Vercel for frontend hosting, pnpm for all installs.
 
-## 1. Framework decision (2026-07-08)
+## 1. Framework decision (2026-07-09)
 
 ### Decision
 
@@ -102,8 +103,8 @@ Move to Next.js when all of the following are true:
   - `pnpm audit --audit-level=high`
   - `pnpm audit signatures`
 - Use `corepack` to pin toolchain and avoid global manager drift:
-  - `corepack enable pnpm`
-  - `corepack use pnpm@11.10.0`
+  - `corepack enable`
+  - `corepack prepare pnpm@11.10.0 --activate`
 - Keep `packageManager` in `package.json` aligned to the chosen pnpm major.
 
 ### Runtime hardening baseline

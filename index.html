@@ -70,6 +70,12 @@
             maxlength="20"
           />
 
+          <label for="room-visibility">Room visibility</label>
+          <select id="room-visibility" name="visibility">
+            <option value="private">Private (invite-only)</option>
+            <option value="public">Public</option>
+          </select>
+
           <label for="table-mode">Table size mode</label>
           <select id="table-mode" name="tableMode">
             <option value="auto">Auto (1-4 => 4-seat, 5-6 => 6-seat)</option>
@@ -105,6 +111,25 @@
             Enable second bidding round
           </label>
 
+          <label for="card-size">Card size</label>
+          <select id="card-size" name="cardSize">
+            <option value="small">Compact</option>
+            <option value="medium" selected>Comfortable</option>
+            <option value="large">Large</option>
+          </select>
+
+          <label for="animation-speed">Animation speed</label>
+          <select id="animation-speed" name="animationSpeed">
+            <option value="fast">Fast</option>
+            <option value="normal" selected>Normal</option>
+            <option value="reduced">Reduced</option>
+          </select>
+
+          <label>
+            <input id="sound-enabled" type="checkbox" name="soundEnabled" checked />
+            Enable sound cues
+          </label>
+
           <div class="actions">
             <button type="submit" id="join-room-btn" data-mode="join">Join room</button>
             <button type="submit" id="create-room-btn" data-mode="create">Create room</button>
@@ -124,6 +149,15 @@
         <div class="actions">
           <button id="start-match-btn" type="button">Start match</button>
           <button id="create-new-btn" type="button">Change setup</button>
+        </div>
+      </section>
+
+      <section id="public-rooms-panel" class="card">
+        <h2>Public rooms</h2>
+        <p id="public-rooms-status" class="muted-note">Loading public rooms...</p>
+        <div id="public-rooms-list" class="seat-grid"></div>
+        <div class="actions">
+          <button id="refresh-public-btn" type="button">Refresh public rooms</button>
         </div>
       </section>
 

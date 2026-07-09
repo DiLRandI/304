@@ -1,9 +1,9 @@
 # Platform and Supply-Chain Decision Brief
 
-**Date:** 2026-07-08  
+**Date:** 2026-07-09  
 **Status:** approved for next product phase (not yet active in production architecture)
 
-## 0) Decision snapshot (as of 2026-07-08)
+## 0) Decision snapshot (as of 2026-07-09)
 
 - **Current production baseline:** custom Node.js server + static client + HTTP API.
 - **Next.js decision:** approved as the target frontend stack for the next phase.
@@ -12,7 +12,7 @@
 
 Latest reference points:
 
-- Next.js 16.2 was published on **2026-03-18** (official Next.js blog). The active LTS line is 16.x as of this brief date.
+- Next.js support status: `16.x` is Active LTS (released Oct 21, 2025), `15.x` is Maintenance LTS.
 - Vercel Functions documentation confirms request-by-request invocations, instance reuse under load, and scale-to-zero when idle.
 - pnpm v11 documents `pnpm audit signatures`, `minimumReleaseAge`, `minimumReleaseAgeStrict`, `blockExoticSubdeps`, and `trustPolicy` for supply-chain hardening.
 
@@ -52,7 +52,7 @@ Latest reference points:
 - Use **pnpm** for all local and release install flows.
 - Required install baseline:
   - `corepack enable`
-  - `corepack use pnpm@11.10.0`
+  - `corepack prepare pnpm@11.10.0 --activate`
   - `pnpm install --frozen-lockfile`
 - Required release/security checks:
   - `pnpm audit --audit-level=high`

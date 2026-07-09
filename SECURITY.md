@@ -35,22 +35,53 @@ include impact details, steps to reproduce, and affected game state (if any).
 
 ## Supply-chain policy (must-have for all environments)
 
-- Package manager is **pnpm only** for this repository:
-  - Do not install with `npm`/`yarn` for production or release work.
-  - Keep `pnpm-lock.yaml` committed and review every lockfile diff.
+- Package manager is **pnpm only** for this repository.
+- `pnpm` is already installed here at version `11.10.0`.
+- Keep `pnpm-lock.yaml` committed and review every lockfile diff.
+- Decision context for Vercel-fronted migration, lockfile controls, and supply-chain hardening is documented in:
+  - `docs/technical/31_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_2026-07-09.md`
+  - `docs/technical/32_PRODUCT_DECISION_EXECUTIVE_NEXTJS_VERCEL_PNPM_SECURITY_2026-07-09.md`
+  - `docs/technical/22_PRODUCT_READY_NEXTJS_VERCEL_PNPM_DECISION_RECORD.md`
+  - `docs/technical/23_PRODUCT_GRADE_PLATFORM_DECISION_RECORD.md`
+  - `docs/technical/26_PRODUCT_GRADE_PLATFORM_DECISION_NEXTJS_VERCEL_PNPM.md`
+  - `docs/technical/27_PLATFORM_GRADE_DECISION_NEXTJS_VERCEL_PNPM.md`
+  - `docs/technical/35_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_SECURITY_2026-07-09.md`
+  - `docs/technical/36_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_SUPPLY_CHAIN_SUMMARY_2026-07-09.md`
+- Supply-chain attack protections mapped to controls:
+  - Baseline controls are now documented in `docs/technical/35_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_SECURITY_2026-07-09.md`.
+  - High-speed dependency churn and zero-day exposure are reduced by `minimumReleaseAge: 1440` and `minimumReleaseAgeStrict: true`.
+  - Trust regressions are blocked by `trustPolicy: no-downgrade`.
+  - Unknown transitive package sources are blocked by `blockExoticSubdeps: true`.
+  - Release tampering is blocked by immutable lockfiles and audit/signature checks.
+- Use the pinned toolchain before dependency operations:
+  - `corepack enable`
+  - `corepack prepare pnpm@11.10.0 --activate`
 - Baseline release checks (mandatory before publish):
-  - `corepack use pnpm@latest-11`
   - `pnpm install --frozen-lockfile`
   - `pnpm audit --audit-level=high`
   - `pnpm audit signatures`
   - `pnpm security:check`
+  - `pnpm security:check:all`
 - For suspicious dependency updates or incident response, run:
   - `pnpm install --ignore-scripts --frozen-lockfile`
   - `pnpm audit --audit-level=high`
+  - `corepack enable`
+  - `corepack prepare pnpm@11.10.0 --activate`
+  - `pnpm install --frozen-lockfile`
 - For Vercel-hosted frontends:
   - Keep all authoritative room/session logic on a durable backend service.
   - Never bundle stateful backend secrets in the frontend.
   - Keep frontend and API contracts versioned and reviewed together.
+
+### Migration security posture for Vercel frontend cutover
+
+- Do not treat request-based function instances as the game session source-of-truth.
+- Before frontend cutover to Vercel, ensure room/session state is persisted and recoverable in durable services.
+- Require immutable install flow and provenance checks for every release candidate:
+  - `pnpm install --frozen-lockfile`
+  - `pnpm audit --audit-level=high`
+  - `pnpm audit signatures`
+  - `pnpm security:check:all`
 
 ## Next hardening steps before commercial launch
 

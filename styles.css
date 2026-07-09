@@ -8,6 +8,10 @@
   --bad: #ff9aa2;
   --good: #9be7a6;
   --active: #f7d774;
+  --card-font-size: 15px;
+  --card-min-width: 90px;
+  --card-min-height: 38px;
+  --animation-duration: 120ms;
 }
 
 * {
@@ -179,6 +183,11 @@ button:focus,
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 10px;
   padding: 10px;
+  transition:
+    outline-color var(--animation-duration) ease,
+    box-shadow var(--animation-duration) ease,
+    background-color var(--animation-duration) ease,
+    border-color var(--animation-duration) ease;
 }
 
 .seat.active {
@@ -259,7 +268,12 @@ button:focus,
   border-radius: 8px;
   padding: 8px;
   margin: 4px;
-  min-width: 110px;
+  min-width: var(--card-min-width);
+  min-height: var(--card-min-height);
+  font-size: var(--card-font-size);
+  transition:
+    transform var(--animation-duration) ease,
+    background-color var(--animation-duration) ease;
 }
 
 .hand-card.playable {

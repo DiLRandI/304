@@ -83,10 +83,19 @@ export function chooseTableSeatCount(humanCount, tableMode, profileHint) {
     return 6;
   }
   if (tableMode === "auto") {
+    if (profileHint === "classic_304_4p") {
+      return 4;
+    }
+    if (profileHint === "six_304_36") {
+      return 6;
+    }
     return humanCount <= 4 ? 4 : 6;
   }
   if (profileHint === "six_304_36") {
-    return humanCount <= 4 ? 4 : 6;
+    return 6;
+  }
+  if (profileHint === "classic_304_4p") {
+    return 4;
   }
   return humanCount <= 4 ? 4 : 6;
 }

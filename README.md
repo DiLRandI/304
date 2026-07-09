@@ -47,7 +47,43 @@ This repository is arranged for rapid development with documentation and art ass
 
 This project is a **production-oriented custom Node.js + static client + API server** stack and is not a Next.js application.
 
-Decision note (2026-07-08):
+### Product-ready platform decision (updated 2026-07-09)
+
+- Decision: Next.js is approved as the next-phase frontend platform for this product line; the project remains Node.js static + API in the current active baseline.
+- Hosting: Vercel is the approved host target for the Next.js frontend once gameplay/stateful services are moved to durable backends (Redis/PostgreSQL/API service).
+- Security/toolchain: `pnpm` is mandatory for dependency install/release operations, with locked resolution and supply-chain hardening controls as the baseline.
+- Short answer: this is **not** a Next.js app today; it is approved as a phase-2 frontend migration to Next.js on Vercel.
+- Latest concise migration and security addendum (2026-07-09): `docs/technical/32_PRODUCT_DECISION_EXECUTIVE_NEXTJS_VERCEL_PNPM_SECURITY_2026-07-09.md`
+- Executive migration memo (Next.js + Vercel + pnpm): `docs/technical/34_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_2026-07-09.md`
+- Confirmed decision: this is **not** a Next.js application today. Next.js is the planned phase-2 frontend platform due to componentized UI growth and route-level composition needs.
+- Official baseline references used:
+  - Next.js support policy and LTS guidance
+  - Vercel function lifecycle behavior for request-scale systems
+  - pnpm workspace settings and registry-verification commands
+
+Suggested local setup commands:
+
+```bash
+corepack enable
+corepack prepare pnpm@11.10.0 --activate
+pnpm install --frozen-lockfile
+```
+
+Security gates:
+
+```bash
+pnpm audit --audit-level=high
+pnpm audit signatures
+pnpm security:check:all
+```
+
+- Official migration record: `docs/technical/26_PRODUCT_GRADE_PLATFORM_DECISION_NEXTJS_VERCEL_PNPM.md`
+- The migration direction is: Next.js frontend + Vercel hosting in phase-2, with room/session state moved to durable storage before Vercel-only stateful gameplay.
+Decision posture is product-grade: Next.js + Vercel migration is approved for phase 2, with pnpm and lockfile security gates enforced before front-end cutover.
+
+Short answer: this is **not** a Next.js app today.
+
+Decision note (2026-07-09):
 
 - Keep the custom Node server + static client as the current production baseline.
 - Next.js remains the planned product UI direction for the next platform phase (component model, route composition, and accessibility-oriented rendering patterns).
@@ -65,6 +101,7 @@ Decision snapshot:
   - Next.js approval and migration trigger points
   - Vercel deployment readiness gates
   - pnpm + audit policy for supply-chain protection
+- `docs/technical/22_PRODUCT_READY_NEXTJS_VERCEL_PNPM_DECISION_RECORD.md` is the single-page product-ready decision summary combining the above.
 
 ### Why this is not Next.js yet
 
@@ -76,7 +113,7 @@ Decision snapshot:
 
 ```bash
 corepack enable
-corepack use pnpm@11.10.0
+corepack prepare pnpm@11.10.0 --activate
 pnpm install --frozen-lockfile
 pnpm start
 ```
@@ -86,19 +123,20 @@ pnpm start
 - Health endpoint: `http://localhost:4173/health`
 - Session persistence: resume last room when returning with an existing session.
 
-### Platform decision record (2026-07-08)
+### Platform decision record (2026-07-09)
 
 - This repository is **not** a Next.js application today. It is a production-oriented custom Node.js server plus static client implementation.
 - Next.js is approved as the next frontend platform, but the migration is currently deferred.
 - Vercel is approved only for the Next.js frontend in phase 2 of migration.
 - For Vercel phase 2, the backend must be split to a long-lived stateful service (Redis/PostgreSQL + API) before moving room lifecycle/stateful gameplay there.
 - pnpm is the required package manager for this repository, with immutable installs and signature/audit checks for release safety.
+- Vercel is approved as the frontend host once this repo's stateful gameplay services are separated into durable backend infrastructure.
 
 If pnpm is missing on your machine, install once with:
 
 ```bash
 corepack enable
-corepack use pnpm@11.10.0
+corepack prepare pnpm@11.10.0 --activate
 ```
 
 Security checks:
@@ -110,18 +148,41 @@ pnpm security:check
 For release gating, run:
 
 ```bash
-corepack use pnpm@latest-11
+corepack prepare pnpm@11.10.0 --activate
 pnpm install --frozen-lockfile
 pnpm audit --audit-level=high
+pnpm audit
 pnpm audit signatures
 pnpm security:check
+pnpm security:check:all
 ```
+
+Decision record (latest):
+
+- For the current architecture and migration posture, see:
+- `docs/technical/17_FRAMEWORK_AND_HOSTING_DECISION_LOG.md`
+- `docs/technical/18_PLATFORM_DECISION_BRIEF.md`
+- `docs/technical/27_PLATFORM_GRADE_DECISION_NEXTJS_VERCEL_PNPM.md`
+- `docs/technical/28_PRODUCT_GRADE_PLATFORM_DECISION_NEXTJS_VERCEL_PNPM_REFRESH_2026-07-09.md`
+- `docs/technical/29_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_REFRESH_2026-07-09.md`
+- `docs/technical/19_NEXTJS_VERCEL_AND_PNPM_DECISION_RECORD.md`
+  - `docs/technical/20_NEXTJS_VERCEL_PNPM_DECISION_ADDENDUM.md`
+  - `docs/technical/21_PRODUCT_READY_NEXTJS_VERCEL_PNPM_DECISION_RECORD.md`
+  - `docs/technical/22_PRODUCT_READY_NEXTJS_VERCEL_PNPM_DECISION_RECORD.md`
+  - `docs/technical/23_PRODUCT_GRADE_PLATFORM_DECISION_RECORD.md`
+- `docs/technical/24_STACK_MIGRATION_AND_SECURITY_DECISION_RECORD.md`
+- `docs/technical/25_PRODUCT_GRADE_NEXTJS_VERCEL_PNPM_DECISION_REFRESH_2026-07-09.md`
+- `docs/technical/26_PRODUCT_GRADE_PLATFORM_DECISION_NEXTJS_VERCEL_PNPM.md`
+- `docs/technical/31_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_2026-07-09.md`
+- `docs/technical/32_PRODUCT_DECISION_EXECUTIVE_NEXTJS_VERCEL_PNPM_SECURITY_2026-07-09.md`
+- `docs/technical/34_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_2026-07-09.md`
 
 ## Stack
 
 - Frontend: static HTML/CSS/JS
 - Runtime: Node.js static server with security headers
-- Architecture: production web gameplay runtime (not Next.js framework)
+- Architecture: production Node.js + static API server (not Next.js today)
+- Platform direction: phase-2 migration to Next.js with Vercel hosting approved after durable state split
 
 ## Deployment posture
 
@@ -137,6 +198,7 @@ pnpm security:check
 - Run `pnpm security:check` in CI before deployment.
 - Keep `pnpm` version and lockfile policy consistent through `packageManager` metadata and reproducible installs.
 - For stronger supply-chain protection, use `pnpm security:check:all` before release (`--frozen-lockfile`, `pnpm audit`, and `pnpm audit signatures`).
+- For incident response/install-review mode: `pnpm install --ignore-scripts --frozen-lockfile` and `pnpm audit --audit-level=high`.
 - For Vercel/Cloud deployments, follow `docs/technical/17_FRAMEWORK_AND_HOSTING_DECISION_LOG.md`.
 
 ### Dependency manager baseline (pnpm)
@@ -146,7 +208,7 @@ pnpm security:check
 
 ```bash
 corepack enable
-corepack use pnpm@11.10.0
+corepack prepare pnpm@11.10.0 --activate
 pnpm install --frozen-lockfile
 pnpm security:check:all
 ```
@@ -162,6 +224,17 @@ pnpm security:check:all
 
 - `pnpm start:prod` for production startup.
 - `pnpm start` and `pnpm start:dev` for local runs.
+
+### Product decision pointer
+
+- Canonical record for platform migration posture:
+  - `docs/technical/35_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_SECURITY_2026-07-09.md`
+  - `docs/technical/28_PRODUCT_GRADE_PLATFORM_DECISION_NEXTJS_VERCEL_PNPM_REFRESH_2026-07-09.md`
+  - `docs/technical/29_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_REFRESH_2026-07-09.md`
+  - `docs/technical/34_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_2026-07-09.md`
+  - `docs/technical/35_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_SECURITY_2026-07-09.md`
+  - `docs/technical/37_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_LATEST_2026-07-09.md`
+  - `docs/technical/36_PRODUCT_DECISION_NEXTJS_VERCEL_PNPM_SUPPLY_CHAIN_SUMMARY_2026-07-09.md`
 
 ## Files
 

@@ -106,6 +106,31 @@ const ROOM_RATE_LIMITS = {
   room_action: { limit: 5, windowMs: 1000 },
   start_room: { limit: 10, windowMs: 60000 },
 };
+const BOT_THINKING_DELAY_MS = {
+  easy: {
+    min: parseIntegerSetting(process.env.BOT_THINK_DELAY_EASY_MIN_MS, 1200, 300, 15000),
+    max: parseIntegerSetting(process.env.BOT_THINK_DELAY_EASY_MAX_MS, 3500, 300, 20000),
+  },
+  normal: {
+    min: parseIntegerSetting(process.env.BOT_THINK_DELAY_NORMAL_MIN_MS, 900, 250, 12000),
+    max: parseIntegerSetting(process.env.BOT_THINK_DELAY_NORMAL_MAX_MS, 2800, 250, 15000),
+  },
+  strong: {
+    min: parseIntegerSetting(process.env.BOT_THINK_DELAY_STRONG_MIN_MS, 700, 220, 9000),
+    max: parseIntegerSetting(process.env.BOT_THINK_DELAY_STRONG_MAX_MS, 2600, 220, 12000),
+  },
+};
+const BOT_AUTOPILOT_DELAY_FACTOR = parseIntegerSetting(process.env.BOT_AUTOPILOT_DELAY_FACTOR, 130, 70, 220) / 100;
+const BOT_DISPLAY_NAMES = [
+  "Bot Nimal",
+  "Bot Kavindi",
+  "Bot Sahan",
+  "Bot Amaya",
+  "Bot Ruwan",
+  "Bot Thara",
+  "Bot Nayana",
+  "Bot Dilan",
+];
 
 function applySecurityHeaders(response) {
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
@@ -326,6 +351,24 @@ function chooseSeatCount(tableMode, humanCount) {
   if (tableMode === "classic_4") return 4;
   if (tableMode === "six_6") return 6;
   return humanCount <= 4 ? 4 : 6;
+}
+
+function getBotDisplayNameFromIndex(index = 0) {
+  const seed = Number.isFinite(Number(index)) ? Math.abs(Math.trunc(index)) : 0;
+  const label = BOT_DISPLAY_NAMES[seed % BOT_DISPLAY_NAMES.length];
+  if (label) return label;
+  return `Bot ${seed + 1}`;
+}
+
+function getProfileSeatCount(profileId) {
+  if (profileId === "six_304_36") return 6;
+  return 4;
+}
+
+function resolveTableModeForProfile(profileId, tableMode) {
+  if (profileId === "six_304_36") return "six_6";
+  if (profileId === "classic_304_4p" && tableMode === "auto") return "classic_4";
+  return tableMode;
 }
 
 function resolveRoom(roomRef) {
@@ -558,6 +601,44 @@ function getPublicRoomEventLog(room, viewerSeat) {
   });
 }
 
+function buildPublicRoomSummary(room) {
+  const humanCount = room.seats.filter((seat) => seat.type === "human").length;
+  const maxHumans = room.seats.length;
+  const hasOpenSeat = room.seats.some((seat) => seat.type === "empty" || seat.type === "bot");
+  const hasReadyHuman = room.seats.some((seat) => seat.type === "human" && seat.isReady);
+  const createdAt = room.createdAt || nowIsoString();
+  const updatedAt = room.updatedAt || createdAt;
+  return {
+    roomId: room.id,
+    inviteCode: room.inviteCode,
+    joinUrl: buildJoinUrl(room.inviteCode),
+    tableSizeMode: room.tableSizeMode,
+    ruleProfileId: room.ruleProfileId,
+    botDifficulty: room.botDifficulty,
+    enableSecondBidding: room.enableSecondBidding,
+    status: room.status,
+    humanCount,
+    maxHumans,
+    hasOpenSeat,
+    hasReadyHuman,
+    createdAt,
+    updatedAt,
+  };
+}
+
+function listPublicRooms() {
+  return [...rooms.values()]
+    .filter((room) => room.active)
+    .filter((room) => room.visibility === "public")
+    .filter((room) => room.status === "lobby")
+    .sort((a, b) => {
+      const aMs = Date.parse(a.updatedAt || a.createdAt || 0) || 0;
+      const bMs = Date.parse(b.updatedAt || b.createdAt || 0) || 0;
+      return bMs - aMs;
+    })
+    .map((room) => buildPublicRoomSummary(room));
+}
+
 function createRoomSummary(room, viewerSeat = null, session = null, includeEngineState = false) {
   return sanitizeRoomForSeat(room, viewerSeat, session, includeEngineState);
 }
@@ -639,6 +720,11 @@ function createRoomObject({
     updatedAt: now,
     version: 0,
     active: true,
+    botRunner: {
+      timerId: null,
+      running: false,
+      schedulePending: false,
+    },
     engine: null,
     seats,
     participants: new Map(),
@@ -652,6 +738,23 @@ function createRoomObject({
 function getViewerSeat(room, session) {
   if (!room || !session) return null;
   return room.participants.get(session.sessionToken) ?? null;
+}
+
+function makeRoomJoinFailureDetails(roomRef) {
+  if (roomRef.tableSizeMode === "classic_4") {
+    return {
+      code: "classic_4_full",
+      tableSizeMode: roomRef.tableSizeMode,
+      maxHumans: 4,
+      recommendation: "switch_table_size",
+    };
+  }
+  return {
+    code: "room_full",
+    tableSizeMode: roomRef.tableSizeMode,
+    maxHumans: roomRef.activeSeatCount || roomRef.seats.length,
+    recommendation: "seat_unavailable",
+  };
 }
 
 function seatIsUsableForSeat(room, seatIndex, session) {
@@ -676,7 +779,7 @@ function buildSeatsFromRoom(room, forceFillBots = false) {
         disconnectedAt: null,
         reconnectSummary: [],
         difficulty: room.botDifficulty,
-        displayName: "",
+        displayName: seat.displayName || getBotDisplayNameFromIndex(index),
       };
     }
     return {
@@ -702,7 +805,7 @@ function fillBotSeats(room) {
       seat.type = "bot";
       seat.botId = randomId("bot");
       seat.difficulty = room.botDifficulty;
-      seat.displayName = "";
+      seat.displayName = getBotDisplayNameFromIndex(seat.index);
       seat.userId = null;
       seat.autopilot = false;
       seat.disconnectedAt = null;
@@ -711,6 +814,143 @@ function fillBotSeats(room) {
     }
     seat.isReady = true;
   }
+}
+
+function getBotDelayConfig(seatInfo = {}, room = {}) {
+  const profile = (seatInfo?.difficulty || room.botDifficulty || "easy").toLowerCase();
+  if (profile === "normal") return BOT_THINKING_DELAY_MS.normal;
+  if (profile === "strong") return BOT_THINKING_DELAY_MS.strong;
+  return BOT_THINKING_DELAY_MS.easy;
+}
+
+function getRandomIntInRange(min, max) {
+  const low = Math.max(0, Number.isFinite(min) ? Math.floor(min) : 0);
+  const high = Math.max(low, Number.isFinite(max) ? Math.floor(max) : low);
+  return low === high ? low : low + Math.floor(Math.random() * (high - low + 1));
+}
+
+function getBotThinkDelayMs(room, seatInfo, phase) {
+  const config = getBotDelayConfig(seatInfo, room);
+  let minDelay = Number(config.min);
+  let maxDelay = Number(config.max);
+  if (!Number.isFinite(minDelay) || !Number.isFinite(maxDelay) || maxDelay < minDelay) {
+    minDelay = 700;
+    maxDelay = 3500;
+  }
+  if (seatInfo?.autopilot) {
+    minDelay = Math.round(minDelay * BOT_AUTOPILOT_DELAY_FACTOR);
+    maxDelay = Math.round(maxDelay * BOT_AUTOPILOT_DELAY_FACTOR);
+  }
+  if (maxDelay < minDelay) {
+    maxDelay = minDelay;
+  }
+  // trump choice/bid selection can feel a bit faster than longer gameplay steps
+  if (phase === "trump_choice" || phase === "trump_selection") {
+    minDelay = Math.max(500, Math.round(minDelay * 0.85));
+    maxDelay = Math.max(minDelay + 200, Math.round(maxDelay * 0.85));
+  }
+  return getRandomIntInRange(minDelay, maxDelay);
+}
+
+function clearBotRunnerTimer(room) {
+  if (!room?.botRunner) return;
+  if (room.botRunner.timerId) {
+    clearTimeout(room.botRunner.timerId);
+  }
+  room.botRunner.timerId = null;
+  room.botRunner.schedulePending = false;
+  room.botRunner.running = false;
+}
+
+function appendAutopilotSummary(room, seatIndex, action, state, phase) {
+  const roomSeat = room.seats?.[seatIndex];
+  const seatState = state.seats?.[seatIndex];
+  const actionSummary = {
+    type: action.type,
+    at: new Date().toISOString(),
+    handNumber: state.handNumber,
+    phase,
+  };
+  if (action.amount != null) {
+    actionSummary.amount = action.amount;
+  }
+  if (action.cardId) {
+    actionSummary.cardId = action.cardId;
+  }
+  if (action.faceDown) {
+    actionSummary.faceDown = true;
+  }
+  if (action.fromIndicator) {
+    actionSummary.fromIndicator = true;
+  }
+  if (roomSeat) {
+    roomSeat.reconnectSummary = Array.isArray(roomSeat.reconnectSummary) ? roomSeat.reconnectSummary : [];
+    roomSeat.reconnectSummary.push(actionSummary);
+    if (roomSeat.reconnectSummary.length > 12) {
+      roomSeat.reconnectSummary = roomSeat.reconnectSummary.slice(-12);
+    }
+  }
+  if (Array.isArray(seatState?.reconnectSummary)) {
+    seatState.reconnectSummary.push(actionSummary);
+    if (seatState.reconnectSummary.length > 12) {
+      seatState.reconnectSummary = seatState.reconnectSummary.slice(-12);
+    }
+  }
+}
+
+function isBotTurnState(state) {
+  if (!state) return false;
+  return (
+    state.phase === "four_bidding" ||
+    state.phase === "second_bidding" ||
+    state.phase === "trump_selection" ||
+    state.phase === "trump_choice" ||
+    state.phase === "trick_play"
+  );
+}
+
+function getCurrentBotSeat(room) {
+  if (!room?.engine) return null;
+  const state = room.engine.state;
+  if (!isBotTurnState(state)) return null;
+  const activeSeat = state.activeSeat;
+  if (activeSeat == null) return null;
+  const activeSeatInfo = state.seats?.[activeSeat];
+  if (!activeSeatInfo || (activeSeatInfo.type !== "bot" && !activeSeatInfo.autopilot)) return null;
+  return {
+    seatIndex: activeSeat,
+    seatInfo: activeSeatInfo,
+    phase: state.phase,
+  };
+}
+
+function executeOneBotAction(room) {
+  if (!room?.engine || !room.botRunner) {
+    return;
+  }
+  if (room.botRunner.running) return;
+  room.botRunner.running = true;
+  try {
+    const slot = getCurrentBotSeat(room);
+    if (!slot) return;
+
+    const action = room.engine.getBotAction(slot.seatIndex);
+    if (!action) return;
+
+    const beforeState = room.engine.state;
+    const applied = room.engine.applyAction(action);
+    if (!applied.ok) return;
+
+    if (slot.seatInfo?.autopilot) {
+      appendAutopilotSummary(room, slot.seatIndex, action, beforeState, slot.phase);
+    }
+
+    room.updatedAt = nowIsoString();
+    room.version = room.engine.state.version;
+  } finally {
+    room.botRunner.running = false;
+  }
+  runBotsUntilStable(room);
 }
 
 async function buildRoomEngine(room) {
@@ -731,64 +971,29 @@ async function buildRoomEngine(room) {
   return engine;
 }
 
-function runBotsUntilStable(room, viewerSeat = null) {
-  if (!room.engine) {
+function runBotsUntilStable(room) {
+  if (!room?.engine || !room.botRunner) {
     return;
   }
-  let safety = 0;
-  while (safety < 250) {
-    safety += 1;
-    const state = room.engine.state;
-    if (state.phase !== "four_bidding" && state.phase !== "second_bidding" && state.phase !== "trump_selection" && state.phase !== "trump_choice" && state.phase !== "trick_play") {
-      break;
-    }
-    const activeSeat = state.activeSeat;
-    if (activeSeat == null) break;
-    const activeSeatInfo = state.seats[activeSeat];
-    if (!activeSeatInfo || (activeSeatInfo.type !== "bot" && !activeSeatInfo.autopilot)) {
-      break;
-    }
-    const botAction = room.engine.getBotAction(activeSeat);
-    if (!botAction) break;
-    const applied = room.engine.applyAction(botAction);
-    if (!applied.ok) break;
-    if (activeSeatInfo.autopilot) {
-      const roomSeat = room.seats?.[activeSeat];
-      const actionSummary = {
-        type: botAction.type,
-        at: new Date().toISOString(),
-        handNumber: state.handNumber,
-        phase: state.phase,
-      };
-      if (botAction.amount != null) {
-        actionSummary.amount = botAction.amount;
-      }
-      if (botAction.cardId) {
-        actionSummary.cardId = botAction.cardId;
-      }
-      if (botAction.faceDown) {
-        actionSummary.faceDown = true;
-      }
-      if (botAction.fromIndicator) {
-        actionSummary.fromIndicator = true;
-      }
-      if (roomSeat) {
-        roomSeat.reconnectSummary = Array.isArray(roomSeat.reconnectSummary) ? roomSeat.reconnectSummary : [];
-        roomSeat.reconnectSummary.push(actionSummary);
-        if (roomSeat.reconnectSummary.length > 12) {
-          roomSeat.reconnectSummary = roomSeat.reconnectSummary.slice(-12);
-        }
-      }
-      if (Array.isArray(activeSeatInfo.reconnectSummary)) {
-        activeSeatInfo.reconnectSummary.push(actionSummary);
-        if (activeSeatInfo.reconnectSummary.length > 12) {
-          activeSeatInfo.reconnectSummary = activeSeatInfo.reconnectSummary.slice(-12);
-        }
-      }
-    }
-    room.updatedAt = new Date().toISOString();
-    room.version = room.engine.state.version;
+  if (room.botRunner.schedulePending || room.botRunner.running) {
+    return;
   }
+  const slot = getCurrentBotSeat(room);
+  if (!slot) return;
+  const delayMs = getBotThinkDelayMs(room, slot.seatInfo, slot.phase);
+  room.botRunner.schedulePending = true;
+  room.botRunner.timerId = setTimeout(() => {
+    room.botRunner.timerId = null;
+    room.botRunner.schedulePending = false;
+    executeOneBotAction(room);
+  }, delayMs);
+}
+
+function stopBotRunner(room) {
+  clearBotRunnerTimer(room);
+  if (!room?.botRunner) return;
+  room.botRunner.running = false;
+  room.botRunner.schedulePending = false;
 }
 
 async function apiRooms(req, res, method, roomRef, action, query) {
@@ -860,7 +1065,16 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     })();
 
     if (pickSeat < 0) {
-      return writeError(res, 409, "Room is full");
+      const joinErrorDetails = makeRoomJoinFailureDetails(roomRef);
+      if (joinErrorDetails.code === "classic_4_full") {
+        return writeError(
+          res,
+          409,
+          "This room is set to Classic 4-seat mode. Ask the host to switch to Six-player mode or join as spectator when spectator mode is available.",
+          joinErrorDetails,
+        );
+      }
+      return writeError(res, 409, "Room is full", joinErrorDetails);
     }
 
     const displayName = normalizeDisplayName(payload.displayName || session.displayName);
@@ -994,6 +1208,20 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     const humanSeats = roomRef.seats.filter((seat) => seat.type === "human").length;
     if (humanSeats < 1) {
       return writeError(res, 409, "Need at least one player to start");
+    }
+    const expectedSeatCount = getProfileSeatCount(roomRef.ruleProfileId);
+    if (roomRef.seats.length !== expectedSeatCount) {
+      return writeError(
+        res,
+        409,
+        "Room configuration does not match selected rule profile.",
+        {
+          code: "profile_seat_count_mismatch",
+          profileId: roomRef.ruleProfileId,
+          expectedSeatCount,
+          actualSeatCount: roomRef.seats.length,
+        },
+      );
     }
     const unreadyHumanSeats = roomRef.seats
       .filter((seat) => seat.type === "human")
@@ -1208,9 +1436,24 @@ async function requestHandler(req, res) {
         if (profile.id === "six_304_36" && tableSizeMode === "classic_4") {
           return writeError(res, 400, "six_304_36 requires 6-seat configuration");
         }
+        if (profile.id === "classic_304_4p" && tableSizeMode === "auto" && humanCount > 4) {
+          return writeError(
+            res,
+            409,
+            "Auto table mode with 5-6 humans requires a six-seat profile. Choose six_304_36.",
+            {
+              code: "profile_table_mismatch",
+              profileId: profile.id,
+              requestedTableMode: tableSizeMode,
+              resolvedTableMode: "classic_4",
+              maxHumans: 4,
+              requestedHumanCount: humanCount,
+            },
+          );
+        }
 
-        const resolvedTableMode = profile.id === "six_304_36" ? "six_6" : tableSizeMode;
-        const maxSeats = profile.seatCount || 6;
+        const resolvedTableMode = resolveTableModeForProfile(profile.id, tableSizeMode);
+        const maxSeats = resolvedTableMode === "six_6" ? 6 : 4;
         const cappedHumanCount = Math.min(Math.max(humanCount, 1), maxSeats);
 
         const room = createRoomObject({
@@ -1226,6 +1469,17 @@ async function requestHandler(req, res) {
         writeJson(res, 201, createRoomSummary(room, 0, session, true));
         return;
       }
+      if (method === "GET") {
+        const roomsList = listPublicRooms().map((roomSummary) => ({
+          ...roomSummary,
+          isJoinable: roomSummary.hasOpenSeat,
+        }));
+        writeJson(res, 200, {
+          rooms: roomsList,
+          count: roomsList.length,
+        });
+        return;
+      }
       return writeError(res, 405, "Method not allowed");
     }
 
@@ -1235,6 +1489,7 @@ async function requestHandler(req, res) {
       return;
     }
     if (!room.active) {
+      stopBotRunner(room);
       writeError(res, 410, "Room is no longer active");
       return;
     }
@@ -1244,6 +1499,7 @@ async function requestHandler(req, res) {
       nowMs() - Date.parse(room.updatedAt || room.createdAt) > ROOM_GC_AFTER_MS
     ) {
       room.active = false;
+      stopBotRunner(room);
       rooms.delete(room.id);
       roomsByCode.delete(room.inviteCode);
       writeError(res, 410, "Room has closed");
@@ -1307,6 +1563,7 @@ function cleanupExpiredInMemoryState() {
         !room.seats.some((seat) => seat.type === "human") &&
         now - Date.parse(room.updatedAt || room.createdAt) > ROOM_GC_AFTER_MS
       ) {
+        stopBotRunner(room);
         rooms.delete(roomId);
         roomsByCode.delete(room.inviteCode);
       }
@@ -1314,6 +1571,7 @@ function cleanupExpiredInMemoryState() {
     }
     if (now - Date.parse(room.updatedAt || room.createdAt) > ROOM_GC_AFTER_MS) {
       room.active = false;
+      stopBotRunner(room);
       rooms.delete(roomId);
       roomsByCode.delete(room.inviteCode);
     }
@@ -1343,6 +1601,12 @@ function cleanupExpiredInMemoryState() {
     const recent = [...rooms.entries()]
       .sort(([, left], [, right]) => Date.parse(right.updatedAt || right.createdAt || 0) - Date.parse(left.updatedAt || left.createdAt || 0))
       .slice(0, MAX_ROOMS_IN_MEMORY);
+    const keepIds = new Set(recent.map(([roomId]) => roomId));
+    for (const [roomId, room] of rooms.entries()) {
+      if (!keepIds.has(roomId)) {
+        stopBotRunner(room);
+      }
+    }
     rooms.clear();
     roomsByCode.clear();
     for (const [roomId, room] of recent) {

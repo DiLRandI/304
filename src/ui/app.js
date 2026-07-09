@@ -7,6 +7,9 @@ const roomCode = document.getElementById("room-code");
 const roomLink = document.getElementById("room-link");
 const lobbySeats = document.getElementById("lobby-seats");
 const lobbyHint = document.getElementById("lobby-hint");
+const publicRoomsStatus = document.getElementById("public-rooms-status");
+const publicRoomsList = document.getElementById("public-rooms-list");
+const refreshPublicRoomsBtn = document.getElementById("refresh-public-btn");
 
 const startMatchBtn = document.getElementById("start-match-btn");
 const createNewBtn = document.getElementById("create-new-btn");
@@ -51,21 +54,211 @@ const PHASE_HELP_TEXT = {
   match_complete: "Match finished: review tokens and click Next hand to start a rematch.",
 };
 
+const ROOM_VISIBILITY_LABELS = {
+  private: "Private",
+  public: "Public",
+};
+
+const SETTINGS = {
+  soundEnabled: true,
+  animationSpeed: "normal",
+  cardSize: "medium",
+};
+
+const PUBLIC_ROOMS_REFRESH_MS = 10000;
+
+const ANIMATION_SPEED_MAP = {
+  fast: "70ms",
+  normal: "130ms",
+  reduced: "0ms",
+};
+
+const CARD_SIZE_MAP = {
+  small: { fontSize: "13px", minWidth: "82px", minHeight: "32px" },
+  medium: { fontSize: "15px", minWidth: "96px", minHeight: "38px" },
+  large: { fontSize: "17px", minWidth: "112px", minHeight: "44px" },
+};
+
 let sessionState = null;
 let roomState = null;
 let pollTimer = null;
 let requestInFlight = false;
 let autoJoinInProgress = false;
 let playableHandButtons = [];
+let audioContext = null;
+let audioGainNode = null;
+let publicRoomsRefreshInFlight = false;
+let lastPublicRoomsLoadAt = 0;
 
 function normalizeText(value, fallback = "") {
   const text = String(value || "").trim();
   return text ? text : fallback;
 }
 
+function normalizeBoolean(value, fallback = false) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    return /^(1|true|yes|on)$/i.test(value.trim());
+  }
+  return fallback;
+}
+
+function normalizeCardSize(value) {
+  const candidate = String(value || SETTINGS.cardSize).trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(CARD_SIZE_MAP, candidate) ? candidate : SETTINGS.cardSize;
+}
+
+function normalizeAnimationSpeed(value) {
+  const candidate = String(value || SETTINGS.animationSpeed).trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(ANIMATION_SPEED_MAP, candidate) ? candidate : SETTINGS.animationSpeed;
+}
+
+function normalizeSettings(rawSettings = {}) {
+  return {
+    soundEnabled: normalizeBoolean(rawSettings.soundEnabled, SETTINGS.soundEnabled),
+    animationSpeed: normalizeAnimationSpeed(rawSettings.animationSpeed),
+    cardSize: normalizeCardSize(rawSettings.cardSize),
+  };
+}
+
+function getSettingsFromForm() {
+  const speedSelect = document.getElementById("animation-speed");
+  const sizeSelect = document.getElementById("card-size");
+  const soundInput = document.getElementById("sound-enabled");
+  return normalizeSettings({
+    soundEnabled: soundInput ? soundInput.checked : SETTINGS.soundEnabled,
+    animationSpeed: speedSelect ? speedSelect.value : SETTINGS.animationSpeed,
+    cardSize: sizeSelect ? sizeSelect.value : SETTINGS.cardSize,
+  });
+}
+
+function applySettings(settings) {
+  const normalized = normalizeSettings(settings);
+  const cardSize = CARD_SIZE_MAP[normalized.cardSize];
+  if (document && document.documentElement) {
+    document.documentElement.style.setProperty("--card-font-size", cardSize.fontSize);
+    document.documentElement.style.setProperty("--card-min-width", cardSize.minWidth);
+    document.documentElement.style.setProperty("--card-min-height", cardSize.minHeight);
+    document.documentElement.style.setProperty("--animation-duration", ANIMATION_SPEED_MAP[normalized.animationSpeed]);
+  }
+  if (sessionState) {
+    sessionState.settings = normalized;
+    saveSession(sessionState);
+  }
+
+  const soundInput = document.getElementById("sound-enabled");
+  const speedSelect = document.getElementById("animation-speed");
+  const sizeSelect = document.getElementById("card-size");
+  if (soundInput) soundInput.checked = normalized.soundEnabled;
+  if (speedSelect) speedSelect.value = normalized.animationSpeed;
+  if (sizeSelect) sizeSelect.value = normalized.cardSize;
+}
+
+function getToneConfigForAction(actionType = "") {
+  const type = String(actionType || "").toLowerCase();
+  if (type === "bid") return 880;
+  if (type === "pass_bid") return 450;
+  if (type === "select_trump") return 620;
+  if (type === "trump_open") return 760;
+  if (type === "trump_close") return 380;
+  if (type === "ack_result") return 300;
+  if (type === "play_card") return 680;
+  return 500;
+}
+
+function ensureAudioContext() {
+  if (!("AudioContext" in window) && !("webkitAudioContext" in window)) {
+    return null;
+  }
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!audioContext) {
+    audioContext = new Ctx();
+    audioGainNode = audioContext.createGain();
+    audioGainNode.gain.value = 0.08;
+    audioGainNode.connect(audioContext.destination);
+  }
+  return audioContext;
+}
+
+function playSound(actionType) {
+  if (!sessionState?.settings?.soundEnabled) {
+    return;
+  }
+  const context = ensureAudioContext();
+  if (!context || !audioGainNode) {
+    return;
+  }
+  if (context.state === "suspended") {
+    context
+      .resume()
+      .then(() => playTone(context, audioGainNode, getToneConfigForAction(actionType)))
+      .catch(() => {});
+    return;
+  }
+  playTone(context, audioGainNode, getToneConfigForAction(actionType));
+}
+
+function playTone(context, gainNode, frequency) {
+  const safeFreq = Number.isFinite(frequency) ? frequency : 500;
+  const oscillator = context.createOscillator();
+  oscillator.type = "triangle";
+  oscillator.frequency.value = safeFreq;
+  oscillator.connect(gainNode);
+  const start = context.currentTime;
+  oscillator.start(start);
+  oscillator.stop(start + 0.12);
+}
+
 function normalizeDisplayName(value) {
   const text = normalizeText(value, "Guest");
   return text.slice(0, 24);
+}
+
+function getDisplayNameForSeat(seat) {
+  if (!seat) return "Guest";
+  if (seat.type === "bot" && !seat.displayName) {
+    const index = Number.isFinite(Number(seat.index)) ? Math.trunc(Number(seat.index)) : 0;
+    const botLabel = `Bot ${((index % 8) + 8) % 8 + 1}`;
+    return botLabel;
+  }
+  return normalizeText(seat.displayName, "Guest");
+}
+
+function normalizeRoomVisibility(value) {
+  const candidate = normalizeText(value, "private").toLowerCase();
+  return candidate === "public" ? "public" : "private";
+}
+
+function getUserFacingErrorMessage(error, fallback = "Request failed.") {
+  const details = error?.payload?.details;
+  if (!error || error?.status == null) {
+    return error?.message || fallback;
+  }
+  if (details?.code === "classic_4_full") {
+    return "This room is set to Classic 4-seat mode. Ask the host to switch to Six-player mode or join as spectator when spectator mode is available.";
+  }
+  if (details?.code === "profile_table_mismatch") {
+    return "This profile supports 4-seat classic flow only. For 5-6 players, switch to six-seat profile.";
+  }
+  if (details?.code === "profile_seat_count_mismatch") {
+    return "Room table size and selected profile are incompatible. Recreate the room with matching settings.";
+  }
+  return error?.payload?.error || error.message || fallback;
+}
+
+function getProfileLabel(profileId) {
+  const id = String(profileId || "classic_304_4p");
+  if (id === "six_304_36") {
+    return "Six-seat 304-36";
+  }
+  return "Classic 304 (4-seat)";
+}
+
+function getTableModeLabel(mode) {
+  const tableMode = String(mode || "auto");
+  if (tableMode === "classic_4") return "Classic 4-seat";
+  if (tableMode === "six_6") return "Six-seat";
+  return "Auto";
 }
 
 function normalizeRoomCode(value) {
@@ -171,6 +364,7 @@ function loadStoredSession() {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
     if (!parsed.sessionToken || !parsed.userId) return null;
+    parsed.settings = normalizeSettings(parsed.settings || {});
     return parsed;
   } catch (error) {
     return null;
@@ -191,6 +385,114 @@ function persistRoomContext(room) {
   sessionState.lastRoomId = room.roomId || sessionState.lastRoomId;
   sessionState.lastRoomCode = room.inviteCode;
   saveSession(sessionState);
+}
+
+function setPublicRoomsStatus(text) {
+  if (publicRoomsStatus) {
+    publicRoomsStatus.textContent = String(text || "").trim();
+  }
+}
+
+function createPublicRoomCard(room) {
+  const card = document.createElement("div");
+  card.className = "public-room-card";
+
+  const heading = document.createElement("h3");
+  heading.textContent = `${getProfileLabel(room.ruleProfileId)} • ${getTableModeLabel(room.tableSizeMode)}`;
+  card.appendChild(heading);
+
+  const meta = document.createElement("p");
+  meta.textContent = `Code: ${room.inviteCode} • Seats: ${room.humanCount}/${room.maxHumans} • ${
+    room.botDifficulty || "easy"
+  } bots`;
+  card.appendChild(meta);
+
+  const status = document.createElement("p");
+  status.className = "muted-note";
+  const readiness = room.hasReadyHuman ? " some players ready" : " no ready seats";
+  status.textContent = `State: ${room.status} • ${readiness}`;
+  card.appendChild(status);
+
+  const joinButton = document.createElement("button");
+  joinButton.type = "button";
+  joinButton.className = "seat-action";
+  joinButton.disabled = !room.isJoinable;
+  joinButton.textContent = room.isJoinable ? "Join room" : "Room full";
+  joinButton.disabled = !room.isJoinable;
+  joinButton.setAttribute("aria-label", `Join public room ${room.inviteCode}`);
+  if (room.isJoinable) {
+    joinButton.addEventListener("click", () => {
+      void joinPublicRoom(room.inviteCode);
+    });
+  }
+  card.appendChild(joinButton);
+  return card;
+}
+
+async function joinPublicRoom(inviteCode) {
+  const code = normalizeRoomCode(inviteCode);
+  if (!isRoomCode(code)) {
+    setStatus("Invalid room code.");
+    return;
+  }
+  const playerName = normalizeDisplayName(playerNameInput.value || sessionState?.displayName || "Guest");
+  try {
+    await ensureSession(playerName);
+    applySettings(getSettingsFromForm());
+    sessionState.displayName = playerName;
+    saveSession(sessionState);
+    roomState = await joinRoom(code, playerName);
+    persistRoomContext(roomState);
+    renderCurrentView();
+  } catch (error) {
+    setStatus(getUserFacingErrorMessage(error, "Could not join selected room."));
+  }
+}
+
+async function refreshPublicRooms({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && publicRoomsRefreshInFlight) {
+    return;
+  }
+  if (!force && now - lastPublicRoomsLoadAt < PUBLIC_ROOMS_REFRESH_MS) {
+    return;
+  }
+  if (publicRoomsList && refreshPublicRoomsBtn) {
+    publicRoomsList.textContent = "";
+  }
+  if (!publicRoomsStatus) return;
+
+  try {
+    publicRoomsRefreshInFlight = true;
+    setPublicRoomsStatus("Loading public rooms...");
+    if (refreshPublicRoomsBtn) {
+      refreshPublicRoomsBtn.disabled = true;
+    }
+    const response = await apiRequest("/api/rooms", {
+      method: "GET",
+    });
+    const rooms = Array.isArray(response?.rooms) ? response.rooms : [];
+    if (!publicRoomsList) {
+      return;
+    }
+    publicRoomsList.innerHTML = "";
+    if (rooms.length === 0) {
+      setPublicRoomsStatus("No public rooms available.");
+      return;
+    }
+    for (const room of rooms) {
+      publicRoomsList.appendChild(createPublicRoomCard(room));
+    }
+    setPublicRoomsStatus(`Found ${rooms.length} public room${rooms.length === 1 ? "" : "s"}.`);
+    lastPublicRoomsLoadAt = now;
+  } catch (error) {
+    setPublicRoomsStatus(getUserFacingErrorMessage(error, "Could not load public rooms."));
+  } finally {
+    publicRoomsRefreshInFlight = false;
+    if (refreshPublicRoomsBtn) {
+      refreshPublicRoomsBtn.disabled = false;
+    }
+  }
 }
 
 function setStatus(message = "") {
@@ -240,6 +542,8 @@ async function apiRequest(path, options = {}) {
 
 async function ensureSession(displayName = "Guest") {
   if (sessionState?.sessionToken) {
+    sessionState.settings = normalizeSettings(sessionState.settings);
+    applySettings(sessionState.settings);
     return sessionState;
   }
 
@@ -247,6 +551,8 @@ async function ensureSession(displayName = "Guest") {
   if (stored?.sessionToken) {
     sessionState = stored;
     playerNameInput.value = normalizeDisplayName(sessionState.displayName, stored.displayName);
+    sessionState.settings = normalizeSettings(sessionState.settings);
+    applySettings(sessionState.settings);
     return sessionState;
   }
 
@@ -255,8 +561,8 @@ async function ensureSession(displayName = "Guest") {
     body: { displayName: normalizeDisplayName(displayName, "Guest") },
   });
 
-  sessionState = created;
-  saveSession(created);
+  sessionState = { ...created, settings: normalizeSettings(created.settings) };
+  saveSession(sessionState);
   playerNameInput.value = normalizeDisplayName(created.displayName, "Guest");
   return sessionState;
 }
@@ -309,7 +615,7 @@ function renderSeatTile(seat, activeSeat) {
   }
 
   const header = document.createElement("h3");
-  header.textContent = `${normalizeText(seat.displayName, "Guest")}`;
+  header.textContent = `${getDisplayNameForSeat(seat)}`;
   card.appendChild(header);
 
   const seatLine = document.createElement("p");
@@ -624,12 +930,13 @@ async function submitAction(rawAction) {
       method: "POST",
       body: action,
     });
+    playSound(action.type);
     renderCurrentView();
   } catch (error) {
     if (error.status === 409) {
       await refreshRoomState();
     }
-    setStatus(error.message || "Action failed.");
+    setStatus(getUserFacingErrorMessage(error, "Action failed."));
   } finally {
     setRequestBusy(false);
   }
@@ -820,9 +1127,13 @@ function renderLobby() {
   roomLink.textContent = inviteUrl;
 
   const humanCount = roomState?.seats?.filter((seat) => seat.type === "human").length || 0;
+  const visibilityLabel = ROOM_VISIBILITY_LABELS[roomState?.visibility] || ROOM_VISIBILITY_LABELS.private;
+  const tableMode = roomState?.tableSizeMode || "auto";
+  const tableModeLabel =
+    tableMode === "classic_4" ? "Classic 4-seat" : tableMode === "six_6" ? "Six-seat" : "Auto";
   const secondBidding = roomState?.enableSecondBidding === false ? "off" : "on";
   const readyCount = roomState?.seats?.filter((seat) => seat.type === "human" && seat.isReady).length || 0;
-  lobbyHint.textContent = `Players: ${humanCount}/${roomState?.seats.length || 0} • Ready: ${readyCount}/${humanCount} • Second bidding: ${secondBidding}.`;
+  lobbyHint.textContent = `Players: ${humanCount}/${roomState?.seats.length || 0} • Ready: ${readyCount}/${humanCount} • Table: ${tableModeLabel} • Visibility: ${visibilityLabel} • Second bidding: ${secondBidding}.`;
   lobbySeats.innerHTML = "";
   for (const seat of roomState?.seats || []) {
     lobbySeats.appendChild(renderSeatTile(seat, state?.activeSeat));
@@ -904,7 +1215,7 @@ function buildInviteLink(code) {
 
 function buildRoomPayload(data) {
   return {
-    visibility: "private",
+    visibility: normalizeRoomVisibility(data.get("visibility")),
     tableSizeMode: String(data.get("tableMode") || "auto"),
     ruleProfileId: String(data.get("ruleProfile") || "classic_304_4p"),
     botDifficulty: String(data.get("botDifficulty") || "easy"),
@@ -973,8 +1284,9 @@ async function joinRoom(code, playerName) {
 
 function formatUnreadySeatLabel(seat) {
   if (!seat) return "";
-  if (seat.connectionStatus === "disconnected") return `Seat ${seat.index} (${seat.displayName || "Guest"} - disconnected)`;
-  return `Seat ${seat.index} (${seat.displayName || "Guest"} - not ready)`;
+  const displayName = getDisplayNameForSeat(seat);
+  if (seat.connectionStatus === "disconnected") return `Seat ${seat.index} (${displayName} - disconnected)`;
+  return `Seat ${seat.index} (${displayName} - not ready)`;
 }
 
 function hasReadyConflictError(error, forceMode) {
@@ -1029,6 +1341,7 @@ async function handleCreateOrJoin(evt) {
   setStatus("");
   try {
     await ensureSession(playerName);
+    applySettings(getSettingsFromForm());
     sessionState.displayName = playerName;
     saveSession(sessionState);
 
@@ -1043,7 +1356,7 @@ async function handleCreateOrJoin(evt) {
     }
     renderCurrentView();
   } catch (error) {
-    setStatus(error.message || "Failed to prepare room.");
+    setStatus(getUserFacingErrorMessage(error, "Failed to prepare room."));
   }
 }
 
@@ -1057,12 +1370,13 @@ async function quickPractice() {
   setStatus("");
   try {
     await ensureSession(playerName);
+    applySettings(getSettingsFromForm());
     sessionState.displayName = playerName;
     saveSession(sessionState);
     roomState = await createRoom(payload);
     renderCurrentView();
   } catch (error) {
-    setStatus(error.message || "Could not start practice room.");
+    setStatus(getUserFacingErrorMessage(error, "Could not start practice room."));
   }
 }
 
@@ -1073,6 +1387,7 @@ async function tryAutoJoinFromLastRoom() {
   const playerName = normalizeDisplayName(sessionState?.displayName || playerNameInput.value || "Guest");
   try {
     autoJoinInProgress = true;
+    applySettings(getSettingsFromForm());
     await ensureSession(playerName);
     roomState = await joinRoom(lastRoomCode, playerName);
     persistRoomContext(roomState);
@@ -1086,7 +1401,7 @@ async function tryAutoJoinFromLastRoom() {
       }
     }
     if ([404, 401, 409].includes(error.status)) {
-      setStatus(error.message || "Could not resume last room.");
+      setStatus(getUserFacingErrorMessage(error, "Could not resume last room."));
     }
   } finally {
     autoJoinInProgress = false;
@@ -1111,12 +1426,13 @@ async function tryAutoJoinFromQuery() {
   const playerName = normalizeDisplayName(sessionState?.displayName || playerNameInput.value || "Guest");
   try {
     autoJoinInProgress = true;
+    applySettings(getSettingsFromForm());
     await ensureSession(playerName);
     roomState = await joinRoom(code, playerName);
     persistRoomContext(roomState);
     renderCurrentView();
   } catch (error) {
-    setStatus(error.message || "Could not auto join room.");
+    setStatus(getUserFacingErrorMessage(error, "Could not auto join room."));
   } finally {
     autoJoinInProgress = false;
   }
@@ -1145,6 +1461,18 @@ function bindEvents() {
   setupForm.addEventListener("submit", handleCreateOrJoin);
   quickPlayBtn.addEventListener("click", () => void quickPractice());
   startMatchBtn.addEventListener("click", () => void startMatch());
+  const soundInput = document.getElementById("sound-enabled");
+  const animationInput = document.getElementById("animation-speed");
+  const cardSizeInput = document.getElementById("card-size");
+  if (soundInput) {
+    soundInput.addEventListener("change", () => applySettings(getSettingsFromForm()));
+  }
+  if (animationInput) {
+    animationInput.addEventListener("change", () => applySettings(getSettingsFromForm()));
+  }
+  if (cardSizeInput) {
+    cardSizeInput.addEventListener("change", () => applySettings(getSettingsFromForm()));
+  }
   createNewBtn.addEventListener("click", () => {
     resetToSetup();
     if (sessionState?.displayName) {
@@ -1165,10 +1493,12 @@ function init() {
   hydrateProfileSelect();
   bindEvents();
 
+  applySettings(SETTINGS);
   const stored = loadStoredSession();
   if (stored) {
     sessionState = stored;
     playerNameInput.value = normalizeDisplayName(stored.displayName, "Guest");
+    applySettings(stored.settings || SETTINGS);
   }
 
   const queryRoom = normalizeRoomCode(new URLSearchParams(window.location.search).get("room"));
