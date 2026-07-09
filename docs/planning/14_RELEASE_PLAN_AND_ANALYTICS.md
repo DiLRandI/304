@@ -6,14 +6,14 @@
 
 Recommended stages:
 
-1. Internal prototype
+1. Internal validation
 2. Closed alpha with friends/testers
 3. Private beta for Sri Lankan 304 players
 4. Public casual launch
 5. Six-player expansion
 6. Ranked/competitive mode later
 
-## 2. Stage 1: Internal prototype
+## 2. Stage 1: Internal validation
 
 ### Goal
 
@@ -285,3 +285,37 @@ Public casual launch is ready when:
 - Error monitoring is live.
 - User-facing rules page exists.
 - No gambling or real-money mechanics are present.
+
+## 15. Production launch checklist (Vercel + pnpm)
+
+### Infrastructure and hosting
+
+- Decide and document final hosting architecture:
+  - Vercel for frontend hosting where suitable.
+  - Backend remains stateful and long-running on a platform with stable process memory, or state is externalized before a single-Vercel deployment strategy.
+- Keep deployment manifests and health checks for frontend/backend parity.
+- Record rollback plan per component boundary.
+- During rollout, keep the current Node server as the backend-owned authoritative source.
+- Frontend on Vercel must call only documented `/api/*` contracts and never hold room state assumptions.
+- If Vercel hosts frontend-only, add readiness probes and a dependency health contract for backend APIs.
+
+### Framework decision alignment
+
+- Keep the custom Node.js baseline documented as current production shape until migration criteria are fully met.
+- Track Next.js migration and Vercel target architecture in:
+  - `docs/technical/17_FRAMEWORK_AND_HOSTING_DECISION_LOG.md`
+- Do not proceed to full Next.js/Vercel coupling without the documented trigger checklist.
+- Migration owners:
+  - Product:
+  - Engineering:
+  - Release QA:
+- Triggered migration approval requires migration plan signed by all owners.
+
+### Supply-chain and dependency checks
+
+- pnpm-only installs.
+- `pnpm install --frozen-lockfile` in CI and release jobs.
+- `pnpm audit --audit-level=high` before publish.
+- Treat lockfile and dependency graph changes as production-impacting items requiring review.
+- Require `corepack prepare pnpm@11.10.0 --activate` in runners.
+- Use `pnpm install --ignore-scripts --frozen-lockfile` for dependency review reproductions.

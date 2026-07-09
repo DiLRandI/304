@@ -30,7 +30,7 @@ This repository is arranged for rapid development with documentation and art ass
 - 3s/2s/6s are optional extras and can be enabled per table rule logic.
 - Generated assets are intended for game-project use and can be modified for your implementation.
 
-## Implemented game web stack
+## Implementation status and migration decisions
 
 - Rule profiles: `classic_304_4p` and `six_304_36`
 - Auto seat sizing and bot fill
@@ -45,7 +45,26 @@ This repository is arranged for rapid development with documentation and art ass
 - Lobby readiness flow and host-gated start
 - Presence heartbeats from polling and stale-seat handling
 
-This project is a **production-oriented custom Node web stack** using a static client and API server, not Next.js.
+This project is a **production-oriented custom Node.js + static client + API server** stack and is not a Next.js application.
+
+Decision note (2026-07-08):
+
+- Keep the custom Node server + static client as the current production baseline.
+- Next.js remains the planned product UI direction for the next platform phase (component model, route composition, and accessibility-oriented rendering patterns).
+- Vercel is approved for hosting that Next.js frontend only after game state and room lifecycle are moved off in-memory process state.
+- Keep deployment boundaries explicit: frontend UI and room/action APIs must be separated before any Vercel migration.
+- Toolchain for dependency safety is locked to `pnpm` with immutable installs and audit checks.
+
+Decision snapshot:
+
+- The current production baseline remains custom Node + static HTML/CSS/JS.
+- A migration to Next.js is tracked as a **planned architecture upgrade** in `docs/technical/17_FRAMEWORK_AND_HOSTING_DECISION_LOG.md`.
+- The log captures why immediate migration was deferred and what conditions must be met first.
+- Tooling decision is committed to **pnpm** across dev and CI for reproducibility and supply-chain controls.
+- `docs/technical/17_FRAMEWORK_AND_HOSTING_DECISION_LOG.md` is the canonical record for:
+  - Next.js approval and migration trigger points
+  - Vercel deployment readiness gates
+  - pnpm + audit policy for supply-chain protection
 
 ### Why this is not Next.js yet
 
@@ -56,7 +75,9 @@ This project is a **production-oriented custom Node web stack** using a static c
 ## Run the web app
 
 ```bash
-pnpm install
+corepack enable
+corepack use pnpm@11.10.0
+pnpm install --frozen-lockfile
 pnpm start
 ```
 
@@ -65,9 +86,34 @@ pnpm start
 - Health endpoint: `http://localhost:4173/health`
 - Session persistence: resume last room when returning with an existing session.
 
+### Platform decision record (2026-07-08)
+
+- This repository is **not** a Next.js application today. It is a production-oriented custom Node.js server plus static client implementation.
+- Next.js is approved as the next frontend platform, but the migration is currently deferred.
+- Vercel is approved only for the Next.js frontend in phase 2 of migration.
+- For Vercel phase 2, the backend must be split to a long-lived stateful service (Redis/PostgreSQL + API) before moving room lifecycle/stateful gameplay there.
+- pnpm is the required package manager for this repository, with immutable installs and signature/audit checks for release safety.
+
+If pnpm is missing on your machine, install once with:
+
+```bash
+corepack enable
+corepack use pnpm@11.10.0
+```
+
 Security checks:
 
 ```bash
+pnpm security:check
+```
+
+For release gating, run:
+
+```bash
+corepack use pnpm@latest-11
+pnpm install --frozen-lockfile
+pnpm audit --audit-level=high
+pnpm audit signatures
 pnpm security:check
 ```
 
@@ -86,6 +132,31 @@ pnpm security:check
   - `MAX_SESSIONS_IN_MEMORY`
   - `MAX_ROOMS_IN_MEMORY`
 - Use `/health`, `/healthz`, `/ready`, and `/readyz` for load balancer probes.
+- Security posture for deployment:
+- Keep dependency installation deterministic with `pnpm install --frozen-lockfile`.
+- Run `pnpm security:check` in CI before deployment.
+- Keep `pnpm` version and lockfile policy consistent through `packageManager` metadata and reproducible installs.
+- For stronger supply-chain protection, use `pnpm security:check:all` before release (`--frozen-lockfile`, `pnpm audit`, and `pnpm audit signatures`).
+- For Vercel/Cloud deployments, follow `docs/technical/17_FRAMEWORK_AND_HOSTING_DECISION_LOG.md`.
+
+### Dependency manager baseline (pnpm)
+
+- Manager requirement: `pnpm@11.10.0` (pinned in `package.json`).
+- Keep `pnpm-lock.yaml` committed and reviewed on dependency changes.
+
+```bash
+corepack enable
+corepack use pnpm@11.10.0
+pnpm install --frozen-lockfile
+pnpm security:check:all
+```
+
+### Hosting guidance
+
+- Current runtime: long-lived Node process with in-memory game state.
+- Vercel-hosted frontend + separate backend service (API/rooms) is the product rollout path when moving to Next.js.
+- For a single-process Vercel deployment, implement external shared state first (Redis/postgres) and remove implicit process-local assumptions.
+- Vercel functions execute per request and scale to zero when idle, so this process-local room model is not durable on a single Vercel function tier.
 
 ### Start commands
 

@@ -24,6 +24,8 @@ const myHandArea = document.getElementById("my-hand-area");
 const actionsArea = document.getElementById("actions");
 const resultSummary = document.getElementById("result-summary");
 const promptLine = document.getElementById("prompt");
+const announcementBanner = document.getElementById("announcement-banner");
+const phaseHelpText = document.getElementById("phase-help-text");
 
 const playerNameInput = document.getElementById("player-name");
 const joinRoomInput = document.getElementById("join-room-code");
@@ -31,12 +33,30 @@ const joinRoomInput = document.getElementById("join-room-code");
 const ruleProfilesSelect = document.getElementById("rule-profile");
 const SESSION_STORAGE_KEY = "304-game-session-v1";
 const POLL_INTERVAL_MS = 1500;
+const CARD_KEY_MAP = {
+  clubs: "Clubs",
+  diamonds: "Diamonds",
+  hearts: "Hearts",
+  spades: "Spades",
+};
+
+const PHASE_HELP_TEXT = {
+  setup: "Setup: choose host options and wait in lobby. Invite others with the room link or code.",
+  four_bidding: "Bidding: choose a bid higher than the current bid or pass. A bid is your team's promised points.",
+  second_bidding: "Second bidding: you may improve on the previous bid or pass.",
+  trump_selection: "Trump selection: choose one eligible card. Only suits matter for trump.",
+  trump_choice: "Trump choice: open keeps trump visible; closed hides it until a legal cut/open event.",
+  trick_play: "Trick play: play a legal card. Follow suit if possible; if not, you may cut with trump when appropriate.",
+  hand_result: "Hand finished: review result and click Next hand to continue.",
+  match_complete: "Match finished: review tokens and click Next hand to start a rematch.",
+};
 
 let sessionState = null;
 let roomState = null;
 let pollTimer = null;
 let requestInFlight = false;
 let autoJoinInProgress = false;
+let playableHandButtons = [];
 
 function normalizeText(value, fallback = "") {
   const text = String(value || "").trim();
@@ -82,6 +102,68 @@ function formatAutopilotAction(action = {}) {
   return action.type.toLowerCase().replace(/_/g, " ");
 }
 
+function normalizeCardForSpeech(card) {
+  if (!card || typeof card !== "object") {
+    return { rank: "", suit: "", points: null };
+  }
+  return {
+    rank: String(card.rank || "").trim(),
+    suit: String(card.suit || "").trim(),
+    points: Number.isFinite(Number(card.points)) ? Number(card.points) : null,
+  };
+}
+
+function formatActionCardLabel(card) {
+  const normalized = normalizeCardForSpeech(card);
+  if (!normalized.rank || !normalized.suit) {
+    return "unknown card";
+  }
+  const suitName = CARD_KEY_MAP[normalized.suit] || normalized.suit;
+  const points = normalized.points != null ? `, ${normalized.points} points` : "";
+  return `${normalized.rank} of ${suitName}${points}`;
+}
+
+function getActionAriaLabel(action) {
+  if (!action || typeof action !== "object") return "Action";
+  if (action.type === "PLAY_CARD") {
+    if (action.cardId === "__trump_indicator__") {
+      return "Play hidden trump indicator card";
+    }
+    if (action.card) {
+      return `Play ${formatActionCardLabel(action.card)}${action.faceDown ? ", face down" : ""}`;
+    }
+    return `Play ${action.label || "card"}`;
+  }
+  if (action.ariaLabel) return action.ariaLabel;
+  return action.label || action.type || "Action";
+}
+
+function updatePhaseHelp(state) {
+  if (!phaseHelpText) return;
+  const phase = String(state?.phase || "setup");
+  const base = PHASE_HELP_TEXT[phase] || "";
+  const detail = [];
+  if (state.trump?.suit) {
+    const trumpSuit = CARD_KEY_MAP[state.trump.suit] || state.trump.suit;
+    detail.push(`Current trump: ${trumpSuit} (${state.trump.isOpen ? "open" : "closed"}).`);
+  }
+  if (Number.isFinite(state?.trump?.maker)) {
+    detail.push(`Trump maker: Seat ${state.trump.maker}.`);
+  }
+  if (state.activeSeat != null) {
+    detail.push(`Turn: Seat ${state.activeSeat}.`);
+  }
+  if (state.phase === "trick_play" && state.currentTrick) {
+    detail.push(`Cards played this trick: ${state.currentTrick.plays?.length || 0}.`);
+  }
+  phaseHelpText.textContent = `${base}${detail.length ? ` ${detail.join(" ")}` : ""}`;
+}
+
+function announce(message) {
+  if (!announcementBanner) return;
+  announcementBanner.textContent = message || "";
+}
+
 function loadStoredSession() {
   try {
     const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
@@ -113,6 +195,7 @@ function persistRoomContext(room) {
 
 function setStatus(message = "") {
   gameMessage.textContent = message;
+  announce(message);
 }
 
 function setRequestBusy(isBusy) {
@@ -597,6 +680,7 @@ function renderActions(state) {
   actionsArea.innerHTML = "";
   myHandArea.innerHTML = "";
   resultSummary.innerHTML = "";
+  playableHandButtons = [];
 
   const actions = roomState?.legalActions || [];
   if (!actions.length) {
@@ -609,7 +693,7 @@ function renderActions(state) {
     for (const action of actions) {
       const btn = document.createElement("button");
       btn.textContent = action.label;
-      btn.setAttribute("aria-label", action.ariaLabel || action.label);
+      btn.setAttribute("aria-label", getActionAriaLabel(action));
       btn.addEventListener("click", () => void submitAction(action));
       actionsArea.appendChild(btn);
     }
@@ -620,7 +704,7 @@ function renderActions(state) {
     for (const action of actions) {
       const btn = document.createElement("button");
       btn.textContent = action.label;
-      btn.setAttribute("aria-label", action.ariaLabel || action.label);
+      btn.setAttribute("aria-label", getActionAriaLabel(action));
       btn.addEventListener("click", () => void submitAction(action));
       actionsArea.appendChild(btn);
     }
@@ -631,7 +715,7 @@ function renderActions(state) {
     for (const action of actions) {
       const btn = document.createElement("button");
       btn.textContent = action.label;
-      btn.setAttribute("aria-label", action.ariaLabel || action.label);
+      btn.setAttribute("aria-label", getActionAriaLabel(action));
       btn.addEventListener("click", () => void submitAction(action));
       actionsArea.appendChild(btn);
     }
@@ -677,6 +761,7 @@ function renderActions(state) {
 
   const container = document.createElement("div");
   container.className = "actions";
+  container.setAttribute("aria-label", "Your legal hand actions");
   const seen = {};
   for (const action of actions) {
     if (action.type !== "PLAY_CARD") continue;
@@ -687,20 +772,50 @@ function renderActions(state) {
     const btn = document.createElement("button");
     btn.className = "hand-card legal";
     btn.textContent = `${action.label}${action.fromIndicator ? " (indicator)" : ""}${action.faceDown ? " (face down)" : ""}`;
-    btn.setAttribute("aria-label", action.ariaLabel || action.label);
+    btn.setAttribute("aria-label", getActionAriaLabel(action));
+    btn.dataset.handAction = "1";
     if (action.faceDown) btn.classList.add("face-down");
     btn.addEventListener("click", () => void submitAction(action));
     container.appendChild(btn);
+    playableHandButtons.push(btn);
+  }
+  if (playableHandButtons.length) {
+    playableHandButtons[0].setAttribute("tabindex", "0");
+  }
+
+  if (playableHandButtons.length > 1) {
+    actionsArea.textContent = "";
+    const arrowHint = document.createElement("p");
+    arrowHint.textContent = "Use Left/Right arrow keys to choose a playable card. Press Enter to play.";
+    arrowHint.className = "status";
+    actionsArea.appendChild(arrowHint);
   }
 
   myHandArea.innerHTML = "<h3>Your hand</h3>";
   myHandArea.appendChild(container);
 }
 
+function getSeatStatusText(seat) {
+  if (!seat) return "Disconnected";
+  if (seat.autopilot) return "Autopilot";
+  return formatSeatStatusLabel(seat);
+}
+
+function updateLobbySeatHint(state) {
+  if (!roomState) return;
+  const disconnectedSeats = roomState.seats?.filter((seat) => seat.connectionStatus === "disconnected").length || 0;
+  if (disconnectedSeats > 0) {
+    const autopilotSeats = roomState.seats?.filter((seat) => seat.connectionStatus === "autopilot").length || 0;
+    setStatus(
+      `Seat availability: ${disconnectedSeats} disconnected, ${autopilotSeats} on autopilot.`
+    );
+  }
+}
+
 function renderLobby() {
   const state = roomState?.publicState;
   roomCode.textContent = `Invite: ${roomState?.inviteCode || ""}`;
-  const inviteUrl = roomState?.inviteCode ? buildInviteLink(roomState.inviteCode) : window.location.href;
+  const inviteUrl = roomState?.joinUrl ? new URL(roomState.joinUrl, window.location.origin).toString() : roomState?.inviteCode ? buildInviteLink(roomState.inviteCode) : window.location.href;
   roomLink.href = inviteUrl;
   roomLink.textContent = inviteUrl;
 
@@ -713,12 +828,8 @@ function renderLobby() {
     lobbySeats.appendChild(renderSeatTile(seat, state?.activeSeat));
   }
 
-  const allReady = roomState?.seats
-    ? roomState.seats.every(
-        (seat) => seat.type !== "human" || (seat.isReady && (seat.connectionStatus || "disconnected") !== "disconnected"),
-      )
-    : false;
-  startMatchBtn.disabled = !roomState?.isHost || roomState?.status !== "lobby" || !allReady;
+  const hostCanStart = roomState?.isHost && roomState?.status === "lobby" && humanCount >= 1;
+  startMatchBtn.disabled = !hostCanStart;
   startMatchBtn.textContent = roomState?.isHost ? "Start match" : "Waiting for host";
 }
 
@@ -761,6 +872,7 @@ function renderCurrentView() {
     setupPanel.classList.remove("hidden");
     lobbyPanel.classList.add("hidden");
     gamePanel.classList.add("hidden");
+    if (phaseHelpText) phaseHelpText.textContent = "";
     return;
   }
 
@@ -769,6 +881,7 @@ function renderCurrentView() {
     setupPanel.classList.add("hidden");
     lobbyPanel.classList.remove("hidden");
     gamePanel.classList.add("hidden");
+    updateLobbySeatHint(roomState.publicState);
     renderLobby();
     startPolling();
     return;
@@ -778,6 +891,7 @@ function renderCurrentView() {
   lobbyPanel.classList.add("hidden");
   gamePanel.classList.remove("hidden");
   clearGameUi();
+  playableHandButtons = [];
   renderGame();
   startPolling();
 }
@@ -799,6 +913,45 @@ function buildRoomPayload(data) {
   };
 }
 
+function focusNextHandCard(offset) {
+  if (!playableHandButtons.length) return;
+  const current = document.activeElement;
+  const currentIndex = playableHandButtons.indexOf(current);
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+  const nextIndex = (safeIndex + offset + playableHandButtons.length) % playableHandButtons.length;
+  playableHandButtons.forEach((btn) => btn.setAttribute("tabindex", "-1"));
+  const button = playableHandButtons[nextIndex];
+  button.setAttribute("tabindex", "0");
+  button.focus();
+}
+
+function handleGlobalKeydown(event) {
+  if (!playableHandButtons.length) return;
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const isTyping = ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName);
+  if (!playableHandButtons.includes(target) && !actionsArea.contains(target) && !myHandArea.contains(target)) {
+    return;
+  }
+  if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    focusNextHandCard(-1);
+    return;
+  }
+  if (event.key === "ArrowRight") {
+    event.preventDefault();
+    focusNextHandCard(1);
+    return;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    if (target instanceof HTMLElement) {
+      target.blur();
+    }
+    return;
+  }
+}
+
 async function createRoom(payload) {
   const created = await apiRequest("/api/rooms", {
     method: "POST",
@@ -818,16 +971,47 @@ async function joinRoom(code, playerName) {
   });
 }
 
-async function startMatch() {
+function formatUnreadySeatLabel(seat) {
+  if (!seat) return "";
+  if (seat.connectionStatus === "disconnected") return `Seat ${seat.index} (${seat.displayName || "Guest"} - disconnected)`;
+  return `Seat ${seat.index} (${seat.displayName || "Guest"} - not ready)`;
+}
+
+function hasReadyConflictError(error, forceMode) {
+  const details = error?.payload?.details;
+  return !forceMode && error?.status === 409 && details?.requiresForceStart === true;
+}
+
+function extractUnreadySeats(payload) {
+  const unready = payload?.details?.unreadyHumanSeats;
+  return Array.isArray(unready) ? unready : [];
+}
+
+async function startMatch(forceStart = false) {
   if (!roomState?.roomId || requestInFlight) return;
   try {
     setRequestBusy(true);
-    roomState = await apiRequest(`/api/rooms/${encodeURIComponent(roomState.roomId)}/start`, {
+    const response = await apiRequest(`/api/rooms/${encodeURIComponent(roomState.roomId)}/start`, {
       method: "POST",
+      body: forceStart ? { forceStart: true } : undefined,
     });
+    roomState = response;
     persistRoomContext(roomState);
     renderCurrentView();
   } catch (error) {
+    if (hasReadyConflictError(error, forceStart)) {
+      const unreadySeats = extractUnreadySeats(error.payload);
+      const formatted = unreadySeats.length
+        ? unreadySeats.map(formatUnreadySeatLabel).join(", ")
+        : "some players";
+      const shouldStart = window.confirm(
+        `Not everyone is ready: ${formatted}. Start anyway with host override?`,
+      );
+      if (shouldStart) {
+        void startMatch(true);
+        return;
+      }
+    }
     setStatus(error.message || "Could not start match.");
   } finally {
     setRequestBusy(false);
@@ -968,6 +1152,13 @@ function bindEvents() {
     }
     setStatus("");
   });
+  document.addEventListener("keydown", handleGlobalKeydown);
+}
+
+function clearAnnouncements() {
+  if (announcementBanner) {
+    announcementBanner.textContent = "";
+  }
 }
 
 function init() {
@@ -993,6 +1184,7 @@ function init() {
   setupPanel.classList.remove("hidden");
   lobbyPanel.classList.add("hidden");
   gamePanel.classList.add("hidden");
+  clearAnnouncements();
 }
 
 init();

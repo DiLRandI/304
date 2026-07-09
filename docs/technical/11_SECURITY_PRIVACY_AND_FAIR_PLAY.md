@@ -236,3 +236,70 @@ Security/fair play is acceptable when:
 - Guest sessions cannot control another user's seat.
 - Basic rate limits are active.
 - App has no real-money gambling mechanics.
+
+## 17. Supply-chain and install security
+
+Product and deployment security now includes dependency integrity checks and reproducible installs.
+
+### Package manager policy
+
+- The project uses **pnpm** for deterministic dependency resolution.
+- Never use `npm install`/`yarn install` for this repository.
+- Keep `pnpm-lock.yaml` in VCS and make lockfile changes part of code review.
+
+### CI and release hardening
+
+For every release candidate:
+
+- Run `pnpm install --frozen-lockfile`.
+- Run `pnpm audit --audit-level=high`.
+- Run `pnpm audit signatures` to verify package registry signatures.
+- Block release if either command fails.
+- Use `corepack use pnpm@11.10.0` before dependency-sensitive checks.
+- For security incident rehearsals, run `pnpm install --ignore-scripts --frozen-lockfile`.
+
+### Recommended pnpm supply-chain controls (Next.js migration track)
+
+When migrating to managed frontend tooling, keep these controls in `pnpm-workspace.yaml`:
+
+```yaml
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+blockExoticSubdeps: true
+trustPolicy: no-downgrade
+```
+
+Operational guardrails:
+
+- `minimumReleaseAge` delays newly published versions from being accepted immediately.
+- `minimumReleaseAgeStrict` ensures delayed installs fail if the requested range cannot satisfy the age gate.
+- `blockExoticSubdeps` prevents transitive dependencies from using git/tarball URL sources.
+- `trustPolicy` rejects trust regression for packages that publish lower-trust provenance.
+
+### Secure dependency policy addendum
+
+- Keep all dependency changes behind a lockfile review gate in PR/release flow.
+- Require immutable lockfile installs for release:
+  - `pnpm install --frozen-lockfile`.
+- Require explicit vulnerability thresholds:
+  - `pnpm audit --audit-level=high`.
+- Require signature verification for any dependency drift:
+  - `pnpm audit signatures`.
+- Treat findings as blockers for production release approval.
+
+### Supply-chain attack defense profile
+
+| Threat | Preventive control |
+|---|---|
+| Lockfile drift attack | Require review of every `pnpm-lock.yaml` delta before release |
+| Typosquat / dependency substitution | Keep dependency graph review in release branch signoff |
+| Malicious lifecycle scripts | Use `--ignore-scripts` for incident verification runs |
+| Registry poisoning or unexpected source changes | Verify package source policy and maintain registry restrictions |
+| Hidden transitive supply-chain risk | Prefer direct dependency visibility in reviews and avoid large transitive changes |
+
+### Vercel + backend posture
+
+- For Vercel-hosted frontend, keep game stateful processing on a long-running backend service.
+- Use a runtime-only secret and API token policy that is scoped per environment.
+- Do not bundle server-only secrets into the frontend bundle.
+- Record and retain deployment checks for `security` and `hosting` items in release notes.

@@ -24,6 +24,8 @@ Use this folder as the first page before development starts.
 - `docs/technical/10_DATA_MODEL_AND_API.md`
 - `docs/technical/11_SECURITY_PRIVACY_AND_FAIR_PLAY.md`
 - `docs/technical/12_QA_TEST_PLAN.md`
+- `docs/technical/17_FRAMEWORK_AND_HOSTING_DECISION_LOG.md`
+- `docs/technical/18_PLATFORM_DECISION_BRIEF.md`
 
 ## Execution docs
 

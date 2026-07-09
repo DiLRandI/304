@@ -1,5 +1,13 @@
 # Architecture Document
 
+## 0. Current stack decision
+
+This repository currently implements a **custom Node.js + static client** architecture in `server.js` and `index.html`.
+
+- This is the active baseline for the codebase today.
+- The recommended architecture table is the long-term target shape, not a requirement for the current shipped stack.
+- Formal migration criteria and Vercel considerations are captured in `17_FRAMEWORK_AND_HOSTING_DECISION_LOG.md`.
+
 ## 1. Architecture summary
 
 304 Online should use a server-authoritative real-time web architecture. The client renders the table and sends player intents. The server validates all actions, updates game state, runs bots, and broadcasts private state projections to each participant.

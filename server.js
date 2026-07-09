@@ -11,6 +11,18 @@ function parseBooleanSetting(value, fallback = false) {
   return /^(1|true|yes|on)$/i.test(value.trim());
 }
 
+function parseOriginList(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return [];
+  const deduped = new Set();
+  value
+    .split(",")
+    .map((entry) => String(entry || "").trim().toLowerCase())
+    .filter(Boolean)
+    .forEach((origin) => deduped.add(origin));
+  return [...deduped];
+}
+
 function parseIntegerSetting(value, fallback, minimum = 1, maximum = Number.MAX_SAFE_INTEGER) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
@@ -37,8 +49,11 @@ const CLEANUP_INTERVAL_MS = parseIntegerSetting(process.env.CLEANUP_INTERVAL_MS,
 const MAX_SESSIONS_IN_MEMORY = parseIntegerSetting(process.env.MAX_SESSIONS_IN_MEMORY, 5000, 100, 500000);
 const MAX_ROOMS_IN_MEMORY = parseIntegerSetting(process.env.MAX_ROOMS_IN_MEMORY, 1200, 32, 200000);
 const REQUEST_TIMEOUT_MS = parseIntegerSetting(process.env.REQUEST_TIMEOUT_MS, 15 * 1000, 250, 120000);
+const INCLUDE_ENGINE_STATE = parseBooleanSetting(process.env.INCLUDE_ENGINE_STATE, false);
 const TRUST_PROXY = parseBooleanSetting(process.env.TRUST_PROXY, false);
-const MAX_SESSION_TOKEN_LEN = 80;
+const MAX_SESSION_TOKEN_LEN = parseIntegerSetting(process.env.MAX_SESSION_TOKEN_LEN, 80, 32, 256);
+const REQUIRE_ORIGIN_CHECK = parseBooleanSetting(process.env.REQUIRE_ORIGIN_CHECK, NODE_ENV === "production");
+const ALLOWED_ORIGINS = parseOriginList(process.env.ALLOWED_ORIGINS);
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -84,8 +99,10 @@ const sessions = new Map();
 const rateLimits = new Map();
 
 const ROOM_RATE_LIMITS = {
+  guest_session: { limit: 45, windowMs: 60 * 1000 },
   create_room: { limit: 10, windowMs: 60 * 60 * 1000 },
   join_room: { limit: 30, windowMs: 60 * 60 * 1000 },
+  events: { limit: 120, windowMs: 60 * 1000 },
   room_action: { limit: 5, windowMs: 1000 },
   start_room: { limit: 10, windowMs: 60000 },
 };
@@ -277,6 +294,34 @@ function normalizeInt(value, defaultValue = 0) {
   return Math.trunc(num);
 }
 
+function getRequestHost(req) {
+  return String(req?.headers?.host || "").trim().toLowerCase();
+}
+
+function isAllowedOrigin(req) {
+  const origin = String(req?.headers?.origin || "").trim();
+  if (!origin) {
+    return true;
+  }
+  const requestOrigin = origin.toLowerCase();
+  if (!REQUIRE_ORIGIN_CHECK) {
+    return true;
+  }
+  if (ALLOWED_ORIGINS.length > 0) {
+    return ALLOWED_ORIGINS.includes(requestOrigin);
+  }
+  const host = getRequestHost(req);
+  if (!host) {
+    return false;
+  }
+  try {
+    const parsedOrigin = new URL(requestOrigin);
+    return parsedOrigin.origin === `https://${host}` || parsedOrigin.origin === `http://${host}`;
+  } catch (error) {
+    return false;
+  }
+}
+
 function chooseSeatCount(tableMode, humanCount) {
   if (tableMode === "classic_4") return 4;
   if (tableMode === "six_6") return 6;
@@ -405,11 +450,18 @@ function parseJsonBody(req) {
   });
 }
 
+function buildJoinUrl(inviteCode) {
+  const code = String(inviteCode || "").trim().toUpperCase();
+  if (!code) return "";
+  return `/?room=${encodeURIComponent(code)}`;
+}
+
 function makeRoomResponse(room, seatIndex = null, session = null) {
   const isHost = !!(session && room.hostUserId === session.userId);
   return {
     roomId: room.id,
     inviteCode: room.inviteCode,
+    joinUrl: buildJoinUrl(room.inviteCode),
     visibility: room.visibility,
     status: room.status,
     tableSizeMode: room.tableSizeMode,
@@ -463,10 +515,47 @@ function sanitizeRoomForSeat(room, viewerSeat, session, includeEngineState = fal
     handResult: room.engine.state.handResult,
     isMatchComplete: room.engine.state.phase === "match_complete",
   };
-  if (includeEngineState) {
+  if (includeEngineState && INCLUDE_ENGINE_STATE) {
     payload.engineState = room.engine.getSnapshot();
   }
   return payload;
+}
+
+function getSeatIndexFromSession(room, session) {
+  if (!room || !session) return null;
+  return room.participants.get(session.sessionToken) ?? null;
+}
+
+function isEngineDumpAllowed() {
+  return INCLUDE_ENGINE_STATE;
+}
+
+function getPublicRoomEventLog(room, viewerSeat) {
+  const rawLog = room.engine?.state?.actionLog || [];
+  return rawLog.map((event) => {
+    if (!event || typeof event !== "object") {
+      return event;
+    }
+    if (event.type !== "PLAY") {
+      return {
+        ...event,
+        payload: event.payload,
+      };
+    }
+    const actorSeat = event.seat;
+    if (actorSeat === viewerSeat) {
+      return { ...event };
+    }
+    return {
+      ...event,
+      payload: {
+        ...event.payload,
+        cardId: undefined,
+        faceDown: undefined,
+        fromIndicator: undefined,
+      },
+    };
+  });
 }
 
 function createRoomSummary(room, viewerSeat = null, session = null, includeEngineState = false) {
@@ -717,6 +806,29 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     return writeError(res, 405, "Method not allowed");
   }
 
+  if (action === "events") {
+    if (method !== "GET") {
+      return writeError(res, 405, "Method not allowed");
+    }
+    if (!session) {
+      return writeError(res, 401, "Session required");
+    }
+    if (!consumeRateLimit(req, session.sessionToken, "events")) {
+      return writeError(res, 429, "Rate limit exceeded");
+    }
+    const viewerSeat = getSeatIndexFromSession(roomRef, session);
+    if (!Number.isFinite(viewerSeat)) {
+      return writeError(res, 403, "You are not seated in this room");
+    }
+    return writeJson(res, 200, {
+      roomId: roomRef.id,
+      events: getPublicRoomEventLog(roomRef, viewerSeat),
+      handNumber: roomRef.engine?.state?.handNumber || 0,
+      phase: roomRef.engine?.state?.phase || "setup",
+      version: roomRef.engine?.state?.version || roomRef.version || 0,
+    });
+  }
+
   if (action === "join") {
     if (method !== "POST") {
       return writeError(res, 405, "Method not allowed");
@@ -867,6 +979,8 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     if (method !== "POST") {
       return writeError(res, 405, "Method not allowed");
     }
+    const payload = await parseJsonBody(req);
+    const forceStart = toBool(payload?.forceStart);
     if (!session) {
       return writeError(res, 401, "Session required");
     }
@@ -881,11 +995,20 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     if (humanSeats < 1) {
       return writeError(res, 409, "Need at least one player to start");
     }
-    const allReady = roomRef.seats.every(
-      (seat) => seat.type !== "human" || (seat.isReady && seat.connectionStatus !== "disconnected"),
-    );
-    if (!allReady) {
-      return writeError(res, 409, "All players must be ready before start");
+    const unreadyHumanSeats = roomRef.seats
+      .filter((seat) => seat.type === "human")
+      .filter((seat) => !seat.isReady || seat.connectionStatus === "disconnected")
+      .map((seat) => ({
+        index: seat.index,
+        displayName: seat.displayName,
+        isReady: !!seat.isReady,
+        connectionStatus: seat.connectionStatus || "disconnected",
+      }));
+    if (unreadyHumanSeats.length > 0 && !forceStart) {
+      return writeError(res, 409, "Some players are not ready", {
+        requiresForceStart: true,
+        unreadyHumanSeats,
+      });
     }
     if (!roomRef.engine) {
       fillBotSeats(roomRef);
@@ -995,8 +1118,35 @@ async function requestHandler(req, res) {
   const parts = requestUrl.pathname.split("/").filter(Boolean);
   const method = req.method || "GET";
   const segment = parts[1];
+  const methodRequiresOriginCheck = method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+  if ((segment || "").startsWith("api") || requestUrl.pathname.startsWith("/api/")) {
+    if (method === "OPTIONS") {
+      if (!isAllowedOrigin(req)) {
+        writeError(res, 403, "Origin denied");
+        return;
+      }
+      if (req.headers.origin) {
+        res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "content-type, x-session-token");
+        res.setHeader("Vary", "Origin");
+      }
+      res.statusCode = 204;
+      applySecurityHeaders(res);
+      res.end();
+      return;
+    }
+
+    if (methodRequiresOriginCheck && !isAllowedOrigin(req)) {
+      writeError(res, 403, "Origin denied");
+      return;
+    }
+  }
 
   if (segment === "guest-session" && method === "POST") {
+    if (!consumeRateLimit(req, null, "guest_session")) {
+      return writeError(res, 429, "Rate limit exceeded");
+    }
     const body = await parseJsonBody(req);
     const displayName = normalizeDisplayName(body.displayName || "Guest");
     const session = createEmptySession(displayName);
@@ -1054,6 +1204,9 @@ async function requestHandler(req, res) {
         }
         if (profile.id === "classic_304_4p" && tableSizeMode === "six_6") {
           return writeError(res, 400, "classic_304_4p requires 4-seat configuration");
+        }
+        if (profile.id === "six_304_36" && tableSizeMode === "classic_4") {
+          return writeError(res, 400, "six_304_36 requires 6-seat configuration");
         }
 
         const resolvedTableMode = profile.id === "six_304_36" ? "six_6" : tableSizeMode;

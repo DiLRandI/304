@@ -33,6 +33,21 @@
         </p>
       </header>
 
+      <details id="tutorial-panel" class="card">
+        <summary>Quick start guide (new players)</summary>
+        <ol>
+          <li>Set your display name and choose the rule profile.</li>
+          <li>Create a room, then share the invite link shown in the lobby.</li>
+          <li>Other players join with the code using “Join room”.</li>
+          <li>When all human players are marked ready, the host starts the match.</li>
+          <li>Follow on-screen phase prompts to bid, choose trump, and play cards.</li>
+        </ol>
+        <p class="muted-note">
+          For classic 304, use the classic profile with 4-seat mode. Six-seat mode
+          is used for the 304-36 variant.
+        </p>
+      </details>
+
       <section id="setup-panel" class="card">
         <h2>Product-ready web lobby</h2>
         <div class="hero">
@@ -114,6 +129,7 @@
 
       <section id="game-panel" class="card hidden">
         <div id="game-message" class="status"></div>
+        <div id="announcement-banner" class="status-banner" role="status" aria-live="polite"></div>
         <div id="table-wrap">
           <div id="match-board" class="seat-grid"></div>
           <div class="board-side">
@@ -122,6 +138,10 @@
             <div id="trick-area" class="panel"></div>
             <div id="hand-audit" class="panel"></div>
             <div id="bid-history" class="panel"></div>
+            <details id="rule-help" class="panel-help">
+              <summary>Phase help</summary>
+              <div id="phase-help-text"></div>
+            </div>
           </div>
         </div>
         <div id="previous-trick" class="panel"></div>
