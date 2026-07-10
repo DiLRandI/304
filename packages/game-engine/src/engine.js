@@ -1137,6 +1137,22 @@ export class GameEngine {
     this.state.trumpCard = null;
   }
 
+  _releaseOpenTrumpIndicator() {
+    const maker = this.state.trump.maker;
+    const indicator = this.state.trump.card;
+    const makerSeat = maker == null ? null : this.state.seats[maker];
+    if (!indicator || !makerSeat) return;
+    if (!makerSeat.hand.some((card) => card.cardId === indicator.cardId)) {
+      makerSeat.hand.push(indicator);
+    }
+    this.state.trump = {
+      ...this.state.trump,
+      card: null,
+      indicatorVisible: true,
+    };
+    this.state.trumpCard = null;
+  }
+
   _advanceSecondBiddingTurn() {
     const order = this.state.bidding.secondRound.order;
     this.state.bidding.secondRound.activeOrderIndex += 1;
@@ -1180,16 +1196,7 @@ export class GameEngine {
       this.state.trump.isOpen = true;
       this.state.trumpClosed = false;
       this.state.trump.indicatorVisible = true;
-      const indicator = this.state.trump.card;
-      if (indicator) {
-        this.state.seats[seatIndex].hand.push(indicator);
-        this.state.trump = {
-          ...this.state.trump,
-          isOpen: true,
-          indicatorVisible: true,
-        };
-      }
-      this.state.trump.card = null;
+      this._releaseOpenTrumpIndicator();
       this.state.trumpSuit = this.state.trump.suit;
       this.state.gameMessage = `Trump is open: ${this.state.trump.suit}.`;
       this._appendLog("TRUMP_OPEN", { seat: seatIndex });
@@ -1330,6 +1337,7 @@ export class GameEngine {
       }
     }
     if (shouldOpen) {
+      this._releaseOpenTrumpIndicator();
       this.state.trump.isOpen = true;
       this.state.trumpClosed = false;
       this.state.gameMessage = `Trump ${this.state.trump.suit} opened.`;

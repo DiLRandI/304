@@ -648,15 +648,15 @@ git commit -m "feat: run durable room automation worker"
 
 - Create: `apps/game-service/test/room-simulation.test.ts`
 - Create: `apps/game-service/test/recovery-fuzz.integration.test.ts`
-- Modify: `apps/game-service/test/durable-rooms.integration.test.ts`
-- Modify: `apps/game-service/test/room-coordinator.test.ts`
+- Modify: `packages/game-engine/src/bot.js`
+- Modify: `packages/game-engine/src/engine.js`
 
 **Interfaces:**
 
 - Produces deterministic test fixtures for full Classic and six-seat hands, private-view leak checks, and snapshot/event recovery variance.
 - Covers both in-memory engine behavior and durable coordinator recovery without relying on browser state.
 
-- [ ] **Step 1: Write failing simulation and fuzz tests**
+- [x] **Step 1: Write failing simulation and fuzz tests**
 
 ```ts
 for (const ruleProfileId of ["classic_304_4p", "six_304_36"] as const) {
@@ -682,15 +682,15 @@ it("recovers equivalent private projections after deleting any noninitial snapsh
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `pnpm --filter @three-zero-four/game-service test -- room-simulation.test.ts`
 
 Run: `INTEGRATION_DATABASE_URL=<postgres> INTEGRATION_REDIS_URL=<redis> pnpm --filter @three-zero-four/game-service test -- recovery-fuzz.integration.test.ts`
 
-Expected: FAIL until the six-seat durable path and automation replay handling are complete.
+Expected: the full-hand simulation must fail if bots cannot open a bid or if a reserved trump card cannot re-enter play; the recovery variance tests prove the existing durable path before the engine fixes land.
 
-- [ ] **Step 3: Add deterministic test helpers and invariant assertions**
+- [x] **Step 3: Add deterministic test helpers and invariant assertions**
 
 Use a fixed loop guard of `1_000` actions per hand and fail with the current phase/action count if a profile cannot reach a result. For every action, assert the engine's selected action is present in `engine.getLegalActions(seat)`. For every seat projection, assert JSON never contains a card id from another current hand or a hidden trump card unavailable to that viewer.
 
@@ -703,7 +703,9 @@ For durable recovery variance, create a room, advance it through human and worke
 
 The test must restore the removed snapshot before its next variant or isolate each variant in a newly generated room id. Run at least twelve snapshot-position variants per profile; do not mutate production source data.
 
-- [ ] **Step 4: Verify GREEN**
+The deterministic full-hand simulation exposed two engine defects: a four-card bot threshold above the mathematical maximum caused perpetual no-bid redeals, and a reserved closed-trump indicator could be stranded when a rule opened trump. Lower the threshold to an attainable four-card score, force a final automated opening bid only after every other seat has passed, and return an unplayed reserved indicator to its maker when trump opens by rule.
+
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/game-service test -- room-simulation.test.ts`
 
@@ -711,11 +713,11 @@ Run: `INTEGRATION_DATABASE_URL=<postgres> INTEGRATION_REDIS_URL=<redis> pnpm --f
 
 Expected: both profiles complete, all bot actions are legal, recovery remains exact after snapshot loss, and every private projection passes leak assertions.
 
-- [ ] **Step 5: Commit invariant coverage**
+- [x] **Step 5: Commit invariant coverage**
 
 ```bash
-git add apps/game-service/test/room-simulation.test.ts apps/game-service/test/recovery-fuzz.integration.test.ts apps/game-service/test/durable-rooms.integration.test.ts apps/game-service/test/room-coordinator.test.ts
-git commit -m "test: cover realtime room resilience"
+git add packages/game-engine/src/{bot.js,engine.js} apps/game-service/test/{room-simulation.test.ts,recovery-fuzz.integration.test.ts}
+git commit -m "fix: cover realtime room resilience"
 ```
 
 ### Task 7: Gate the M3 topology and document operation

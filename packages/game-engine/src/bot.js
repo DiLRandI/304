@@ -35,7 +35,13 @@ function chooseBidFromHand(state, seat, legalActions, phase) {
     Object.values(suitCount(hand)).reduce((s, v) => s + Math.max(0, v - 2), 0) *
       4;
   if (phase === "four") {
-    if (handScore < 140) return null;
+    const isLastChanceToOpen =
+      state.bidding.currentBid === 0 &&
+      state.bidding.noBidPasses >= state.seatCount - 1;
+    // Four-card hands contain at most 99 points, so a 140-point opening
+    // threshold makes every automated player pass forever. Keep weak hands
+    // conservative, but ensure an all-automated table can always progress.
+    if (handScore < 40 && !isLastChanceToOpen) return null;
     const options = legalBids(legalActions, 160, state.profile.fourCardBidStep);
     if (state.profileId === "six_304_36") {
       for (const option of options.reverse()) {
