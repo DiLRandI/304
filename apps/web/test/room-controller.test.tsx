@@ -1,0 +1,128 @@
+/** @vitest-environment jsdom */
+
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { useRoomController } from "../src/hooks/use-room-controller.js";
+import {
+  activeProjection,
+  lobbyProjection,
+  passBidAction,
+  ROOM_ID,
+} from "./browser-fixtures.js";
+
+function socket() {
+  return {
+    close: vi.fn(),
+    onclose: null as ((event: CloseEvent) => void) | null,
+    onerror: null as ((event: Event) => void) | null,
+    onmessage: null as ((event: MessageEvent<string>) => void) | null,
+    onopen: null as ((event: Event) => void) | null,
+    readyState: 1,
+    send: vi.fn(),
+  };
+}
+
+describe("useRoomController", () => {
+  it("submits a legal action at the current server version", async () => {
+    const initial = activeProjection(1);
+    const updated = activeProjection(2);
+    const roomSocket = socket();
+    const client = {
+      getRoom: vi.fn().mockResolvedValue(initial),
+      getSnapshot: vi.fn().mockResolvedValue(updated),
+      joinRoom: vi.fn(),
+      roomSocketUrl: vi
+        .fn()
+        .mockReturnValue("wss://api.example.test/v1/realtime/rooms/room"),
+      startRoom: vi.fn(),
+      submitCommand: vi.fn().mockResolvedValue(updated),
+    };
+    const createSocket = vi.fn().mockReturnValue(roomSocket);
+
+    const { result } = renderHook(() =>
+      useRoomController("304-abcdefghijkl", client, { createSocket }),
+    );
+
+    await waitFor(() => expect(result.current.projection).toEqual(initial));
+    act(() => roomSocket.onopen?.(new Event("open")));
+    await waitFor(() => expect(result.current.connection).toBe("live"));
+
+    await act(async () => result.current.submit(passBidAction));
+
+    expect(client.submitCommand).toHaveBeenCalledWith(
+      ROOM_ID,
+      1,
+      passBidAction,
+    );
+    expect(result.current.projection?.eventVersion).toBe(2);
+  });
+
+  it("sends a resync request and refreshes after a version gap", async () => {
+    const initial = activeProjection(1);
+    const gapProjection = activeProjection(3);
+    const roomSocket = socket();
+    const client = {
+      getRoom: vi.fn().mockResolvedValue(initial),
+      getSnapshot: vi.fn().mockResolvedValue(gapProjection),
+      joinRoom: vi.fn(),
+      roomSocketUrl: vi
+        .fn()
+        .mockReturnValue("wss://api.example.test/v1/realtime/rooms/room"),
+      startRoom: vi.fn(),
+      submitCommand: vi.fn(),
+    };
+
+    renderHook(() =>
+      useRoomController("304-abcdefghijkl", client, {
+        createSocket: vi.fn().mockReturnValue(roomSocket),
+      }),
+    );
+    await waitFor(() => expect(roomSocket.onmessage).not.toBeNull());
+
+    act(() =>
+      roomSocket.onmessage?.(
+        new MessageEvent("message", {
+          data: JSON.stringify({ type: "SNAPSHOT", projection: gapProjection }),
+        }),
+      ),
+    );
+
+    await waitFor(() =>
+      expect(client.getSnapshot).toHaveBeenCalledWith(ROOM_ID),
+    );
+    expect(roomSocket.send).toHaveBeenCalledWith(
+      JSON.stringify({ type: "RESYNC", roomId: ROOM_ID }),
+    );
+  });
+
+  it("does not join a room after the controller effect has been cleaned up", async () => {
+    const initial = { ...lobbyProjection(), viewerSeatIndex: null };
+    let resolveRoom: ((value: typeof initial) => void) | undefined;
+    const roomRequest = new Promise<typeof initial>((resolve) => {
+      resolveRoom = resolve;
+    });
+    const client = {
+      getRoom: vi.fn().mockReturnValue(roomRequest),
+      getSnapshot: vi.fn(),
+      joinRoom: vi.fn(),
+      roomSocketUrl: vi.fn(),
+      startRoom: vi.fn(),
+      submitCommand: vi.fn(),
+    };
+
+    const { unmount } = renderHook(() =>
+      useRoomController("304-abcdefghijkl", client, {
+        createSocket: vi.fn().mockReturnValue(socket()),
+      }),
+    );
+    await waitFor(() => expect(client.getRoom).toHaveBeenCalledOnce());
+    unmount();
+
+    await act(async () => {
+      resolveRoom?.(initial);
+      await Promise.resolve();
+    });
+
+    expect(client.joinRoom).not.toHaveBeenCalled();
+  });
+});

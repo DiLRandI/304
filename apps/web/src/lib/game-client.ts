@@ -82,7 +82,7 @@ export class GameClient {
 
   constructor(
     serviceOrigin: string,
-    private readonly fetcher: ClientFetcher = fetch,
+    private readonly fetcher: ClientFetcher = globalThis.fetch.bind(globalThis),
   ) {
     this.origin = serviceUrl(serviceOrigin);
   }

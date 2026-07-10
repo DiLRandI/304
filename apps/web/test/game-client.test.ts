@@ -46,6 +46,36 @@ describe("GameClient", () => {
     });
   });
 
+  it("binds the browser fetch implementation before using the default transport", async () => {
+    const originalFetch = globalThis.fetch;
+    let receiver: unknown;
+    const browserFetch = vi.fn(function (this: unknown) {
+      receiver = this;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            expiresAt: "2026-08-09T22:43:21.429Z",
+            player: {
+              displayName: "Asha",
+              id: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+            },
+          }),
+          { status: 201 },
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", browserFetch);
+
+    try {
+      const client = new GameClient("https://api.example.test");
+      await client.createGuest("Asha");
+
+      expect(receiver).toBe(globalThis);
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
   it("derives a WebSocket room URL from an HTTPS game-service origin", () => {
     expect(
       toRoomSocketUrl(
