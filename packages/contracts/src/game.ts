@@ -50,6 +50,24 @@ export const GuestSessionRequestSchema = z
   .object({ displayName: DisplayName })
   .strict();
 
+export const SessionResponseSchema = z
+  .object({
+    player: z.object({ id: Uuid, displayName: DisplayName }).strict(),
+    expiresAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
+
+export const ServiceErrorResponseSchema = z
+  .object({
+    error: z
+      .object({
+        code: z.string().min(1).max(64),
+        message: z.string().min(1).max(160),
+      })
+      .strict(),
+  })
+  .strict();
+
 export const CreateRoomRequestSchema = z
   .object({
     commandId: Uuid,
@@ -109,5 +127,7 @@ export type RealtimeClientMessage = z.infer<typeof RealtimeClientMessageSchema>;
 export type RealtimeServerMessage = z.infer<typeof RealtimeServerMessageSchema>;
 export type RuleProfileId = z.infer<typeof RuleProfileIdSchema>;
 export type RoomProjection = z.infer<typeof RoomProjectionSchema>;
+export type ServiceErrorResponse = z.infer<typeof ServiceErrorResponseSchema>;
+export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 export type StartRoomRequest = z.infer<typeof StartRoomRequestSchema>;
 export type VersionedPrivateView = z.infer<typeof VersionedPrivateViewSchema>;

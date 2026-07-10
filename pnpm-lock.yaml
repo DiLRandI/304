@@ -75,6 +75,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@three-zero-four/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       next:
         specifier: 16.2.10
         version: 16.2.10(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

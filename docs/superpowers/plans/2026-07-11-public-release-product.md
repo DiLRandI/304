@@ -25,7 +25,7 @@
 ## File structure
 
 ```text
-packages/contracts/src/game.ts                         Create-room preference contract
+packages/contracts/src/game.ts                         Create-room and browser response contracts
 apps/game-service/src/domain/room-coordinator.ts       Persist host-selected bot difficulty
 apps/game-service/test/durable-rooms.integration.test.ts Service preference proof
 apps/web/src/lib/game-client.ts                        Typed HTTP and WebSocket transport
@@ -136,7 +136,11 @@ git commit -m "feat: configure room bot difficulty"
 
 **Files:**
 
+- Modify: `packages/contracts/src/game.ts`
+- Modify: `packages/contracts/src/index.ts`
+- Modify: `packages/contracts/test/game.test.ts`
 - Modify: `apps/web/package.json`
+- Create: `apps/web/vitest.config.ts`
 - Create: `apps/web/src/lib/game-client.ts`
 - Create: `apps/web/src/lib/room-state.ts`
 - Create: `apps/web/test/game-client.test.ts`
@@ -148,7 +152,7 @@ git commit -m "feat: configure room bot difficulty"
 - Produces `applyProjection(current, next): { projection; needsResync: boolean }` and `toRoomSocketUrl(serviceUrl, roomId)`.
 - The transport validates every successful payload with `RoomProjectionSchema` or `RealtimeServerMessageSchema`, maps only known service error envelopes to user-safe errors, and does not log payloads containing card data.
 
-- [ ] **Step 1: Write failing reducer/transport tests**
+- [x] **Step 1: Write failing reducer/transport tests**
 
 ```ts
 expect(applyProjection(currentAt7, projectionAt6)).toEqual({
@@ -168,13 +172,13 @@ expect(fetchMock).toHaveBeenCalledWith(
 );
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run: `pnpm --filter @three-zero-four/web test -- game-client.test.ts room-state.test.ts`
 
 Expected: FAIL because the shell has no browser transport or version reducer.
 
-- [ ] **Step 3: Implement the minimal safe client boundary**
+- [x] **Step 3: Implement the minimal safe client boundary**
 
 ```ts
 export class GameClient {
@@ -202,7 +206,7 @@ export function applyProjection(current: RoomProjection | null, next: RoomProjec
 
 Use `crypto.randomUUID()` at the command call site; never allow a UI component to provide a player/seat id. Derive `wss:` from `https:` and `ws:` from `http:`. Send `PING` every 15 seconds only while the browser tab is visible; close the socket during hook cleanup.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/web test -- game-client.test.ts room-state.test.ts`
 

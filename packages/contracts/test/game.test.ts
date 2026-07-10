@@ -7,6 +7,8 @@ import {
   RealtimeServerMessageSchema,
   RoomProjectionSchema,
   RuleProfileIdSchema,
+  ServiceErrorResponseSchema,
+  SessionResponseSchema,
   VersionedPrivateViewSchema,
 } from "../src/index.js";
 
@@ -142,6 +144,39 @@ describe("realtime message contracts", () => {
       RealtimeServerMessageSchema.parse({
         type: "SNAPSHOT",
         projection: { roomId: "bad" },
+      }),
+    ).toThrow();
+  });
+});
+
+describe("browser service response contracts", () => {
+  it("accepts a bounded session response and rejects malformed identity data", () => {
+    expect(
+      SessionResponseSchema.parse({
+        player: {
+          id: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+          displayName: "Asha",
+        },
+        expiresAt: "2026-07-11T12:00:00.000Z",
+      }),
+    ).toMatchObject({ player: { displayName: "Asha" } });
+    expect(() =>
+      SessionResponseSchema.parse({
+        player: { id: "not-a-uuid", displayName: "Asha" },
+        expiresAt: "not-a-timestamp",
+      }),
+    ).toThrow();
+  });
+
+  it("accepts only the safe public service error envelope", () => {
+    expect(
+      ServiceErrorResponseSchema.parse({
+        error: { code: "ROOM_FULL", message: "Room is full" },
+      }),
+    ).toEqual({ error: { code: "ROOM_FULL", message: "Room is full" } });
+    expect(() =>
+      ServiceErrorResponseSchema.parse({
+        error: { code: "ROOM_FULL", message: "Room is full", stack: "secret" },
       }),
     ).toThrow();
   });
