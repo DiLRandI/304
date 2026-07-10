@@ -1058,16 +1058,17 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     if (!consumeRateLimit(req, token, "join_room")) {
       return writeError(res, 429, "Rate limit exceeded");
     }
-    const payload = await parseJsonBody(req);
-    if (roomRef.status !== "lobby") {
-      return writeError(res, 409, "Room is not accepting joins now");
-    }
-    const preferredSeat = normalizeInt(payload.seatIndex, NaN);
     const existingSeat = roomRef.participants.get(token);
     if (typeof existingSeat === "number") {
       touchSeatPresence(roomRef, existingSeat);
+      rememberSessionRoom(session, roomRef);
       return writeJson(res, 200, sanitizeRoomForSeat(roomRef, existingSeat, session, true));
     }
+    if (roomRef.status !== "lobby") {
+      return writeError(res, 409, "Room is not accepting joins now");
+    }
+    const payload = await parseJsonBody(req);
+    const preferredSeat = normalizeInt(payload.seatIndex, NaN);
 
     const pickSeat = (() => {
       if (Number.isFinite(preferredSeat) && preferredSeat >= 0 && preferredSeat < roomRef.seats.length && seatIsUsableForSeat(roomRef, preferredSeat, session)) {
