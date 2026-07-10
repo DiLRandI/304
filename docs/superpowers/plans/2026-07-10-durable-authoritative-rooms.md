@@ -180,13 +180,14 @@ git commit -m "feat: define durable room contracts"
 **Files:**
 
 - Create: `infra/postgres/migrations/0002_durable_rooms.sql`
+- Create: `apps/game-service/src/domain/errors.ts`
 - Create: `apps/game-service/src/domain/room-store.ts`
 - Create: `apps/game-service/test/room-store.integration.test.ts`
 - Modify: `apps/game-service/test/migrations.integration.test.ts`
 
 **Interfaces:**
 
-- Produces `PostgresRoomStore` with `createRoom`, `loadRoomForUpdate`, `loadSnapshot`, `loadEventsAfter`, `appendEventAndSnapshot`, and `findDuplicate`.
+- Produces `DomainError(code, statusCode, message)` and `PostgresRoomStore` with `transaction`, `createRoom`, `loadRoomForUpdate`, `loadSnapshot`, `loadSnapshotAt`, `loadEventsAfter`, `appendEventAndSnapshot`, `findDuplicate`, `requireHumanSeat`, and `markRecoveryFailed`.
 - Adds room settings, durable global/session create dedupe, and command actor ownership without changing the M1 migration.
 - `appendEventAndSnapshot` inserts exactly one event, one snapshot, and increments `rooms.event_version` in the caller's transaction.
 
@@ -246,6 +247,21 @@ CREATE INDEX IF NOT EXISTS game_events_room_actor_idx
   ON game_events(room_id, actor_player_id, event_version);
 ```
 
+Create `apps/game-service/src/domain/errors.ts` before the store:
+
+```ts
+export class DomainError extends Error {
+  constructor(
+    readonly code: string,
+    readonly statusCode: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "DomainError";
+  }
+}
+```
+
 Define the persistence boundary in `apps/game-service/src/domain/room-store.ts`:
 
 ```ts
@@ -284,7 +300,7 @@ export class PostgresRoomStore {
       "UPDATE rooms SET event_version = $2, status = $3, updated_at = now() WHERE id = $1 AND event_version = $4 RETURNING event_version",
       [input.roomId, nextVersion, input.status, input.expectedVersion],
     );
-    if (updated.rows.length !== 1) throw new RoomError("VERSION_CONFLICT", 409, "Room state changed");
+    if (updated.rows.length !== 1) throw new DomainError("VERSION_CONFLICT", 409, "Room state changed; refresh and retry");
     await transaction.query(
       "INSERT INTO game_events (room_id, event_version, command_id, actor_player_id, event_type, payload) VALUES ($1, $2, $3, $4, $5, $6::jsonb)",
       [input.roomId, nextVersion, input.commandId, input.actorPlayerId, input.eventType, JSON.stringify(input.payload)],
@@ -315,7 +331,7 @@ Expected: both migrations apply exactly once; a room event, snapshot, and dedupe
 - [ ] **Step 5: Commit the durable store**
 
 ```bash
-git add infra/postgres/migrations/0002_durable_rooms.sql apps/game-service/src/domain/room-store.ts apps/game-service/test/room-store.integration.test.ts apps/game-service/test/migrations.integration.test.ts
+git add infra/postgres/migrations/0002_durable_rooms.sql apps/game-service/src/domain/errors.ts apps/game-service/src/domain/room-store.ts apps/game-service/test/room-store.integration.test.ts apps/game-service/test/migrations.integration.test.ts
 git commit -m "feat: persist durable room events"
 ```
 
@@ -323,7 +339,6 @@ git commit -m "feat: persist durable room events"
 
 **Files:**
 
-- Create: `apps/game-service/src/domain/errors.ts`
 - Create: `apps/game-service/src/domain/session-service.ts`
 - Create: `apps/game-service/src/infra/redis-coordination.ts`
 - Create: `apps/game-service/test/session-service.test.ts`
@@ -331,7 +346,6 @@ git commit -m "feat: persist durable room events"
 
 **Interfaces:**
 
-- Produces `DomainError(code, statusCode, message)` with safe client messages.
 - Produces `SessionService.create`, `SessionService.require`, and `SessionService.setCookie`.
 - Produces `RoomLease.withLease`, `Presence.touch`, `Presence.onlinePlayerIds`, and `RateLimiter.consume`.
 
@@ -346,7 +360,7 @@ it("stores only a peppered session-secret digest and emits a secure production c
 });
 
 it("does not execute a room mutation when another owner holds its lease", async () => {
-  await lease.acquire("room-1", "other-owner");
+  await redis.set("g304:lease:room-1", "other-owner", { PX: 5_000 });
   await expect(lease.withLease("room-1", async () => "accepted")).rejects.toMatchObject({
     code: "ROOM_BUSY",
     statusCode: 503,
@@ -414,7 +428,7 @@ Expected: credential secrets are not persisted or logged, lease ownership is com
 - [ ] **Step 5: Commit identity and coordination**
 
 ```bash
-git add apps/game-service/src/domain/errors.ts apps/game-service/src/domain/session-service.ts apps/game-service/src/infra/redis-coordination.ts apps/game-service/test/session-service.test.ts apps/game-service/test/redis-coordination.test.ts
+git add apps/game-service/src/domain/session-service.ts apps/game-service/src/infra/redis-coordination.ts apps/game-service/test/session-service.test.ts apps/game-service/test/redis-coordination.test.ts
 git commit -m "feat: secure durable game sessions"
 ```
 
@@ -540,7 +554,16 @@ return this.lease.withLease(roomId, () =>
     if (room.eventVersion !== expectedVersion) {
       throw new DomainError("VERSION_CONFLICT", 409, "Room state changed; refresh and retry");
     }
-    // Validate actor seat from room_seats, apply the engine intent, then persist exactly once.
+    const seatIndex = await this.store.requireHumanSeat(transaction, room.id, actor.playerId);
+    const engine = await this.recoverLockedRoom(transaction, room);
+    const result = engine.applyAction({ ...command.action, seatIndex, actorSeatIndex: seatIndex });
+    if (!result.ok) throw new DomainError("ACTION_REJECTED", 409, result.reason ?? "Action was rejected");
+    const eventVersion = await this.store.appendEventAndSnapshot(transaction, {
+      roomId: room.id, expectedVersion, commandId, actorPlayerId: actor.playerId,
+      eventType: "GAME_ACTION", payload: { action: command.action }, snapshot: engine.getSnapshot(),
+      status: engine.state.phase === "hand_result" ? "hand_result" : "in_hand",
+    });
+    return projectRoomForPlayer({ room: { ...room, eventVersion }, engine, viewerSeatIndex: seatIndex, presence: "online" });
   }),
 );
 ```
@@ -672,7 +695,6 @@ git commit -m "feat: expose durable room HTTP API"
 
 **Files:**
 
-- Modify: `apps/game-service/Dockerfile`
 - Modify: `infra/compose/compose.yaml`
 - Modify: `.github/workflows/ci.yml`
 - Modify: `docs/operations/production-foundation.md`
@@ -750,7 +772,7 @@ Expected: all unit/contract tests pass; the isolated integration container creat
 - [ ] **Step 5: Commit the M2 verification gate**
 
 ```bash
-git add apps/game-service/Dockerfile infra/compose/compose.yaml .github/workflows/ci.yml docs/operations/production-foundation.md README.md test/production-foundation-ci.test.mjs
+git add infra/compose/compose.yaml .github/workflows/ci.yml docs/operations/production-foundation.md README.md test/production-foundation-ci.test.mjs
 git commit -m "test: gate durable room integration"
 ```
 
