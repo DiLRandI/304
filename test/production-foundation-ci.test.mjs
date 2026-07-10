@@ -24,10 +24,17 @@ test("production CI and runbook cover immutable install, verification, recovery,
   assert.match(workflow, /127\.0\.0\.1:4100\/readyz/);
   assert.match(
     workflow,
-    /compose\.yaml --profile integration run --rm integration/,
+    /compose\.yaml --profile integration build integration/,
   );
+  assert.match(
+    workflow,
+    /compose\.yaml --profile integration run --rm --no-deps integration/,
+  );
+  assert.match(workflow, /if: failure\(\)[\s\S]*compose\.yaml ps/);
   assert.match(compose, /integration:[\s\S]*target: test/);
   assert.match(compose, /integration:[\s\S]*profiles: \["integration"\]/);
+  assert.match(compose, /worker:[\s\S]*dist\/src\/worker\.js/);
+  assert.match(compose, /worker:[\s\S]*healthcheck/);
   assert.match(gameServiceDockerfile, /FROM build AS test/);
   assert.match(
     gameServiceDockerfile,
@@ -37,5 +44,9 @@ test("production CI and runbook cover immutable install, verification, recovery,
   assert.match(runbook, /pg_dump/);
   assert.match(runbook, /pg_restore/);
   assert.match(runbook, /\/readyz/);
+  assert.match(runbook, /WebSocket/);
+  assert.match(runbook, /automation worker/);
+  assert.match(runbook, /ROOM_RECOVERY_FAILED/);
+  assert.match(runbook, /duplicate socket snapshot/);
   assert.match(runbook, /Rollback/);
 });

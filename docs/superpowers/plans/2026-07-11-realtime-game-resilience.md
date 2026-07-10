@@ -631,7 +631,9 @@ Run: `INTEGRATION_DATABASE_URL=<postgres> INTEGRATION_REDIS_URL=<redis> pnpm --f
 
 Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up --build --wait`
 
-Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --build integration`
+Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration build integration`
+
+Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration`
 
 Expected: exactly one worker claims each job, automation emits a durable room version, and the production topology reports the worker healthy.
 
@@ -735,38 +737,40 @@ git commit -m "fix: cover realtime room resilience"
 - CI starts game-service, worker, PostgreSQL, Redis, and the integration profile.
 - The runbook gives exact commands for socket/worker diagnosis and safe shutdown.
 
-- [ ] **Step 1: Write the failing release-gate test**
+- [x] **Step 1: Write the failing release-gate test**
 
 ```js
 assert.match(compose, /worker:[\s\S]*dist\/src\/worker\.js/);
 assert.match(compose, /worker:[\s\S]*depends_on/);
-assert.match(workflow, /--profile integration run --rm integration/);
+assert.match(workflow, /--profile integration build integration/);
+assert.match(workflow, /--profile integration run --rm --no-deps integration/);
 assert.match(runbook, /WebSocket/);
 assert.match(runbook, /automation worker/);
 ```
 
-- [ ] **Step 2: Run the release-gate test and verify RED**
+- [x] **Step 2: Run the release-gate test and verify RED**
 
 Run: `node --test test/production-foundation-ci.test.mjs`
 
 Expected: FAIL until the worker service and M3 operational guidance exist.
 
-- [ ] **Step 3: Add CI/runbook evidence and failure diagnostics**
+- [x] **Step 3: Add CI/runbook evidence and failure diagnostics**
 
-Retain the M2 Compose integration command and make the integration service execute all service tests, including `realtime.test.ts`, `realtime-multiclient.integration.test.ts`, `room-automation.integration.test.ts`, `room-simulation.test.ts`, and `recovery-fuzz.integration.test.ts` when its PostgreSQL/Redis environment is present. In the failure branch of CI, preserve `docker compose logs --no-color` and add `docker compose ps` so a failed worker healthcheck is visible.
+Build the integration profile image separately, then run it with `--no-deps` against the already-healthy topology. This prevents Compose from recreating the completed migration service during the test run while ensuring the test image matches the checked-out source. The integration service executes all service tests, including `realtime.test.ts`, `realtime-multiclient.integration.test.ts`, `room-automation.integration.test.ts`, `room-simulation.test.ts`, and `recovery-fuzz.integration.test.ts` when its PostgreSQL/Redis environment is present. In the failure branch of CI, preserve `docker compose logs --no-color` and add `docker compose ps` so a failed worker healthcheck is visible.
 
 Document these operator commands exactly:
 
 ```bash
 docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up --build --wait
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm integration
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration build integration
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
 docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml logs --no-color game-service worker
 docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes --remove-orphans
 ```
 
 Explain that a duplicate socket snapshot is safe, a stale job is completed without a state change, and `ROOM_RECOVERY_FAILED` is an availability incident requiring operator investigation rather than manual event editing.
 
-- [ ] **Step 4: Verify the complete M3 gate**
+- [x] **Step 4: Verify the complete M3 gate**
 
 Run: `pnpm check`
 
@@ -778,13 +782,15 @@ Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml
 
 Run: `curl --fail --silent --show-error http://127.0.0.1:4100/readyz`
 
-Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm integration`
+Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration build integration`
+
+Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration`
 
 Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes --remove-orphans`
 
 Expected: the complete service/worker topology is healthy, all dual-profile/realtime/worker tests pass on real PostgreSQL and Redis, CI YAML lint is clean, and teardown removes every Compose container and volume.
 
-- [ ] **Step 5: Commit the M3 release gate**
+- [x] **Step 5: Commit the M3 release gate**
 
 ```bash
 git add infra/compose/compose.yaml .github/workflows/ci.yml test/production-foundation-ci.test.mjs docs/operations/production-foundation.md README.md
@@ -793,10 +799,10 @@ git commit -m "test: gate realtime game resilience"
 
 ## M3 completion checklist
 
-- [ ] Both Classic and six-seat rooms persist/recover through the same authoritative API and snapshot path.
-- [ ] Every committed room version creates a durable outbox notice and every live socket receives only a current private projection.
-- [ ] Socket reconnect, duplicate delivery, explicit resync, malformed frames, cookie auth, origin checks, and close cleanup have direct tests.
-- [ ] Bot, timeout, and disconnected-human autopilot actions are version-bound PostgreSQL jobs that can be retried without duplicate game actions.
-- [ ] The worker is independently deployable, observable, gracefully stoppable, and verified with competing-worker tests.
-- [ ] Classic and six-seat simulations complete legal hands; recovery fuzz tests prove exact replay or safe unavailability.
-- [ ] CI exercises the actual worker and real PostgreSQL/Redis Compose topology.
+- [x] Both Classic and six-seat rooms persist/recover through the same authoritative API and snapshot path.
+- [x] Every committed room version creates a durable outbox notice and every live socket receives only a current private projection.
+- [x] Socket reconnect, duplicate delivery, explicit resync, malformed frames, cookie auth, origin checks, and close cleanup have direct tests.
+- [x] Bot, timeout, and disconnected-human autopilot actions are version-bound PostgreSQL jobs that can be retried without duplicate game actions.
+- [x] The worker is independently deployable, observable, gracefully stoppable, and verified with competing-worker tests.
+- [x] Classic and six-seat simulations complete legal hands; recovery fuzz tests prove exact replay or safe unavailability.
+- [x] CI exercises the actual worker and real PostgreSQL/Redis Compose topology.
