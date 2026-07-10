@@ -35,6 +35,7 @@ apps/game-service/src/domain/room-store.ts             Outbox, job, seat-presenc
 apps/game-service/src/domain/room-coordinator.ts       Profile-neutral commands and system automation path
 apps/game-service/src/domain/room-projector.ts         Safe seat state and six-seat projections
 apps/game-service/src/infra/redis-coordination.ts      Presence removal and room-change Pub/Sub bus
+apps/game-service/src/realtime/room-change-bus.ts      Redis Pub/Sub room-change transport
 apps/game-service/src/realtime/outbox-publisher.ts     At-least-once PostgreSQL outbox publisher
 apps/game-service/src/realtime/room-socket-hub.ts      Per-process authenticated private socket fanout
 apps/game-service/src/routes/realtime.ts               Cookie/origin-protected WebSocket route
@@ -417,11 +418,13 @@ git commit -m "feat: automate durable room turns"
 - Create: `apps/game-service/src/realtime/room-socket-hub.ts`
 - Create: `apps/game-service/src/routes/realtime.ts`
 - Modify: `apps/game-service/src/infra/redis-coordination.ts`
+- Create: `apps/game-service/src/realtime/room-change-bus.ts`
 - Modify: `apps/game-service/src/app.ts`
 - Modify: `apps/game-service/src/server.ts`
 - Modify: `apps/game-service/package.json`
 - Create: `apps/game-service/test/realtime.test.ts`
 - Create: `apps/game-service/test/realtime-multiclient.integration.test.ts`
+- Create: `apps/game-service/vitest.config.ts`
 
 **Interfaces:**
 
@@ -429,7 +432,7 @@ git commit -m "feat: automate durable room turns"
 - Sends a `RealtimeServerMessageSchema` `SNAPSHOT` only after server-side session, seat, and projection checks.
 - Delivers at-least-once notices; the browser can ignore snapshots whose `eventVersion` is not newer.
 
-- [ ] **Step 1: Write failing real-time tests**
+- [x] **Step 1: Write failing real-time tests**
 
 ```ts
 it("authenticates a room socket, sends a private snapshot, and never leaks the host hand", async () => {
@@ -459,13 +462,13 @@ it("delivers one post-command private update to two independent clients and resy
 });
 ```
 
-- [ ] **Step 2: Run the realtime tests and verify RED**
+- [x] **Step 2: Run the realtime tests and verify RED**
 
 Run: `pnpm --filter @three-zero-four/game-service test -- realtime.test.ts realtime-multiclient.integration.test.ts`
 
 Expected: FAIL because WebSocket plugin registration, Pub/Sub, outbox delivery, and socket routes do not exist.
 
-- [ ] **Step 3: Implement the bus, at-least-once publisher, and socket hub**
+- [x] **Step 3: Implement the bus, at-least-once publisher, and socket hub**
 
 Add `@types/ws` as a direct game-service dev dependency because the plugin's public TypeScript API imports it. Define the minimal durable notice:
 
@@ -506,13 +509,13 @@ Register `@fastify/websocket` before HTTP routes with `{ options: { maxPayload: 
 
 Start the bus, hub subscription, and outbox publisher in `server.ts`; stop them before Redis/database shutdown. Add a Fastify `onClose` hook in `buildApp` so test apps close the realtime components cleanly.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/game-service test -- realtime.test.ts realtime-multiclient.integration.test.ts`
 
 Expected: valid cookies/origins receive current private snapshots, cross-seat cards never appear, malformed frames close safely, and duplicated notices do not cause stale views.
 
-- [ ] **Step 5: Commit realtime delivery**
+- [x] **Step 5: Commit realtime delivery**
 
 ```bash
 git add apps/game-service/src/realtime apps/game-service/src/routes/realtime.ts apps/game-service/src/infra/redis-coordination.ts apps/game-service/src/app.ts apps/game-service/src/server.ts apps/game-service/package.json pnpm-lock.yaml apps/game-service/test/realtime.test.ts apps/game-service/test/realtime-multiclient.integration.test.ts

@@ -34,6 +34,7 @@ interface RealtimeStore {
   claimRoomNotifications(
     owner: string,
     limit: number,
+    roomId?: string,
   ): Promise<PendingRoomNotification[]>;
   markRoomNotificationPublished(id: number, owner: string): Promise<void>;
   releaseRoomNotification(
@@ -56,6 +57,7 @@ interface RealtimeStore {
     owner: string,
     now: Date,
     limit: number,
+    roomId?: string,
   ): Promise<ClaimedAutomationJob[]>;
   completeAutomationJob(id: string, owner: string): Promise<void>;
   markSeatOnline(
@@ -134,15 +136,16 @@ describeIntegration("realtime room store", () => {
     const notifications = await realtimeStore().claimRoomNotifications(
       firstOwner,
       1_000,
+      roomId,
     );
     const notification = notifications.find(
       (candidate) => candidate.roomId === roomId,
     );
     expect(notification).toMatchObject({ roomId, eventVersion: 1 });
     expect(
-      (await realtimeStore().claimRoomNotifications(secondOwner, 1_000)).some(
-        (candidate) => candidate.roomId === roomId,
-      ),
+      (
+        await realtimeStore().claimRoomNotifications(secondOwner, 1_000, roomId)
+      ).some((candidate) => candidate.roomId === roomId),
     ).toBe(false);
 
     await realtimeStore().releaseRoomNotification(
@@ -153,6 +156,7 @@ describeIntegration("realtime room store", () => {
     const retriedNotifications = await realtimeStore().claimRoomNotifications(
       secondOwner,
       1_000,
+      roomId,
     );
     const retried = retriedNotifications.find(
       (candidate) => candidate.roomId === roomId,
@@ -163,9 +167,13 @@ describeIntegration("realtime room store", () => {
       secondOwner,
     );
     expect(
-      (await realtimeStore().claimRoomNotifications(randomUUID(), 1_000)).some(
-        (candidate) => candidate.roomId === roomId,
-      ),
+      (
+        await realtimeStore().claimRoomNotifications(
+          randomUUID(),
+          1_000,
+          roomId,
+        )
+      ).some((candidate) => candidate.roomId === roomId),
     ).toBe(false);
   });
 
@@ -193,6 +201,7 @@ describeIntegration("realtime room store", () => {
       firstOwner,
       new Date(),
       1_000,
+      roomId,
     );
     const claimed = claimedJobs.find((candidate) => candidate.id === jobId);
     expect(claimed).toMatchObject({
@@ -208,6 +217,7 @@ describeIntegration("realtime room store", () => {
           randomUUID(),
           new Date(),
           1_000,
+          roomId,
         )
       ).some((candidate) => candidate.id === jobId),
     ).toBe(false);
@@ -218,6 +228,7 @@ describeIntegration("realtime room store", () => {
           randomUUID(),
           new Date(),
           1_000,
+          roomId,
         )
       ).some((candidate) => candidate.id === jobId),
     ).toBe(false);

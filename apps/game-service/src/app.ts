@@ -1,11 +1,14 @@
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
+import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance, LogController } from "fastify";
 import { ZodError } from "zod";
 import type { ServiceConfig } from "./config.js";
 import { DomainError } from "./domain/errors.js";
 import { createMetrics } from "./metrics.js";
+import type { RoomSocketHub } from "./realtime/room-socket-hub.js";
+import { registerRealtimeRoutes } from "./routes/realtime.js";
 import { type GameRuntime, registerV1Routes } from "./routes/v1.js";
 
 export { loadConfig } from "./config.js";
@@ -15,14 +18,21 @@ export interface ReadinessChecks {
   redis(): Promise<boolean>;
 }
 
+export interface RealtimeRuntime {
+  hub: RoomSocketHub;
+  stop(): Promise<void>;
+}
+
 export async function buildApp({
   config,
   readiness,
   game,
+  realtime,
 }: {
   config: ServiceConfig;
   readiness: ReadinessChecks;
   game?: GameRuntime;
+  realtime?: RealtimeRuntime;
 }): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -77,6 +87,13 @@ export async function buildApp({
         );
       }
     });
+    if (realtime) {
+      await app.register(websocket, {
+        options: { maxPayload: config.WS_MAX_PAYLOAD_BYTES },
+      });
+      await registerRealtimeRoutes(app, config, game, realtime.hub);
+      app.addHook("onClose", async () => realtime.stop());
+    }
     await registerV1Routes(app, config, game);
   }
 

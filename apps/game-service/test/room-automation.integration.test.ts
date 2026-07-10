@@ -265,10 +265,17 @@ describeIntegration("durable room automation", () => {
       [created.roomId],
     );
     const owner = randomUUID();
-    const [timeoutJob] = await store.claimDueAutomationJobs(
-      owner,
-      new Date(),
-      1,
+    const timeoutJob = (
+      await store.claimDueAutomationJobs(
+        owner,
+        new Date(),
+        1_000,
+        created.roomId,
+      )
+    ).find(
+      (candidate) =>
+        candidate.roomId === created.roomId &&
+        candidate.kind === "TURN_TIMEOUT",
     );
     expect(timeoutJob).toMatchObject({
       roomId: created.roomId,
@@ -293,6 +300,7 @@ describeIntegration("durable room automation", () => {
       botOwner,
       new Date(),
       1_000,
+      created.roomId,
     );
     const botJob = botJobs.find(
       (candidate) =>
@@ -346,6 +354,7 @@ describeIntegration("durable room automation", () => {
       owner,
       new Date(),
       1_000,
+      created.roomId,
     );
     const timeoutJob = timeoutJobs.find(
       (candidate) =>
@@ -391,7 +400,12 @@ describeIntegration("durable room automation", () => {
     );
     const timeoutOwner = randomUUID();
     const timeoutJob = (
-      await store.claimDueAutomationJobs(timeoutOwner, new Date(), 1_000)
+      await store.claimDueAutomationJobs(
+        timeoutOwner,
+        new Date(),
+        1_000,
+        created.roomId,
+      )
     ).find(
       (candidate) =>
         candidate.roomId === created.roomId &&
@@ -407,7 +421,12 @@ describeIntegration("durable room automation", () => {
     );
     const botOwner = randomUUID();
     const botJob = (
-      await store.claimDueAutomationJobs(botOwner, new Date(), 1_000)
+      await store.claimDueAutomationJobs(
+        botOwner,
+        new Date(),
+        1_000,
+        created.roomId,
+      )
     ).find(
       (candidate) =>
         candidate.roomId === created.roomId && candidate.kind === "BOT_ACTION",
@@ -481,7 +500,12 @@ describeIntegration("durable room automation", () => {
     );
     const timeoutOwner = randomUUID();
     const timeoutJob = (
-      await store.claimDueAutomationJobs(timeoutOwner, new Date(), 1_000)
+      await store.claimDueAutomationJobs(
+        timeoutOwner,
+        new Date(),
+        1_000,
+        created.roomId,
+      )
     ).find(
       (candidate) =>
         candidate.roomId === created.roomId &&
@@ -497,7 +521,12 @@ describeIntegration("durable room automation", () => {
     );
     const botOwner = randomUUID();
     const botJob = (
-      await store.claimDueAutomationJobs(botOwner, new Date(), 1_000)
+      await store.claimDueAutomationJobs(
+        botOwner,
+        new Date(),
+        1_000,
+        created.roomId,
+      )
     ).find(
       (candidate) =>
         candidate.roomId === created.roomId && candidate.kind === "BOT_ACTION",
@@ -615,7 +644,12 @@ describeIntegration("durable room automation", () => {
     );
     const timeoutOwner = randomUUID();
     const timeoutJob = (
-      await store.claimDueAutomationJobs(timeoutOwner, new Date(), 1_000)
+      await store.claimDueAutomationJobs(
+        timeoutOwner,
+        new Date(),
+        1_000,
+        created.roomId,
+      )
     ).find(
       (candidate) =>
         candidate.roomId === created.roomId &&
@@ -631,7 +665,12 @@ describeIntegration("durable room automation", () => {
     );
     const botOwner = randomUUID();
     const botJob = (
-      await store.claimDueAutomationJobs(botOwner, new Date(), 1_000)
+      await store.claimDueAutomationJobs(
+        botOwner,
+        new Date(),
+        1_000,
+        created.roomId,
+      )
     ).find(
       (candidate) =>
         candidate.roomId === created.roomId && candidate.kind === "BOT_ACTION",
@@ -698,7 +737,12 @@ describeIntegration("durable room automation", () => {
     );
     const owner = randomUUID();
     const graceJob = (
-      await store.claimDueAutomationJobs(owner, new Date(), 1_000)
+      await store.claimDueAutomationJobs(
+        owner,
+        new Date(),
+        1_000,
+        created.roomId,
+      )
     ).find(
       (candidate) =>
         candidate.roomId === created.roomId &&

@@ -73,7 +73,11 @@ async function buildRealApp(): Promise<TestRuntime> {
   const app = await buildApp({
     config,
     readiness: { database: () => database.health(), redis: async () => true },
-    game: { coordinator, sessions, rateLimiter: new RateLimiter(redis) },
+    game: {
+      coordinator,
+      sessions,
+      rateLimiter: new RateLimiter(redis, `g304:test:${randomUUID()}`),
+    },
   });
   return { app, database, redis };
 }

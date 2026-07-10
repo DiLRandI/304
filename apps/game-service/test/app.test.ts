@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildApp, loadConfig } from "../src/app.js";
+import type { RoomSocketHub } from "../src/realtime/room-socket-hub.js";
+import type { GameRuntime } from "../src/routes/v1.js";
 
 const baseConfig = {
   NODE_ENV: "test",
@@ -73,6 +75,20 @@ describe("game service bootstrap", () => {
     expect(
       warnings.map((warning) => (warning as Error & { code?: string }).code),
     ).not.toContain("FSTDEP023");
+  });
+
+  it("stops injected realtime resources when the app closes", async () => {
+    const stop = vi.fn().mockResolvedValue(undefined);
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+      game: {} as GameRuntime,
+      realtime: { hub: {} as RoomSocketHub, stop },
+    });
+
+    await app.close();
+
+    expect(stop).toHaveBeenCalledOnce();
   });
 });
 

@@ -75,7 +75,10 @@ export class Presence {
 }
 
 export class RateLimiter {
-  constructor(private readonly redis: RedisClientType) {}
+  constructor(
+    private readonly redis: RedisClientType,
+    private readonly keyPrefix = "g304",
+  ) {}
 
   async consume(
     scope: string,
@@ -83,7 +86,7 @@ export class RateLimiter {
     limit: number,
     windowSeconds: number,
   ): Promise<void> {
-    const key = `g304:rate:${redisKeyPart(scope)}:${redisKeyPart(subject)}`;
+    const key = `${this.keyPrefix}:rate:${redisKeyPart(scope)}:${redisKeyPart(subject)}`;
     const count = Number(
       await this.redis.eval(FIXED_WINDOW_INCREMENT_SCRIPT, {
         keys: [key],

@@ -706,10 +706,11 @@ export class PostgresRoomStore {
   async claimRoomNotifications(
     owner: string,
     limit: number,
+    roomId?: string,
   ): Promise<PendingRoomNotification[]> {
     const claimed = await this.database.query<OutboxRow>(
-      "WITH candidates AS (SELECT id FROM room_outbox WHERE published_at IS NULL AND (publishing_until IS NULL OR publishing_until <= now()) ORDER BY id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE room_outbox AS outbox SET publishing_owner = $1::uuid, publishing_until = now() + interval '30 seconds', publish_attempts = publish_attempts + 1, last_error = NULL FROM candidates WHERE outbox.id = candidates.id RETURNING outbox.id, outbox.room_id, outbox.event_version",
-      [owner, limit],
+      "WITH candidates AS (SELECT id FROM room_outbox WHERE published_at IS NULL AND (publishing_until IS NULL OR publishing_until <= now()) AND ($3::uuid IS NULL OR room_id = $3::uuid) ORDER BY id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE room_outbox AS outbox SET publishing_owner = $1::uuid, publishing_until = now() + interval '30 seconds', publish_attempts = publish_attempts + 1, last_error = NULL FROM candidates WHERE outbox.id = candidates.id RETURNING outbox.id, outbox.room_id, outbox.event_version",
+      [owner, limit, roomId ?? null],
     );
     return claimed.rows.map(mapRoomNotification);
   }
@@ -762,10 +763,11 @@ export class PostgresRoomStore {
     owner: string,
     now: Date,
     limit: number,
+    roomId?: string,
   ): Promise<ClaimedAutomationJob[]> {
     const claimed = await this.database.query<AutomationJobRow>(
-      "WITH candidates AS (SELECT id FROM room_automation_jobs WHERE due_at <= $2 AND (state = 'pending' OR (state = 'claimed' AND lease_until <= $2)) ORDER BY due_at, id FOR UPDATE SKIP LOCKED LIMIT $3) UPDATE room_automation_jobs AS job SET state = 'claimed', lease_owner = $1::uuid, lease_until = $2 + interval '30 seconds', attempts = attempts + 1, last_error = NULL FROM candidates WHERE job.id = candidates.id RETURNING job.id, job.room_id, job.expected_event_version, job.kind, job.target_seat_index, job.due_at, job.attempts",
-      [owner, now, limit],
+      "WITH candidates AS (SELECT id FROM room_automation_jobs WHERE due_at <= $2 AND (state = 'pending' OR (state = 'claimed' AND lease_until <= $2)) AND ($4::uuid IS NULL OR room_id = $4::uuid) ORDER BY due_at, id FOR UPDATE SKIP LOCKED LIMIT $3) UPDATE room_automation_jobs AS job SET state = 'claimed', lease_owner = $1::uuid, lease_until = $2 + interval '30 seconds', attempts = attempts + 1, last_error = NULL FROM candidates WHERE job.id = candidates.id RETURNING job.id, job.room_id, job.expected_event_version, job.kind, job.target_seat_index, job.due_at, job.attempts",
+      [owner, now, limit, roomId ?? null],
     );
     return claimed.rows.map(mapAutomationJob);
   }
