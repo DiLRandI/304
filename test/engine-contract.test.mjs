@@ -99,6 +99,47 @@ test("a complete classic hand resolves eight tricks and all 304 card points", ()
   );
 });
 
+test("a complete six-seat hand resolves six tricks and all 304 card points", () => {
+  const engine = new GameEngine({ humanCount: 6, ruleProfile: "six_304_36" });
+  engine.startMatch();
+
+  let actionsApplied = 0;
+  while (engine.state.phase !== "hand_result" && actionsApplied < 100) {
+    const seatIndex = engine.state.activeSeat;
+    const legalActions = engine.getLegalActions(seatIndex);
+    let action;
+
+    if (engine.state.phase === "four_bidding") {
+      action =
+        engine.state.bidding.currentBid === 0
+          ? legalActions.find((candidate) => candidate.type === "BID" && candidate.amount === 160)
+          : legalActions.find((candidate) => candidate.type === "PASS_BID");
+    } else if (engine.state.phase === "second_bidding") {
+      action = legalActions.find((candidate) => candidate.type === "PASS_BID");
+    } else if (engine.state.phase === "trump_selection") {
+      action = legalActions.find((candidate) => candidate.type === "SELECT_TRUMP");
+    } else if (engine.state.phase === "trump_choice") {
+      action = legalActions.find((candidate) => candidate.type === "TRUMP_OPEN");
+    } else if (engine.state.phase === "trick_play") {
+      action = legalActions.find((candidate) => candidate.type === "PLAY_CARD");
+    }
+
+    assert.ok(action, `expected a legal action during ${engine.state.phase}`);
+    assert.equal(
+      engine.applyAction({ ...action, actorSeatIndex: seatIndex }).ok,
+      true,
+    );
+    actionsApplied += 1;
+  }
+
+  assert.equal(engine.state.phase, "hand_result");
+  assert.equal(engine.state.completedTricks.length, 6);
+  assert.equal(
+    engine.state.seats.reduce((total, seat) => total + seat.trickPoints, 0),
+    304,
+  );
+});
+
 test("a viewer receives only their own card identities", () => {
   const engine = new GameEngine({ humanCount: 4, ruleProfile: "classic_304_4p" });
   engine.startMatch();
