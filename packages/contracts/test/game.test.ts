@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { GameCommandSchema, VersionedPrivateViewSchema } from "../src/index.js";
+import {
+  CreateRoomRequestSchema,
+  GameCommandSchema,
+  JoinRoomRequestSchema,
+  RoomProjectionSchema,
+  VersionedPrivateViewSchema,
+} from "../src/index.js";
 
 describe("GameCommandSchema", () => {
   it("accepts a versioned card-play command", () => {
@@ -39,6 +45,27 @@ describe("VersionedPrivateViewSchema", () => {
         eventVersion: -1,
         view: {},
       }),
+    ).toThrow();
+  });
+});
+
+describe("durable room request contracts", () => {
+  it("accepts only a versioned Classic-room mutation surface", () => {
+    expect(
+      CreateRoomRequestSchema.parse({
+        commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+        ruleProfileId: "classic_304_4p",
+      }),
+    ).toMatchObject({ ruleProfileId: "classic_304_4p" });
+    expect(() =>
+      JoinRoomRequestSchema.parse({
+        commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+        expectedVersion: 1,
+        actorSeatIndex: 0,
+      }),
+    ).toThrow();
+    expect(() =>
+      RoomProjectionSchema.parse({ roomId: "bad", eventVersion: -1 }),
     ).toThrow();
   });
 });

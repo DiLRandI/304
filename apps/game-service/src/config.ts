@@ -10,6 +10,15 @@ const EnvironmentSchema = z.object({
   REDIS_URL: z.string().url(),
   CORS_ORIGINS: z.string().min(1),
   SESSION_COOKIE_NAME: z.string().regex(/^[a-z][a-z0-9_]{2,63}$/),
+  SESSION_SECRET_PEPPER: z.string().min(32),
+  SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  ROOM_LEASE_TTL_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(30_000)
+    .default(5_000),
+  PRESENCE_TTL_SECONDS: z.coerce.number().int().min(15).max(300).default(75),
 });
 
 export type ServiceConfig = z.infer<typeof EnvironmentSchema> & {

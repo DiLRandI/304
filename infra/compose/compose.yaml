@@ -51,6 +51,7 @@ services:
       REDIS_URL: ${REDIS_URL}
       CORS_ORIGINS: http://127.0.0.1:3000
       SESSION_COOKIE_NAME: g304_session
+      SESSION_SECRET_PEPPER: ${SESSION_SECRET_PEPPER}
     ports:
       - "127.0.0.1:4100:4100"
     healthcheck:

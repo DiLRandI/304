@@ -62,7 +62,7 @@ docs/operations/production-foundation.md        Documents the M2 endpoint and in
 - Produces `ServiceConfig.SESSION_SECRET_PEPPER`, `SESSION_TTL_DAYS`, `ROOM_LEASE_TTL_MS`, and `PRESENCE_TTL_SECONDS`.
 - All durable room routes consume an allowed `Origin` and a `commandId` UUID.
 
-- [ ] **Step 1: Write the failing contract and configuration tests**
+- [x] **Step 1: Write the failing contract and configuration tests**
 
 ```ts
 // packages/contracts/test/game.test.ts
@@ -102,7 +102,7 @@ expect(() =>
 ).toThrow("Invalid service configuration: SESSION_SECRET_PEPPER");
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run: `pnpm --filter @three-zero-four/contracts test`
 
@@ -112,7 +112,7 @@ Run: `pnpm --filter @three-zero-four/game-service test -- app.test.ts`
 
 Expected: FAIL because session and coordination config is not validated.
 
-- [ ] **Step 3: Add schemas and config with no client-supplied actor identity**
+- [x] **Step 3: Add schemas and config with no client-supplied actor identity**
 
 Add these contract definitions to `packages/contracts/src/game.ts` and re-export them from `src/index.ts`:
 
@@ -160,7 +160,7 @@ PRESENCE_TTL_SECONDS: z.coerce.number().int().min(15).max(300).default(75),
 
 Set a clearly development-only 32+ character `SESSION_SECRET_PEPPER` in the Compose example and pass it into `game-service`. Production deployment must replace it through its secret manager.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/contracts test`
 
@@ -168,7 +168,7 @@ Run: `pnpm --filter @three-zero-four/game-service test -- app.test.ts`
 
 Expected: schemas reject an actor-seat field, all required M2 secrets/config validate, and the existing service tests still pass.
 
-- [ ] **Step 5: Commit the contracts and config**
+- [x] **Step 5: Commit the contracts and config**
 
 ```bash
 git add packages/contracts apps/game-service/src/config.ts apps/game-service/test/app.test.ts infra/compose/.env.example infra/compose/compose.yaml

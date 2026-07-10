@@ -1,8 +1,18 @@
 export {
+  type CreateRoomRequest,
+  CreateRoomRequestSchema,
   type GameAction,
   GameActionSchema,
   type GameCommand,
   GameCommandSchema,
+  type GuestSessionRequest,
+  GuestSessionRequestSchema,
+  type JoinRoomRequest,
+  JoinRoomRequestSchema,
+  type RoomProjection,
+  RoomProjectionSchema,
+  type StartRoomRequest,
+  StartRoomRequestSchema,
   type VersionedPrivateView,
   VersionedPrivateViewSchema,
 } from "./game.js";

@@ -2,6 +2,8 @@ import { z } from "zod";
 
 const Uuid = z.string().uuid();
 const EventVersion = z.number().int().nonnegative();
+const DisplayName = z.string().trim().min(1).max(48);
+const InviteCode = z.string().regex(/^304-[A-Za-z0-9_-]{12,32}$/);
 
 export const GameActionSchema = z.discriminatedUnion("type", [
   z.object({
@@ -41,6 +43,39 @@ export const VersionedPrivateViewSchema = z
   })
   .strict();
 
+export const GuestSessionRequestSchema = z
+  .object({ displayName: DisplayName })
+  .strict();
+
+export const CreateRoomRequestSchema = z
+  .object({
+    commandId: Uuid,
+    ruleProfileId: z.literal("classic_304_4p").default("classic_304_4p"),
+  })
+  .strict();
+
+export const JoinRoomRequestSchema = z
+  .object({ commandId: Uuid, expectedVersion: EventVersion })
+  .strict();
+
+export const StartRoomRequestSchema = JoinRoomRequestSchema;
+
+export const RoomProjectionSchema = z
+  .object({
+    roomId: Uuid,
+    inviteCode: InviteCode,
+    eventVersion: EventVersion,
+    status: z.enum(["lobby", "in_hand", "hand_result"]),
+    viewerSeatIndex: z.number().int().min(0).max(3).nullable(),
+    view: z.record(z.string(), z.unknown()),
+  })
+  .strict();
+
+export type CreateRoomRequest = z.infer<typeof CreateRoomRequestSchema>;
 export type GameAction = z.infer<typeof GameActionSchema>;
 export type GameCommand = z.infer<typeof GameCommandSchema>;
+export type GuestSessionRequest = z.infer<typeof GuestSessionRequestSchema>;
+export type JoinRoomRequest = z.infer<typeof JoinRoomRequestSchema>;
+export type RoomProjection = z.infer<typeof RoomProjectionSchema>;
+export type StartRoomRequest = z.infer<typeof StartRoomRequestSchema>;
 export type VersionedPrivateView = z.infer<typeof VersionedPrivateViewSchema>;

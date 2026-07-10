@@ -8,6 +8,7 @@ const config = loadConfig({
   REDIS_URL: "redis://127.0.0.1:6379",
   CORS_ORIGINS: "http://127.0.0.1:3000",
   SESSION_COOKIE_NAME: "g304_session",
+  SESSION_SECRET_PEPPER: "test-only-session-pepper-must-be-32-chars",
 });
 
 describe("game service configuration", () => {
@@ -20,8 +21,23 @@ describe("game service configuration", () => {
         REDIS_URL: "redis://127.0.0.1:6379",
         CORS_ORIGINS: "http://127.0.0.1:3000/not-an-origin",
         SESSION_COOKIE_NAME: "g304_session",
+        SESSION_SECRET_PEPPER: "test-only-session-pepper-must-be-32-chars",
       }),
     ).toThrow("Invalid CORS origin");
+  });
+
+  it("requires a sufficiently long session secret pepper", () => {
+    expect(() =>
+      loadConfig({
+        NODE_ENV: "test",
+        PORT: "4100",
+        DATABASE_URL: "postgres://game:game@127.0.0.1:5432/game",
+        REDIS_URL: "redis://127.0.0.1:6379",
+        CORS_ORIGINS: "http://127.0.0.1:3000",
+        SESSION_COOKIE_NAME: "g304_session",
+        SESSION_SECRET_PEPPER: "short",
+      }),
+    ).toThrow("Invalid service configuration: SESSION_SECRET_PEPPER");
   });
 });
 
