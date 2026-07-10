@@ -15,7 +15,7 @@ test("declares the pinned production workspace toolchain", () => {
   assert.equal(read(".node-version").trim(), "24.17.0");
   assert.equal(packageJson.engines.node, "24.17.0");
   assert.match(packageJson.packageManager, /^pnpm@11\.10\.0/);
-  assert.equal(packageJson.scripts.test, "node --test");
+  assert.equal(packageJson.scripts.test, "node --test test/*.test.mjs");
   assert.equal(
     packageJson.scripts.check,
     "pnpm lint && pnpm typecheck && pnpm test:unit",

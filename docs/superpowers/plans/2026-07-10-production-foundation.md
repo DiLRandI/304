@@ -77,7 +77,7 @@ test("declares the pinned production workspace toolchain", () => {
   assert.equal(read(".node-version").trim(), "24.17.0");
   assert.equal(packageJson.engines.node, "24.17.0");
   assert.match(packageJson.packageManager, /^pnpm@11\.10\.0/);
-  assert.equal(packageJson.scripts.test, "node --test");
+  assert.equal(packageJson.scripts.test, "node --test test/*.test.mjs");
   assert.equal(packageJson.scripts.check, "pnpm lint && pnpm typecheck && pnpm test:unit");
   assert.match(workspace, /packages:\n\s+- apps\/\*/);
   assert.match(workspace, /\s+- packages\/\*/);
@@ -119,8 +119,8 @@ Replace the root package manifest with this shape, retaining every legacy start 
     "serve": "node server.js",
     "dev": "NODE_ENV=development PORT=4173 node server.js",
     "health": "node -e \"const http=require('node:http');const port=process.env.PORT||4173;http.get(`http://localhost:${port}/health`,res=>{console.log(res.statusCode);process.exit(res.statusCode===200?0:1)}).on('error',()=>process.exit(1))\"",
-    "test": "node --test",
-    "test:legacy": "node --test",
+    "test": "node --test test/*.test.mjs",
+    "test:legacy": "node --test test/*.test.mjs",
     "test:unit": "pnpm test && pnpm --filter @three-zero-four/game-engine test && pnpm --filter @three-zero-four/contracts test && pnpm --filter @three-zero-four/game-service test && pnpm --filter @three-zero-four/web test",
     "typecheck": "pnpm --filter @three-zero-four/game-engine typecheck && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
     "lint": "biome check .",
@@ -378,7 +378,7 @@ git commit -m "refactor: extract shared game engine package"
 - `GameCommand` is `{ commandId, roomId, expectedVersion, action }`; the service adds the authenticated actor seat and never accepts it from the browser.
 - A versioned update is `{ roomId, eventVersion, view }`, where `view` remains an explicitly private projection owned by the game service.
 
-- [ ] **Step 1: Write failing schema tests**
+- [x] **Step 1: Write failing schema tests**
 
 ```ts
 // packages/contracts/test/game.test.ts
@@ -417,13 +417,13 @@ describe("VersionedPrivateViewSchema", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run: `pnpm --filter @three-zero-four/contracts test`
 
 Expected: FAIL because the workspace package and schemas do not exist.
 
-- [ ] **Step 3: Implement the contracts package**
+- [x] **Step 3: Implement the contracts package**
 
 Create `packages/contracts/package.json`:
 
@@ -509,7 +509,7 @@ export {
 
 Add `"@three-zero-four/contracts": "workspace:*"` to the root `devDependencies` so the root workspace can resolve and build it.
 
-- [ ] **Step 4: Verify schema behavior and types GREEN**
+- [x] **Step 4: Verify schema behavior and types GREEN**
 
 Run: `pnpm --filter @three-zero-four/contracts test`
 
@@ -517,7 +517,7 @@ Run: `pnpm --filter @three-zero-four/contracts typecheck`
 
 Expected: both commands exit zero; malformed commands are rejected before any game logic runs.
 
-- [ ] **Step 5: Commit the versioned contracts**
+- [x] **Step 5: Commit the versioned contracts**
 
 ```bash
 git add package.json packages/contracts pnpm-lock.yaml

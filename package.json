@@ -7,8 +7,8 @@
     "node": "24.17.0"
   },
   "scripts": {
-    "test": "node --test",
-    "test:legacy": "node --test",
+    "test": "node --test test/*.test.mjs",
+    "test:legacy": "node --test test/*.test.mjs",
     "test:unit": "pnpm test && pnpm --filter @three-zero-four/game-engine test && pnpm --filter @three-zero-four/contracts test && pnpm --filter @three-zero-four/game-service test && pnpm --filter @three-zero-four/web test",
     "typecheck": "pnpm --filter @three-zero-four/game-engine typecheck && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
     "lint": "biome check .",
@@ -28,6 +28,7 @@
     "security:check:all": "pnpm install --frozen-lockfile && pnpm audit --audit-level=high && pnpm audit signatures"
   },
   "devDependencies": {
+    "@three-zero-four/contracts": "workspace:*",
     "@biomejs/biome": "2.5.3",
     "@types/node": "^24.0.0",
     "tsx": "4.23.0",
