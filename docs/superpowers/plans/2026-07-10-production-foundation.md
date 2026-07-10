@@ -779,7 +779,7 @@ git commit -m "feat: add observable game service shell"
 - Produces `createRedis(url): RedisClientType` and `createReadiness(database, redis)`.
 - Migration runner reads ordered `infra/postgres/migrations/*.sql`, records each filename and SHA-256 digest in `schema_migrations`, and refuses a changed previously-applied file.
 
-- [ ] **Step 1: Write failing database integration tests**
+- [x] **Step 1: Write failing database integration tests**
 
 ```ts
 // apps/game-service/test/migrations.integration.test.ts
@@ -821,13 +821,13 @@ describeIntegration("foundation migrations", () => {
 });
 ```
 
-- [ ] **Step 2: Run the integration test and verify RED**
+- [x] **Step 2: Run the integration test and verify RED**
 
 Run: `INTEGRATION_DATABASE_URL=postgres://game:game@127.0.0.1:5432/game pnpm --filter @three-zero-four/game-service test -- migrations.integration.test.ts`
 
 Expected: FAIL because database adapters and migrations are absent. This command is run after the PostgreSQL service from Task 6 becomes healthy.
 
-- [ ] **Step 3: Implement migrations and adapters**
+- [x] **Step 3: Implement migrations and adapters**
 
 Create `apps/game-service/src/infra/database.ts`:
 
@@ -1047,7 +1047,7 @@ process.once("SIGINT", () => void close());
 await app.listen({ host: config.HOST, port: config.PORT });
 ```
 
-- [ ] **Step 4: Run integrations and readiness checks GREEN**
+- [x] **Step 4: Run integrations and readiness checks GREEN**
 
 Run: `INTEGRATION_DATABASE_URL=postgres://game:game@127.0.0.1:5432/game pnpm --filter @three-zero-four/game-service test -- migrations.integration.test.ts`
 
@@ -1055,7 +1055,7 @@ Run: `pnpm --filter @three-zero-four/game-service typecheck`
 
 Expected: migrations are recorded exactly once, all named tables exist, and production service type checks pass.
 
-- [ ] **Step 5: Commit durable infrastructure primitives**
+- [x] **Step 5: Commit durable infrastructure primitives**
 
 ```bash
 git add apps/game-service infra/postgres pnpm-lock.yaml
