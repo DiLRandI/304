@@ -24,6 +24,8 @@ importers:
         specifier: 4.1.10
         version: 4.1.10(@types/node@24.13.3)(vite@8.1.4(@types/node@24.13.3)(esbuild@0.28.1)(tsx@4.23.0))
 
+  packages/game-engine: {}
+
 packages:
 
   '@biomejs/biome@2.5.3':

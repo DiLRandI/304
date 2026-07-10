@@ -1,0 +1,15 @@
+{
+  "name": "@three-zero-four/game-engine",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./card-data": "./src/cardData.js",
+    "./profiles": "./src/profiles.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "typecheck": "node --check src/index.js && node --check src/engine.js"
+  }
+}

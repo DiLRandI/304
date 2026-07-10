@@ -56,7 +56,7 @@
 - Produces strict compiler defaults consumed by `apps/*` and `packages/contracts`.
 - Preserves the root `start`, `start:prod`, and `health` commands for the legacy verified application.
 
-- [ ] **Step 1: Write the failing workspace-contract test**
+- [x] **Step 1: Write the failing workspace-contract test**
 
 ```js
 // test/production-foundation-workspace.test.mjs
@@ -72,25 +72,30 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
 test("declares the pinned production workspace toolchain", () => {
   const packageJson = JSON.parse(read("package.json"));
   const workspace = read("pnpm-workspace.yaml");
+  const biome = JSON.parse(read("biome.json"));
 
   assert.equal(read(".node-version").trim(), "24.17.0");
   assert.equal(packageJson.engines.node, "24.17.0");
   assert.match(packageJson.packageManager, /^pnpm@11\.10\.0/);
+  assert.equal(packageJson.scripts.test, "node --test");
   assert.equal(packageJson.scripts.check, "pnpm lint && pnpm typecheck && pnpm test:unit");
   assert.match(workspace, /packages:\n\s+- apps\/\*/);
   assert.match(workspace, /\s+- packages\/\*/);
   assert.match(workspace, /minimumReleaseAge: 1440/);
   assert.match(workspace, /allowBuilds:\n\s+esbuild: true/);
+  assert.equal(biome.linter.rules.preset, "recommended");
+  assert.equal(biome.assist.actions.source.organizeImports, "on");
+  assert.deepEqual(biome.files.includes, ["**", "!**/node_modules", "!**/dist", "!**/.next", "!**/coverage"]);
 });
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run: `node --test test/production-foundation-workspace.test.mjs`
 
 Expected: FAIL because `.node-version` and the root workspace scripts do not exist yet.
 
-- [ ] **Step 3: Add the workspace configuration**
+- [x] **Step 3: Add the workspace configuration**
 
 Create `.node-version` with exactly:
 
@@ -114,8 +119,8 @@ Replace the root package manifest with this shape, retaining every legacy start 
     "serve": "node server.js",
     "dev": "NODE_ENV=development PORT=4173 node server.js",
     "health": "node -e \"const http=require('node:http');const port=process.env.PORT||4173;http.get(`http://localhost:${port}/health`,res=>{console.log(res.statusCode);process.exit(res.statusCode===200?0:1)}).on('error',()=>process.exit(1))\"",
-    "test": "node --test test",
-    "test:legacy": "node --test test",
+    "test": "node --test",
+    "test:legacy": "node --test",
     "test:unit": "pnpm test && pnpm --filter @three-zero-four/game-engine test && pnpm --filter @three-zero-four/contracts test && pnpm --filter @three-zero-four/game-service test && pnpm --filter @three-zero-four/web test",
     "typecheck": "pnpm --filter @three-zero-four/game-engine typecheck && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
     "lint": "biome check .",
@@ -181,11 +186,11 @@ Create `biome.json`:
 {
   "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
   "files": {
-    "includes": ["**", "!**/node_modules/**", "!**/dist/**", "!**/.next/**", "!**/coverage/**"]
+    "includes": ["**", "!**/node_modules", "!**/dist", "!**/.next", "!**/coverage"]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 },
-  "linter": { "enabled": true, "rules": { "recommended": true } },
-  "organizeImports": { "enabled": true }
+  "linter": { "enabled": true, "rules": { "preset": "recommended" } },
+  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } }
 }
 ```
 
@@ -203,7 +208,7 @@ postgres-data/
 redis-data/
 ```
 
-- [ ] **Step 4: Install and verify GREEN**
+- [x] **Step 4: Install and verify GREEN**
 
 Run: `corepack enable && pnpm install`
 
@@ -211,7 +216,7 @@ Run: `node --test test/production-foundation-workspace.test.mjs`
 
 Expected: install updates `pnpm-lock.yaml`; the test passes.
 
-- [ ] **Step 5: Commit the workspace boundary**
+- [x] **Step 5: Commit the workspace boundary**
 
 ```bash
 git add .node-version .gitignore biome.json package.json pnpm-lock.yaml pnpm-workspace.yaml test/production-foundation-workspace.test.mjs tsconfig.base.json
@@ -240,7 +245,7 @@ git commit -m "build: establish production workspace tooling"
 - Produces legacy ESM shim modules under `src/engine/` so the verified root server and static client continue to load unchanged.
 - Consumes no database, Redis, HTTP, DOM, or browser storage state.
 
-- [ ] **Step 1: Write the failing public-API test**
+- [x] **Step 1: Write the failing public-API test**
 
 ```js
 // packages/game-engine/test/public-api.test.mjs
@@ -259,13 +264,13 @@ test("exports the established 304 engine through one package boundary", () => {
 });
 ```
 
-- [ ] **Step 2: Run the package test and verify RED**
+- [x] **Step 2: Run the package test and verify RED**
 
 Run: `node --test packages/game-engine/test/public-api.test.mjs`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `packages/game-engine/src/index.js`.
 
-- [ ] **Step 3: Move the engine files and add stable exports**
+- [x] **Step 3: Move the engine files and add stable exports**
 
 Run these exact moves to preserve history:
 
@@ -291,7 +296,7 @@ Create `packages/game-engine/package.json`:
     "./profiles": "./src/profiles.js"
   },
   "scripts": {
-    "test": "node --test test",
+    "test": "node --test",
     "typecheck": "node --check src/index.js && node --check src/engine.js"
   }
 }
@@ -341,7 +346,7 @@ export * from "../../packages/game-engine/src/profiles.js";
 export * from "../../packages/game-engine/src/cardData.js";
 ```
 
-- [ ] **Step 4: Verify package and legacy behavior GREEN**
+- [x] **Step 4: Verify package and legacy behavior GREEN**
 
 Run: `node --test packages/game-engine/test/public-api.test.mjs test/engine-contract.test.mjs test/engine-module-boundary.test.mjs`
 
@@ -349,7 +354,7 @@ Run: `node --check server.js`
 
 Expected: all engine assertions pass and the legacy server syntax check exits zero.
 
-- [ ] **Step 5: Commit the engine boundary**
+- [x] **Step 5: Commit the engine boundary**
 
 ```bash
 git add packages/game-engine src/engine test/engine-contract.test.mjs test/engine-module-boundary.test.mjs
