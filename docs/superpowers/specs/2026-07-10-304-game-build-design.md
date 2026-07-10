@@ -47,7 +47,7 @@ Gameplay rules stay in engine functions and are not duplicated in DOM event hand
 
 ### Static serving
 
-The public static surface is intentionally limited to the HTML shell, stylesheet, browser UI modules, and `assets/`. API/server code, documentation, package metadata, and repository configuration are never static files. All public paths are decoded, reject traversal, backslashes, and NUL bytes, normalized as POSIX URL paths, then resolved under the repository root.
+The public static surface is intentionally limited to the HTML shell, stylesheet, browser UI modules, and `assets/`. API/server code, documentation, package metadata, and repository configuration are never static files. All public paths are decoded, reject traversal, backslashes, and NUL bytes, normalized as POSIX URL paths, then resolved under the repository root. The non-fingerprinted HTML, CSS, and UI modules revalidate on each request; static art assets may use immutable caching.
 
 ## Gameplay behavior
 

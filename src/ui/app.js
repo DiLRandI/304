@@ -1,3 +1,5 @@
+import { clearGameUiElements, formatLobbySeatAvailability } from "./view.js";
+
 const setupForm = document.getElementById("setup-form");
 const setupPanel = document.getElementById("setup-panel");
 const lobbyPanel = document.getElementById("lobby-panel");
@@ -1108,17 +1110,6 @@ function getSeatStatusText(seat) {
   return formatSeatStatusLabel(seat);
 }
 
-function updateLobbySeatHint(state) {
-  if (!roomState) return;
-  const disconnectedSeats = roomState.seats?.filter((seat) => seat.connectionStatus === "disconnected").length || 0;
-  if (disconnectedSeats > 0) {
-    const autopilotSeats = roomState.seats?.filter((seat) => seat.connectionStatus === "autopilot").length || 0;
-    setStatus(
-      `Seat availability: ${disconnectedSeats} disconnected, ${autopilotSeats} on autopilot.`
-    );
-  }
-}
-
 function renderLobby() {
   const state = roomState?.publicState;
   roomCode.textContent = `Invite: ${roomState?.inviteCode || ""}`;
@@ -1133,7 +1124,8 @@ function renderLobby() {
     tableMode === "classic_4" ? "Classic 4-seat" : tableMode === "six_6" ? "Six-seat" : "Auto";
   const secondBidding = roomState?.enableSecondBidding === false ? "off" : "on";
   const readyCount = roomState?.seats?.filter((seat) => seat.type === "human" && seat.isReady).length || 0;
-  lobbyHint.textContent = `Players: ${humanCount}/${roomState?.seats.length || 0} • Ready: ${readyCount}/${humanCount} • Table: ${tableModeLabel} • Visibility: ${visibilityLabel} • Second bidding: ${secondBidding}.`;
+  const availabilityHint = formatLobbySeatAvailability(roomState?.seats);
+  lobbyHint.textContent = `Players: ${humanCount}/${roomState?.seats.length || 0} • Ready: ${readyCount}/${humanCount} • Table: ${tableModeLabel} • Visibility: ${visibilityLabel} • Second bidding: ${secondBidding}.${availabilityHint ? ` ${availabilityHint}` : ""}`;
   lobbySeats.innerHTML = "";
   for (const seat of roomState?.seats || []) {
     lobbySeats.appendChild(renderSeatTile(seat, state?.activeSeat));
@@ -1164,18 +1156,21 @@ function renderGame() {
 }
 
 function clearGameUi() {
-  gameMessage.textContent = "";
-  matchBoard.textContent = "";
-  scoreboard.textContent = "";
-  trumpArea.textContent = "";
-  trickArea.textContent = "";
-  handAuditArea.textContent = "";
-  bidHistoryArea.textContent = "";
-  previousTrickArea.textContent = "";
-  myHandArea.textContent = "";
-  actionsArea.textContent = "";
-  resultSummary.textContent = "";
-  promptLine.textContent = "";
+  clearGameUiElements({
+    gameMessage,
+    announcementBanner,
+    matchBoard,
+    scoreboard,
+    trumpArea,
+    trickArea,
+    handAuditArea,
+    bidHistoryArea,
+    previousTrickArea,
+    myHandArea,
+    actionsArea,
+    resultSummary,
+    promptLine,
+  });
 }
 
 function renderCurrentView() {
@@ -1192,7 +1187,6 @@ function renderCurrentView() {
     setupPanel.classList.add("hidden");
     lobbyPanel.classList.remove("hidden");
     gamePanel.classList.add("hidden");
-    updateLobbySeatHint(roomState.publicState);
     renderLobby();
     startPolling();
     return;

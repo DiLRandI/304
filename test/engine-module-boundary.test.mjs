@@ -17,3 +17,14 @@ test("engine modules load as ESM without typeless-package warnings", () => {
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.stderr, /MODULE_TYPELESS_PACKAGE_JSON/);
 });
+
+test("ui modules load as ESM without typeless-package warnings", () => {
+  const result = spawnSync(
+    process.execPath,
+    ["--input-type=module", "--eval", "import('./src/ui/view.js')"],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stderr, /MODULE_TYPELESS_PACKAGE_JSON/);
+});

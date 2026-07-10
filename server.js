@@ -211,12 +211,17 @@ function writeResponse(filePath, reqMethod, response) {
   const contentType = MIME_TYPES[extension] || "application/octet-stream";
   const data = fs.readFileSync(filePath);
   const isHtml = extension === ".html";
+  const isBrowserCode = extension === ".css" || extension === ".js";
   response.statusCode = 200;
   applySecurityHeaders(response);
   response.setHeader("Content-Type", contentType);
   response.setHeader(
     "Cache-Control",
-    isHtml ? "no-cache, no-store, must-revalidate" : "public, max-age=31536000, immutable",
+    isHtml
+      ? "no-cache, no-store, must-revalidate"
+      : isBrowserCode
+        ? "no-cache"
+        : "public, max-age=31536000, immutable",
   );
   if (reqMethod !== "HEAD") {
     response.end(data);
