@@ -9,7 +9,9 @@ test("serves the game shell and its public static entrypoints", async (t) => {
   const root = await fetch(`${app.baseUrl}/`);
   assert.equal(root.status, 200);
   assert.match(root.headers.get("content-type") || "", /^text\/html/);
-  assert.match(await root.text(), /src="\.\/src\/ui\/app\.js"/);
+  const html = await root.text();
+  assert.match(html, /src="\.\/src\/ui\/app\.js"/);
+  assert.doesNotMatch(html, /frame-ancestors/);
 
   const stylesheet = await fetch(`${app.baseUrl}/styles.css`);
   assert.equal(stylesheet.status, 200);
