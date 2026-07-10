@@ -1,9 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import type { RoomCoordinator } from "../domain/room-coordinator.js";
-import type { PostgresRoomStore } from "../domain/room-store.js";
+import type {
+  ClaimedAutomationJob,
+  PostgresRoomStore,
+} from "../domain/room-store.js";
 
 export type AutomationWorkerOutcome = "completed" | "stale" | "failed";
+
+const AUTOMATION_CLAIM_BATCH_SIZE = 16;
+const MAX_AUTOMATION_JOBS_PER_RUN = 512;
+const MAX_CONCURRENT_ROOM_QUEUES = 8;
 
 type AutomationStore = Pick<
   PostgresRoomStore,
@@ -45,7 +52,6 @@ export class AutomationWorker {
     this.timer = setInterval(() => {
       void this.runOnce().catch(() => undefined);
     }, this.dependencies.pollIntervalMs);
-    this.timer.unref();
   }
 
   async runOnce(now = new Date()): Promise<void> {
@@ -66,31 +72,76 @@ export class AutomationWorker {
   }
 
   private async processDueJobs(now: Date): Promise<void> {
-    const jobs = await this.dependencies.store.claimDueAutomationJobs(
-      this.ownerId,
-      now,
-      16,
-      this.dependencies.roomId,
-    );
-    for (const job of jobs) {
-      try {
-        const outcome = await this.dependencies.coordinator.runAutomation(job);
-        await this.dependencies.store.completeAutomationJob(
-          job.id,
-          this.ownerId,
-        );
-        await this.report(outcome);
-      } catch (error) {
-        await this.dependencies.store
-          .releaseAutomationJob(job.id, this.ownerId, errorMessage(error))
-          .catch(() => undefined);
-        await this.report("failed");
-      }
+    let claimedCount = 0;
+    let claimTime = now;
+
+    while (claimedCount < MAX_AUTOMATION_JOBS_PER_RUN) {
+      const limit = Math.min(
+        AUTOMATION_CLAIM_BATCH_SIZE,
+        MAX_AUTOMATION_JOBS_PER_RUN - claimedCount,
+      );
+      const jobs = await this.dependencies.store.claimDueAutomationJobs(
+        this.ownerId,
+        claimTime,
+        limit,
+        this.dependencies.roomId,
+      );
+      if (jobs.length === 0) break;
+
+      await this.processClaimedJobs(jobs);
+      claimedCount += jobs.length;
+      if (jobs.length < limit) break;
+      claimTime = new Date();
     }
+
     await this.reportPending(
       await this.dependencies.store.countPendingAutomationJobs(),
     );
     await this.recordHeartbeat();
+  }
+
+  private async processClaimedJobs(
+    jobs: readonly ClaimedAutomationJob[],
+  ): Promise<void> {
+    const queuesByRoom = new Map<string, ClaimedAutomationJob[]>();
+    for (const job of jobs) {
+      const queue = queuesByRoom.get(job.roomId) ?? [];
+      queue.push(job);
+      queuesByRoom.set(job.roomId, queue);
+    }
+
+    const roomQueues = [...queuesByRoom.values()];
+    let nextQueueIndex = 0;
+    const processNextRoomQueue = async (): Promise<void> => {
+      while (nextQueueIndex < roomQueues.length) {
+        const queue = roomQueues[nextQueueIndex];
+        nextQueueIndex += 1;
+        if (!queue) continue;
+        for (const job of queue) {
+          await this.processClaimedJob(job);
+        }
+      }
+    };
+
+    await Promise.all(
+      Array.from(
+        { length: Math.min(MAX_CONCURRENT_ROOM_QUEUES, roomQueues.length) },
+        () => processNextRoomQueue(),
+      ),
+    );
+  }
+
+  private async processClaimedJob(job: ClaimedAutomationJob): Promise<void> {
+    try {
+      const outcome = await this.dependencies.coordinator.runAutomation(job);
+      await this.dependencies.store.completeAutomationJob(job.id, this.ownerId);
+      await this.report(outcome);
+    } catch (error) {
+      await this.dependencies.store
+        .releaseAutomationJob(job.id, this.ownerId, errorMessage(error))
+        .catch(() => undefined);
+      await this.report("failed");
+    }
   }
 
   private async report(outcome: AutomationWorkerOutcome): Promise<void> {
