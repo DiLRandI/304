@@ -172,15 +172,15 @@ git commit -m "feat: define realtime game contracts"
 
 **Interfaces:**
 
-- Produces `StoredRoom.ruleProfileId: RuleProfileId`, profile-aware `RoomSettings`, `PendingRoomNotification`, `ClaimedAutomationJob`, and safe job/outbox store methods.
+- Produces durable seat connection metadata, `PendingRoomNotification`, `ClaimedAutomationJob`, and safe job/outbox store methods while retaining the Classic-only room mapping until Task 3 widens every authoritative path together.
 - Adds `room_outbox` and `room_automation_jobs`; both are durable PostgreSQL data.
 - Makes `appendEventAndSnapshot` insert its outbox row atomically.
 
-- [ ] **Step 1: Write failing migration/store integration tests**
+- [x] **Step 1: Write failing migration/store integration tests**
 
 ```ts
 it("writes an outbox row with each committed room version", async () => {
-  const created = await store.createRoom(sixSeatRoomInput);
+  const created = await store.createRoom(classicRoomInput);
   const outbox = await store.claimRoomNotifications(
     "a0f17a73-c12d-4cbf-9167-09e5a26e73a5", 10,
   );
@@ -202,13 +202,13 @@ it("claims a due job once and ignores it after its room version changes", async 
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `INTEGRATION_DATABASE_URL=<postgres> pnpm --filter @three-zero-four/game-service test -- realtime-store.integration.test.ts`
 
 Expected: FAIL because the M3 tables and store methods do not exist.
 
-- [ ] **Step 3: Add the append-only migration and store boundary**
+- [x] **Step 3: Add the append-only migration and store boundary**
 
 Create the migration with explicit constraints and indexes:
 
@@ -250,6 +250,7 @@ CREATE TABLE room_automation_jobs (
   lease_owner uuid,
   lease_until timestamptz,
   attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  last_error text,
   created_at timestamptz NOT NULL DEFAULT now(),
   completed_at timestamptz,
   UNIQUE (room_id, kind, expected_event_version, target_seat_index)
@@ -272,7 +273,7 @@ export interface ClaimedAutomationJob {
   roomId: string;
   expectedEventVersion: number;
   kind: "BOT_ACTION" | "TURN_TIMEOUT" | "DISCONNECT_GRACE";
-  targetSeatIndex: number | null;
+  targetSeatIndex: number;
   attempts: number;
 }
 
@@ -288,15 +289,15 @@ markSeatOnline(transaction: Queryable, roomId: string, playerId: string): Promis
 markSeatOffline(transaction: Queryable, roomId: string, playerId: string): Promise<void>;
 ```
 
-`claimRoomNotifications` and `claimDueAutomationJobs` must use `FOR UPDATE SKIP LOCKED` within the existing transaction helper, atomically mark the selected rows claimed, and return only rows owned by the supplied UUID. `appendEventAndSnapshot` must receive `ruleProfileId`, write it to `game_snapshots`, and insert `room_outbox(room_id, event_version)` before the transaction commits. `createRoom` must insert the version-one outbox row too.
+`claimRoomNotifications` and `claimDueAutomationJobs` must use `FOR UPDATE SKIP LOCKED` within the existing transaction helper, atomically mark the selected rows claimed, and return only rows owned by the supplied UUID. `appendEventAndSnapshot` accepts an optional Classic profile bridge, writes it to `game_snapshots`, and inserts `room_outbox(room_id, event_version)` before the transaction commits; Task 3 makes the profile input fully required when it widens room creation atomically. `createRoom` must insert the version-one outbox row too.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `INTEGRATION_DATABASE_URL=<postgres> pnpm --filter @three-zero-four/game-service test -- migrations.integration.test.ts realtime-store.integration.test.ts`
 
 Expected: the schema migrates from M2, outbox retries retain the version, and a second worker cannot steal an unexpired job lease.
 
-- [ ] **Step 5: Commit durable signaling state**
+- [x] **Step 5: Commit durable signaling state**
 
 ```bash
 git add infra/postgres/migrations/0003_realtime_automation.sql apps/game-service/src/domain/room-store.ts apps/game-service/test/migrations.integration.test.ts apps/game-service/test/realtime-store.integration.test.ts

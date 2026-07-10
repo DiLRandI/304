@@ -9,6 +9,12 @@ export type RoomStatus =
   | "closed"
   | "recovery_failed";
 
+export type ConnectionStatus = "online" | "disconnected" | "autopilot";
+export type AutomationJobKind =
+  | "BOT_ACTION"
+  | "TURN_TIMEOUT"
+  | "DISCONNECT_GRACE";
+
 export interface RoomSettings {
   botDifficulty: "easy";
   enableSecondBidding: boolean;
@@ -31,6 +37,10 @@ export interface StoredSeat {
   occupantType: "human" | "bot" | "empty";
   botDifficulty: string | null;
   displayName: string | null;
+  connectionStatus?: ConnectionStatus;
+  lastPresenceAt?: Date | null;
+  disconnectedAt?: Date | null;
+  autopilotStartedAt?: Date | null;
 }
 
 export interface StoredSnapshot {
@@ -78,6 +88,26 @@ export interface AppendEventInput {
   payload: unknown;
   snapshot: unknown;
   status: Extract<RoomStatus, "lobby" | "in_hand" | "hand_result">;
+  ruleProfileId?: "classic_304_4p";
+}
+
+export interface PendingRoomNotification {
+  id: number;
+  roomId: string;
+  eventVersion: number;
+}
+
+export interface NewAutomationJob {
+  id: string;
+  roomId: string;
+  expectedEventVersion: number;
+  kind: AutomationJobKind;
+  targetSeatIndex: number;
+  dueAt: Date;
+}
+
+export interface ClaimedAutomationJob extends NewAutomationJob {
+  attempts: number;
 }
 
 export type Queryable = Pick<Database, "query">;
@@ -99,6 +129,10 @@ interface SeatRow extends QueryResultRow {
   occupant_type: string;
   bot_difficulty: string | null;
   display_name: string | null;
+  connection_status: string;
+  last_presence_at: Date | null;
+  disconnected_at: Date | null;
+  autopilot_started_at: Date | null;
 }
 
 interface SnapshotRow extends QueryResultRow {
@@ -126,6 +160,22 @@ interface SessionDuplicateRow extends QueryResultRow {
   room_id: string;
 }
 
+interface OutboxRow extends QueryResultRow {
+  id: string | number;
+  room_id: string;
+  event_version: string | number;
+}
+
+interface AutomationJobRow extends QueryResultRow {
+  id: string;
+  room_id: string;
+  expected_event_version: string | number;
+  kind: string;
+  target_seat_index: number;
+  due_at: Date;
+  attempts: string | number;
+}
+
 const roomStatuses = new Set<RoomStatus>([
   "lobby",
   "in_hand",
@@ -138,6 +188,16 @@ const seatTypes = new Set<StoredSeat["occupantType"]>([
   "human",
   "bot",
   "empty",
+]);
+const connectionStatuses = new Set<ConnectionStatus>([
+  "online",
+  "disconnected",
+  "autopilot",
+]);
+const automationJobKinds = new Set<AutomationJobKind>([
+  "BOT_ACTION",
+  "TURN_TIMEOUT",
+  "DISCONNECT_GRACE",
 ]);
 
 function toSafeNumber(value: string | number, field: string): number {
@@ -193,12 +253,23 @@ function mapSeat(row: SeatRow): StoredSeat {
   if (!seatTypes.has(row.occupant_type as StoredSeat["occupantType"])) {
     throw new DomainError("ROOM_DATA_INVALID", 500, "Invalid room seat");
   }
+  if (!connectionStatuses.has(row.connection_status as ConnectionStatus)) {
+    throw new DomainError(
+      "ROOM_DATA_INVALID",
+      500,
+      "Invalid room connection status",
+    );
+  }
   return {
     seatIndex: row.seat_index,
     playerId: row.player_id,
     occupantType: row.occupant_type as StoredSeat["occupantType"],
     botDifficulty: row.bot_difficulty,
     displayName: row.display_name,
+    connectionStatus: row.connection_status as ConnectionStatus,
+    lastPresenceAt: row.last_presence_at,
+    disconnectedAt: row.disconnected_at,
+    autopilotStartedAt: row.autopilot_started_at,
   };
 }
 
@@ -225,6 +296,32 @@ function mapEvent(row: EventRow): StoredEvent {
     actorPlayerId: row.actor_player_id,
     eventType: row.event_type,
     payload: row.payload,
+  };
+}
+
+function mapRoomNotification(row: OutboxRow): PendingRoomNotification {
+  return {
+    id: toSafeNumber(row.id, "outbox id"),
+    roomId: row.room_id,
+    eventVersion: toSafeNumber(row.event_version, "outbox event version"),
+  };
+}
+
+function mapAutomationJob(row: AutomationJobRow): ClaimedAutomationJob {
+  if (!automationJobKinds.has(row.kind as AutomationJobKind)) {
+    throw new DomainError("ROOM_DATA_INVALID", 500, "Invalid automation job");
+  }
+  return {
+    id: row.id,
+    roomId: row.room_id,
+    expectedEventVersion: toSafeNumber(
+      row.expected_event_version,
+      "automation job event version",
+    ),
+    kind: row.kind as AutomationJobKind,
+    targetSeatIndex: row.target_seat_index,
+    dueAt: row.due_at,
+    attempts: toSafeNumber(row.attempts, "automation job attempts"),
   };
 }
 
@@ -282,14 +379,20 @@ export class PostgresRoomStore {
         ],
       );
       for (const seat of input.seats) {
+        const connectionStatus =
+          seat.connectionStatus ??
+          (seat.occupantType === "bot" || seat.playerId === input.hostPlayerId
+            ? "online"
+            : "disconnected");
         await transaction.query(
-          "INSERT INTO room_seats (room_id, seat_index, player_id, occupant_type, bot_difficulty, joined_at) VALUES ($1, $2, $3, $4, $5, CASE WHEN $3::uuid IS NULL THEN NULL ELSE now() END)",
+          "INSERT INTO room_seats (room_id, seat_index, player_id, occupant_type, bot_difficulty, joined_at, connection_status, last_presence_at) VALUES ($1, $2, $3, $4, $5, CASE WHEN $3::uuid IS NULL THEN NULL ELSE now() END, $6, CASE WHEN $6 = 'online' THEN now() ELSE NULL END)",
           [
             input.id,
             seat.seatIndex,
             seat.playerId,
             seat.occupantType,
             seat.botDifficulty,
+            connectionStatus,
           ],
         );
       }
@@ -305,6 +408,10 @@ export class PostgresRoomStore {
       await transaction.query(
         "INSERT INTO game_snapshots (room_id, event_version, schema_version, rule_profile_id, state) VALUES ($1, 1, 1, $2, $3::jsonb)",
         [input.id, input.ruleProfileId, JSON.stringify(input.snapshot)],
+      );
+      await transaction.query(
+        "INSERT INTO room_outbox (room_id, event_version) VALUES ($1, 1)",
+        [input.id],
       );
       await transaction.query(
         "INSERT INTO command_deduplications (room_id, command_id, actor_player_id, response) VALUES ($1, $2, $3, $4::jsonb)",
@@ -373,7 +480,7 @@ export class PostgresRoomStore {
     transaction: Queryable = this.database,
   ): Promise<StoredSeat[]> {
     const result = await transaction.query<SeatRow>(
-      "SELECT room_seats.seat_index, room_seats.player_id, room_seats.occupant_type, room_seats.bot_difficulty, players.display_name FROM room_seats LEFT JOIN players ON players.id = room_seats.player_id WHERE room_seats.room_id = $1 ORDER BY room_seats.seat_index",
+      "SELECT room_seats.seat_index, room_seats.player_id, room_seats.occupant_type, room_seats.bot_difficulty, room_seats.connection_status, room_seats.last_presence_at, room_seats.disconnected_at, room_seats.autopilot_started_at, players.display_name FROM room_seats LEFT JOIN players ON players.id = room_seats.player_id WHERE room_seats.room_id = $1 ORDER BY room_seats.seat_index",
       [roomId],
     );
     return result.rows.map(mapSeat);
@@ -569,8 +676,17 @@ export class PostgresRoomStore {
       ],
     );
     await transaction.query(
-      "INSERT INTO game_snapshots (room_id, event_version, schema_version, rule_profile_id, state) VALUES ($1, $2, 1, 'classic_304_4p', $3::jsonb)",
-      [input.roomId, nextVersion, JSON.stringify(input.snapshot)],
+      "INSERT INTO game_snapshots (room_id, event_version, schema_version, rule_profile_id, state) VALUES ($1, $2, 1, $3, $4::jsonb)",
+      [
+        input.roomId,
+        nextVersion,
+        input.ruleProfileId ?? "classic_304_4p",
+        JSON.stringify(input.snapshot),
+      ],
+    );
+    await transaction.query(
+      "INSERT INTO room_outbox (room_id, event_version) VALUES ($1, $2)",
+      [input.roomId, nextVersion],
     );
     await transaction.query(
       "INSERT INTO command_deduplications (room_id, command_id, actor_player_id, response) VALUES ($1, $2, $3, $4::jsonb)",
@@ -582,6 +698,140 @@ export class PostgresRoomStore {
       ],
     );
     return nextVersion;
+  }
+
+  async claimRoomNotifications(
+    owner: string,
+    limit: number,
+  ): Promise<PendingRoomNotification[]> {
+    const claimed = await this.database.query<OutboxRow>(
+      "WITH candidates AS (SELECT id FROM room_outbox WHERE published_at IS NULL AND (publishing_until IS NULL OR publishing_until <= now()) ORDER BY id FOR UPDATE SKIP LOCKED LIMIT $2) UPDATE room_outbox AS outbox SET publishing_owner = $1::uuid, publishing_until = now() + interval '30 seconds', publish_attempts = publish_attempts + 1, last_error = NULL FROM candidates WHERE outbox.id = candidates.id RETURNING outbox.id, outbox.room_id, outbox.event_version",
+      [owner, limit],
+    );
+    return claimed.rows.map(mapRoomNotification);
+  }
+
+  async markRoomNotificationPublished(
+    id: number,
+    owner: string,
+  ): Promise<void> {
+    const updated = await this.database.query<{ id: string | number }>(
+      "UPDATE room_outbox SET published_at = now(), publishing_owner = NULL, publishing_until = NULL, last_error = NULL WHERE id = $1 AND publishing_owner = $2::uuid AND published_at IS NULL RETURNING id",
+      [id, owner],
+    );
+    if (updated.rows.length !== 1) {
+      throw new DomainError("OUTBOX_CLAIM_LOST", 409, "Outbox claim was lost");
+    }
+  }
+
+  async releaseRoomNotification(
+    id: number,
+    owner: string,
+    error: string,
+  ): Promise<void> {
+    const updated = await this.database.query<{ id: string | number }>(
+      "UPDATE room_outbox SET publishing_owner = NULL, publishing_until = NULL, last_error = $3 WHERE id = $1 AND publishing_owner = $2::uuid AND published_at IS NULL RETURNING id",
+      [id, owner, error.slice(0, 500)],
+    );
+    if (updated.rows.length !== 1) {
+      throw new DomainError("OUTBOX_CLAIM_LOST", 409, "Outbox claim was lost");
+    }
+  }
+
+  async scheduleAutomation(
+    transaction: Queryable,
+    job: NewAutomationJob,
+  ): Promise<void> {
+    await transaction.query(
+      "INSERT INTO room_automation_jobs (id, room_id, expected_event_version, kind, target_seat_index, due_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (room_id, kind, expected_event_version, target_seat_index) DO NOTHING",
+      [
+        job.id,
+        job.roomId,
+        job.expectedEventVersion,
+        job.kind,
+        job.targetSeatIndex,
+        job.dueAt,
+      ],
+    );
+  }
+
+  async claimDueAutomationJobs(
+    owner: string,
+    now: Date,
+    limit: number,
+  ): Promise<ClaimedAutomationJob[]> {
+    const claimed = await this.database.query<AutomationJobRow>(
+      "WITH candidates AS (SELECT id FROM room_automation_jobs WHERE due_at <= $2 AND (state = 'pending' OR (state = 'claimed' AND lease_until <= $2)) ORDER BY due_at, id FOR UPDATE SKIP LOCKED LIMIT $3) UPDATE room_automation_jobs AS job SET state = 'claimed', lease_owner = $1::uuid, lease_until = $2 + interval '30 seconds', attempts = attempts + 1, last_error = NULL FROM candidates WHERE job.id = candidates.id RETURNING job.id, job.room_id, job.expected_event_version, job.kind, job.target_seat_index, job.due_at, job.attempts",
+      [owner, now, limit],
+    );
+    return claimed.rows.map(mapAutomationJob);
+  }
+
+  async completeAutomationJob(id: string, owner: string): Promise<void> {
+    const updated = await this.database.query<{ id: string }>(
+      "UPDATE room_automation_jobs SET state = 'completed', completed_at = now(), lease_owner = NULL, lease_until = NULL WHERE id = $1::uuid AND lease_owner = $2::uuid AND state = 'claimed' RETURNING id",
+      [id, owner],
+    );
+    if (updated.rows.length !== 1) {
+      throw new DomainError(
+        "AUTOMATION_CLAIM_LOST",
+        409,
+        "Automation job claim was lost",
+      );
+    }
+  }
+
+  async releaseAutomationJob(
+    id: string,
+    owner: string,
+    error: string,
+  ): Promise<void> {
+    const updated = await this.database.query<{ id: string }>(
+      "UPDATE room_automation_jobs SET state = 'pending', due_at = now() + interval '1 second', lease_owner = NULL, lease_until = NULL, last_error = $3 WHERE id = $1::uuid AND lease_owner = $2::uuid AND state = 'claimed' RETURNING id",
+      [id, owner, error.slice(0, 500)],
+    );
+    if (updated.rows.length !== 1) {
+      throw new DomainError(
+        "AUTOMATION_CLAIM_LOST",
+        409,
+        "Automation job claim was lost",
+      );
+    }
+  }
+
+  async cancelAutomationForRoom(
+    transaction: Queryable,
+    roomId: string,
+    kinds: readonly AutomationJobKind[],
+  ): Promise<void> {
+    if (kinds.length === 0) return;
+    await transaction.query(
+      "UPDATE room_automation_jobs SET state = 'cancelled', lease_owner = NULL, lease_until = NULL WHERE room_id = $1 AND kind = ANY($2::text[]) AND state IN ('pending', 'claimed')",
+      [roomId, kinds],
+    );
+  }
+
+  async markSeatOnline(
+    transaction: Queryable,
+    roomId: string,
+    playerId: string,
+  ): Promise<number | null> {
+    const updated = await transaction.query<{ seat_index: number }>(
+      "UPDATE room_seats SET connection_status = 'online', last_presence_at = now(), disconnected_at = NULL, autopilot_started_at = NULL WHERE room_id = $1 AND player_id = $2 AND occupant_type = 'human' RETURNING seat_index",
+      [roomId, playerId],
+    );
+    return updated.rows[0]?.seat_index ?? null;
+  }
+
+  async markSeatOffline(
+    transaction: Queryable,
+    roomId: string,
+    playerId: string,
+  ): Promise<void> {
+    await transaction.query(
+      "UPDATE room_seats SET connection_status = 'disconnected', disconnected_at = COALESCE(disconnected_at, now()) WHERE room_id = $1 AND player_id = $2 AND occupant_type = 'human' AND connection_status = 'online'",
+      [roomId, playerId],
+    );
   }
 
   async markRecoveryFailed(

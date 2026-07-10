@@ -37,7 +37,7 @@ describeIntegration("foundation migrations", () => {
     const result = await database.query<{ count: string }>(
       "SELECT count(*)::text AS count FROM schema_migrations",
     );
-    expect(result.rows).toEqual([{ count: "2" }]);
+    expect(result.rows).toEqual([{ count: "3" }]);
   });
 
   it("creates durable identities, rooms, seats, events, snapshots, and command records", async () => {
@@ -50,6 +50,8 @@ describeIntegration("foundation migrations", () => {
         "game_events",
         "game_snapshots",
         "players",
+        "room_automation_jobs",
+        "room_outbox",
         "room_seats",
         "rooms",
         "schema_migrations",
