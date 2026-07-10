@@ -225,7 +225,7 @@ export class RoomCoordinator {
     if (duplicate) return this.getSnapshot(session, duplicate.roomId);
 
     const settings: RoomSettings = {
-      botDifficulty: request.botDifficulty,
+      botDifficulty: request.botDifficulty ?? "easy",
       enableSecondBidding: true,
     };
     const seats: StoredSeat[] = Array.from(

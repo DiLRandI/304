@@ -130,6 +130,22 @@ describeIntegration("durable room coordinator", () => {
     ).resolves.toEqual({ rows: [{ count: "1" }] });
   });
 
+  it("defaults direct coordinator room creation to easy bots", async () => {
+    const coordinator = createCoordinator();
+    const host = await sessions.create("Ishani");
+    const created = await coordinator.createRoom(host, {
+      commandId: randomUUID(),
+      ruleProfileId: "classic_304_4p",
+    });
+
+    await expect(
+      database.query<{ bot_difficulty: string }>(
+        "SELECT settings->>'botDifficulty' AS bot_difficulty FROM rooms WHERE id = $1",
+        [created.roomId],
+      ),
+    ).resolves.toEqual({ rows: [{ bot_difficulty: "easy" }] });
+  });
+
   it("replays accepted actions from the latest earlier snapshot after a fresh coordinator is created", async () => {
     const { coordinator, host, guests, created, started } =
       await createClassicRoom();
