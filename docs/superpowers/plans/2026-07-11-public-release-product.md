@@ -212,7 +212,7 @@ Run: `pnpm --filter @three-zero-four/web test -- game-client.test.ts room-state.
 
 Expected: stale versions cannot regress state, gaps trigger a resync signal, commands use cookies/idempotency/versioning, and malformed payloads do not enter state.
 
-- [ ] **Step 5: Commit the browser transport**
+- [x] **Step 5: Commit the browser transport**
 
 ```bash
 git add apps/web/package.json pnpm-lock.yaml apps/web/src/lib apps/web/test
@@ -242,7 +242,7 @@ git commit -m "feat: add validated browser room transport"
 - `GameTable` accepts only `RoomProjection`, `submit(action)`, and transport status; it never accepts engine state or a seat index supplied by props.
 - `CardButton` accepts a projected `GameAction` and uses a complete card label; legal actions are the only enabled controls.
 
-- [ ] **Step 1: Produce the approved visual reference and write failing interaction tests**
+- [x] **Step 1: Produce the approved visual reference and write failing interaction tests**
 
 Create one desktop and one narrow-mobile visual concept for the shared 304 design system before implementation: entry form, four-seat table, six-seat table, bidding/trump prompt, and hand-result state. Keep the approved dark table palette, readable card faces/backs, no casino imagery, and no wagering language.
 
@@ -257,13 +257,13 @@ expect(screen.getByRole("button", { name: /Play Jack of Spades, 30 points/ })).t
 expect(screen.getByRole("button", { name: /Play Seven of Clubs/ })).toBeDisabled();
 ```
 
-- [ ] **Step 2: Run the component tests and verify RED**
+- [x] **Step 2: Run the component tests and verify RED**
 
 Run: `pnpm --filter @three-zero-four/web test -- entry-flow.test.tsx game-table.test.tsx`
 
 Expected: FAIL because the Next.js shell has no playable routes/components.
 
-- [ ] **Step 3: Implement the browser product flow**
+- [x] **Step 3: Implement the browser product flow**
 
 Build these route-level flows without optimistic game state:
 
@@ -275,7 +275,7 @@ Build these route-level flows without optimistic game state:
 
 Use semantic buttons and native suit symbols/cards so no game asset duplication is required. Add a compact mobile bottom action area; never hide the prompt or private hand behind a drawer.
 
-- [ ] **Step 4: Verify GREEN in unit and browser contexts**
+- [x] **Step 4: Verify GREEN in unit and browser contexts**
 
 Run: `pnpm --filter @three-zero-four/web test`
 
@@ -285,7 +285,7 @@ Run: `pnpm --filter @three-zero-four/web dev --hostname 127.0.0.1`
 
 Expected: entry/lobby/table interactions are deterministic under mock transport, the production bundle builds, and the browser route has no console errors.
 
-- [ ] **Step 5: Commit the player client**
+- [x] **Step 5: Commit the player client**
 
 ```bash
 git add apps/web
@@ -313,7 +313,7 @@ git commit -m "feat: deliver production 304 browser client"
 - `track(event, properties)` is a no-op unless consent is `optional_analytics`, an allowlisted endpoint exists, and every property passes a privacy allowlist.
 - Rules pages document only the shipped Classic and six-seat profiles and say that six-seat 304-36 is a labeled variant.
 
-- [ ] **Step 1: Write failing policy and accessibility tests**
+- [x] **Step 1: Write failing policy and accessibility tests**
 
 ```tsx
 render(<ConsentBanner onChoice={onChoice} />);
@@ -326,19 +326,19 @@ expect(screen.getByRole("button", { name: /Play Jack of Spades/ })).toHaveFocus(
 expect(screen.getByRole("status")).toHaveTextContent("Your turn");
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run: `pnpm --filter @three-zero-four/web test -- consent.test.tsx accessibility.test.tsx`
 
 Expected: FAIL because policy routes, preference storage, status announcements, and keyboard interaction are absent.
 
-- [ ] **Step 3: Implement truthful public content and controls**
+- [x] **Step 3: Implement truthful public content and controls**
 
 Document display names, session cookies, room/game events, optional anonymous analytics, and no payment/location/contact collection in the privacy route. Terms must state casual entertainment, no money/prizes/wagering, participant responsibility, and a configurable contact channel—not a fabricated company or legal assertion.
 
 Implement card-size, high-contrast, and reduced-motion preferences as CSS data attributes. Add `aria-live="polite"` status announcements for turn/trump/trick/connection changes and visibly retain suit name/symbols even in high contrast. Ensure every icon-only/copy control has an accessible name and all actions are reachable with Tab/Enter/Space.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/web test -- consent.test.tsx accessibility.test.tsx`
 
@@ -346,7 +346,7 @@ Run: `pnpm --filter @three-zero-four/web build`
 
 Expected: consent defaults to essential-only, optional beacons cannot include card/player/session fields, policy pages render, and keyboard/screen-reader controls remain available.
 
-- [ ] **Step 5: Commit public product safeguards**
+- [x] **Step 5: Commit public product safeguards**
 
 ```bash
 git add apps/web
@@ -374,7 +374,7 @@ git commit -m "feat: add accessible public release content"
 - `WorkerTelemetry.ageSeconds(nowMs)` returns a bounded non-negative age or `Infinity` for no heartbeat.
 - `/metrics` exposes `three_zero_four_worker_heartbeat_age_seconds`; alert rules cover no service scrape, stale worker heartbeat, persistent outbox backlog, and persistent automation backlog.
 
-- [ ] **Step 1: Write failing telemetry and metric tests**
+- [x] **Step 1: Write failing telemetry and metric tests**
 
 ```ts
 await telemetry.recordHeartbeat(1_700_000_000_000);
@@ -383,19 +383,19 @@ await expect(telemetry.ageSeconds(1_700_000_005_000)).resolves.toBe(5);
 expect(metrics.payload).toContain("three_zero_four_worker_heartbeat_age_seconds");
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run: `INTEGRATION_REDIS_URL=<redis> pnpm --filter @three-zero-four/game-service test -- redis-coordination.test.ts app.test.ts`
 
 Expected: FAIL because no worker heartbeat is visible outside the worker container.
 
-- [ ] **Step 3: Implement bounded telemetry and monitoring configuration**
+- [x] **Step 3: Implement bounded telemetry and monitoring configuration**
 
 Use a Redis key with a TTL of at least three worker poll intervals. The worker writes it only after its current DB/Redis health check succeeds. The server refreshes its gauge next to outbox/job/outcome metrics and treats absent telemetry as `Infinity` (Prometheus `+Inf`).
 
 Configure an optional local Prometheus service that scrapes `/metrics` through the compose network and loads alert rules. Use warnings with conservative `for:` windows; alert descriptions must direct operators to the existing room/worker runbook and never include card or session data.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `INTEGRATION_REDIS_URL=<redis> pnpm --filter @three-zero-four/game-service test -- redis-coordination.test.ts app.test.ts`
 
@@ -403,7 +403,7 @@ Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml
 
 Expected: a healthy worker publishes a finite age, Prometheus loads all rules, and no production service exposes an unprotected admin mutator.
 
-- [ ] **Step 5: Commit observable worker operations**
+- [x] **Step 5: Commit observable worker operations**
 
 ```bash
 git add apps/game-service infra/monitoring infra/compose docs/operations/production-foundation.md
@@ -430,7 +430,7 @@ git commit -m "feat: add worker monitoring release gates"
 - The restore script creates a disposable dump, restores it into a new disposable PostgreSQL database, runs migration/readiness verification, and removes all artifacts on exit.
 - The load smoke uses bounded create/join/snapshot requests with generated guest data and explicitly excludes game commands, hidden data, and destructive database operations.
 
-- [ ] **Step 1: Write failing static release-gate assertions**
+- [x] **Step 1: Write failing static release-gate assertions**
 
 ```js
 assert.match(workflow, /playwright install --with-deps chromium/);
@@ -440,13 +440,13 @@ assert.match(workflow, /backup-restore-rehearsal\.sh/);
 assert.match(runbook, /Public-release rehearsal/);
 ```
 
-- [ ] **Step 2: Run the release-gate test and verify RED**
+- [x] **Step 2: Run the release-gate test and verify RED**
 
 Run: `node --test test/production-foundation-ci.test.mjs`
 
 Expected: FAIL because the current CI validates services but has no browser, scan, load, or restore gate.
 
-- [ ] **Step 3: Implement reproducible acceptance and release commands**
+- [x] **Step 3: Implement reproducible acceptance and release commands**
 
 Add Playwright tests for:
 
@@ -457,7 +457,7 @@ Add Playwright tests for:
 
 Add pinned scanner/container commands in CI, retain logs/screenshots/traces on failure, run the backup/restore rehearsal against the disposable Compose stack, then execute the bounded load smoke after readiness. The load command must have a fixed duration/concurrency and fail on non-2xx/latency thresholds; it must not turn into a destructive stress test.
 
-- [ ] **Step 4: Verify the public-release rehearsal**
+- [x] **Step 4: Verify the public-release rehearsal**
 
 Run: `pnpm check`
 
@@ -475,7 +475,7 @@ Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml
 
 Expected: desktop/mobile/keyboard flows pass in a real browser, scans are clean, an authoritative data dump restores into a clean database, and the release rehearsal has no P0/P1 failure.
 
-- [ ] **Step 5: Commit the public-release evidence**
+- [x] **Step 5: Commit the public-release evidence**
 
 ```bash
 git add apps/web scripts infra/load .github/workflows/ci.yml test/production-foundation-ci.test.mjs docs/operations/public-release.md README.md
@@ -484,9 +484,9 @@ git commit -m "test: add public release rehearsal"
 
 ## M4 completion checklist
 
-- [ ] A guest can use the Next.js client to start Classic or six-seat practice, create/invite/join a private room, start it, submit legal actions, and reconnect without a stale/private-view leak.
-- [ ] The table is responsive at mobile/tablet/desktop widths, keyboard playable, screen-reader labeled, high-contrast/reduced-motion capable, and uses no casino/wagering presentation.
-- [ ] Rules, privacy, terms, and consent pages accurately describe the shipped casual product and do not claim unconfigured external providers or legal approval.
-- [ ] Worker health, outbox backlog, and automation backlog are observable through a Prometheus-compatible operational surface and documented alert responses.
-- [ ] Browser E2E, supply-chain/secret/container scans, bounded load smoke, and an actual backup/restore rehearsal run in the release gate.
-- [ ] Public deployment configuration, external legal review, configured alert delivery, and real production backup retention are explicitly documented as operator-owned prerequisites rather than being falsely represented as completed in source code.
+- [x] A guest can use the Next.js client to start Classic or six-seat practice, create/invite/join a private room, start it, submit legal actions, and reconnect without a stale/private-view leak.
+- [x] The table is responsive at mobile/tablet/desktop widths, keyboard playable, screen-reader labeled, high-contrast/reduced-motion capable, and uses no casino/wagering presentation.
+- [x] Rules, privacy, terms, and consent pages accurately describe the shipped casual product and do not claim unconfigured external providers or legal approval.
+- [x] Worker health, outbox backlog, and automation backlog are observable through a Prometheus-compatible operational surface and documented alert responses.
+- [x] Browser E2E, supply-chain/secret/container scans, bounded load smoke, and an actual backup/restore rehearsal run in the release gate.
+- [x] Public deployment configuration, external legal review, configured alert delivery, and real production backup retention are explicitly documented as operator-owned prerequisites rather than being falsely represented as completed in source code.

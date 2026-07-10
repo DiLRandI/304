@@ -40,6 +40,10 @@ test("production CI and runbook cover immutable install, verification, recovery,
     gameServiceDockerfile,
     /FROM build AS production-deps[\s\S]*pnpm --filter @three-zero-four\/game-service --prod deploy/,
   );
+  assert.match(
+    gameServiceDockerfile,
+    /COPY --from=build --chown=65532:65532 \/app\/infra\/postgres\/migrations \/infra\/postgres\/migrations/,
+  );
   assert.match(runbook, /durable-rooms\.integration\.test\.ts/);
   assert.match(runbook, /pg_dump/);
   assert.match(runbook, /pg_restore/);
@@ -49,4 +53,41 @@ test("production CI and runbook cover immutable install, verification, recovery,
   assert.match(runbook, /ROOM_RECOVERY_FAILED/);
   assert.match(runbook, /duplicate socket snapshot/);
   assert.match(runbook, /Rollback/);
+});
+
+test("public-release CI includes browser, scanner, load, and restore gates", () => {
+  const workflow = read(".github/workflows/ci.yml");
+  const readme = read("README.md");
+  const webPackage = read("apps/web/package.json");
+  const restoreScript = read("scripts/backup-restore-rehearsal.sh");
+  const loadSmoke = read("infra/load/browser-api-smoke.js");
+  const releaseRunbook = read("docs/operations/public-release.md");
+
+  assert.match(webPackage, /"e2e": "playwright test"/);
+  assert.match(webPackage, /"@playwright\/test"/);
+  assert.match(workflow, /playwright install --with-deps chromium/);
+  assert.match(workflow, /playwright test/);
+  assert.match(workflow, /gitleaks/);
+  assert.match(workflow, /trivy/);
+  assert.match(workflow, /name: Scan release game-service image/);
+  assert.match(workflow, /image-ref: three-zero-four-game-service:latest/);
+  assert.match(workflow, /name: Scan release web image/);
+  assert.match(workflow, /image-ref: three-zero-four-web:latest/);
+  assert.match(workflow, /backup-restore-rehearsal\.sh/);
+  assert.match(
+    workflow,
+    /G304_RESTORE_REHEARSAL=1 scripts\/backup-restore-rehearsal\.sh/,
+  );
+  assert.match(workflow, /browser-api-smoke\.js/);
+  assert.match(workflow, /upload-artifact@[0-9a-f]{40}/);
+  assert.match(restoreScript, /trap cleanup EXIT/);
+  assert.match(restoreScript, /G304_RESTORE_REHEARSAL/);
+  assert.match(restoreScript, /pg_restore/);
+  assert.match(restoreScript, /schema_migrations/);
+  assert.match(loadSmoke, /MAX_CONCURRENCY/);
+  assert.match(loadSmoke, /MAX_DURATION_MS/);
+  assert.match(loadSmoke, /guest-sessions/);
+  assert.match(releaseRunbook, /Public-release rehearsal/);
+  assert.match(releaseRunbook, /G304_RESTORE_REHEARSAL=1/);
+  assert.match(readme, /Public-release rehearsal/);
 });

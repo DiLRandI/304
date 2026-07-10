@@ -6,7 +6,9 @@
       "!**/node_modules",
       "!**/dist",
       "!**/.next",
-      "!**/coverage"
+      "!**/coverage",
+      "!**/test-results",
+      "!**/playwright-report"
     ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 },
