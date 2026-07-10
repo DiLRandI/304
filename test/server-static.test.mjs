@@ -1,0 +1,29 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { startServer } from "./helpers/server.mjs";
+
+test("serves the game shell and its public static entrypoints", async (t) => {
+  const app = await startServer();
+  t.after(() => app.close());
+
+  const root = await fetch(`${app.baseUrl}/`);
+  assert.equal(root.status, 200);
+  assert.match(root.headers.get("content-type") || "", /^text\/html/);
+  assert.match(await root.text(), /src="\.\/src\/ui\/app\.js"/);
+
+  const stylesheet = await fetch(`${app.baseUrl}/styles.css`);
+  assert.equal(stylesheet.status, 200);
+  assert.match(stylesheet.headers.get("content-type") || "", /^text\/css/);
+
+  const client = await fetch(`${app.baseUrl}/src/ui/app.js`);
+  assert.equal(client.status, 200);
+  assert.match(client.headers.get("content-type") || "", /^application\/javascript/);
+});
+
+test("does not expose private server source as a static asset", async (t) => {
+  const app = await startServer();
+  t.after(() => app.close());
+
+  const response = await fetch(`${app.baseUrl}/server.js`);
+  assert.equal(response.status, 404);
+});
