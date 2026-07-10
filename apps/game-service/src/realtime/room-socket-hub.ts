@@ -34,7 +34,10 @@ export class RoomSocketHub {
   >();
 
   constructor(
-    private readonly dependencies: { coordinator: RoomCoordinator },
+    private readonly dependencies: {
+      coordinator: RoomCoordinator;
+      onConnectionCount?: (count: number) => void;
+    },
   ) {}
 
   attach(
@@ -52,6 +55,7 @@ export class RoomSocketHub {
     const connections = this.connectionsByRoom.get(roomId) ?? new Set();
     connections.add(connection);
     this.connectionsByRoom.set(roomId, connections);
+    this.reportConnectionCount();
     return connection;
   }
 
@@ -122,6 +126,7 @@ export class RoomSocketHub {
     connections?.delete(connection);
     if (connections?.size === 0)
       this.connectionsByRoom.delete(connection.roomId);
+    this.reportConnectionCount();
     const hasPlayerConnection = [...(connections ?? [])].some(
       (candidate) => candidate.session.playerId === connection.session.playerId,
     );
@@ -221,6 +226,19 @@ export class RoomSocketHub {
       });
       connection.socket.send(JSON.stringify(envelope));
       connection.socket.close(1008, "Realtime policy violation");
+    }
+  }
+
+  private reportConnectionCount(): void {
+    try {
+      this.dependencies.onConnectionCount?.(
+        [...this.connectionsByRoom.values()].reduce(
+          (count, connections) => count + connections.size,
+          0,
+        ),
+      );
+    } catch {
+      // Metrics callbacks must not affect connection lifecycle handling.
     }
   }
 }

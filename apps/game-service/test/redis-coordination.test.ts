@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  AutomationTelemetry,
   Presence,
   RateLimiter,
   RoomLease,
@@ -70,5 +71,26 @@ describeIntegration("Redis game coordination", () => {
         statusCode: 429,
       },
     );
+  });
+
+  it("stores durable automation outcome totals for service metrics", async () => {
+    const key = `g304:test:automation-outcomes:${randomUUID()}`;
+    const telemetry = new AutomationTelemetry(redis, key);
+
+    await expect(telemetry.snapshot()).resolves.toEqual({
+      completed: 0,
+      failed: 0,
+      stale: 0,
+    });
+    await telemetry.record("completed");
+    await telemetry.record("completed");
+    await telemetry.record("stale");
+
+    await expect(telemetry.snapshot()).resolves.toEqual({
+      completed: 2,
+      failed: 0,
+      stale: 1,
+    });
+    await redis.del(key);
   });
 });

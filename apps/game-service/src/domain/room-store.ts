@@ -715,6 +715,13 @@ export class PostgresRoomStore {
     return claimed.rows.map(mapRoomNotification);
   }
 
+  async countPendingRoomNotifications(): Promise<number> {
+    const result = await this.database.query<{ count: string | number }>(
+      "SELECT count(*)::text AS count FROM room_outbox WHERE published_at IS NULL",
+    );
+    return toSafeNumber(result.rows[0]?.count ?? 0, "pending room outbox rows");
+  }
+
   async markRoomNotificationPublished(
     id: number,
     owner: string,
@@ -770,6 +777,13 @@ export class PostgresRoomStore {
       [owner, now, limit, roomId ?? null],
     );
     return claimed.rows.map(mapAutomationJob);
+  }
+
+  async countPendingAutomationJobs(): Promise<number> {
+    const result = await this.database.query<{ count: string | number }>(
+      "SELECT count(*)::text AS count FROM room_automation_jobs WHERE state IN ('pending', 'claimed')",
+    );
+    return toSafeNumber(result.rows[0]?.count ?? 0, "pending automation jobs");
   }
 
   async completeAutomationJob(id: string, owner: string): Promise<void> {

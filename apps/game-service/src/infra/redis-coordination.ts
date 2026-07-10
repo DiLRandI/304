@@ -6,6 +6,9 @@ const RELEASE_LEASE_SCRIPT =
   "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0";
 const FIXED_WINDOW_INCREMENT_SCRIPT =
   "local count = redis.call('INCR', KEYS[1]); if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end return count";
+const AUTOMATION_OUTCOME_METRICS_KEY = "g304:metrics:automation-outcomes";
+
+export type AutomationOutcomeMetric = "completed" | "stale" | "failed";
 
 function redisKeyPart(value: string): string {
   return encodeURIComponent(value);
@@ -107,5 +110,29 @@ export class RateLimiter {
         "Too many requests; retry shortly",
       );
     }
+  }
+}
+
+export class AutomationTelemetry {
+  constructor(
+    private readonly redis: RedisClientType,
+    private readonly key = AUTOMATION_OUTCOME_METRICS_KEY,
+  ) {}
+
+  async record(outcome: AutomationOutcomeMetric): Promise<void> {
+    await this.redis.hIncrBy(this.key, outcome, 1);
+  }
+
+  async snapshot(): Promise<Record<AutomationOutcomeMetric, number>> {
+    const values = await this.redis.hGetAll(this.key);
+    const parse = (outcome: AutomationOutcomeMetric): number => {
+      const value = Number(values[outcome] ?? 0);
+      return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+    };
+    return {
+      completed: parse("completed"),
+      stale: parse("stale"),
+      failed: parse("failed"),
+    };
   }
 }

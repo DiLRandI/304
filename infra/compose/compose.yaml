@@ -77,6 +77,42 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  worker:
+    build:
+      context: ../..
+      dockerfile: apps/game-service/Dockerfile
+    command: ["node", "dist/src/worker.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CORS_ORIGINS: http://127.0.0.1:3000
+      SESSION_COOKIE_NAME: g304_session
+      SESSION_SECRET_PEPPER: ${SESSION_SECRET_PEPPER}
+      AUTOMATION_POLL_INTERVAL_MS: 500
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const fs=require('node:fs');const maxAge=Number(process.env.AUTOMATION_POLL_INTERVAL_MS)*3+1000;try{process.exit(Date.now()-fs.statSync('/tmp/g304-worker-heartbeat').mtimeMs<=maxAge?0:1)}catch{process.exit(1)}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_healthy
+        restart: true
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   web:
     build:
       context: ../..

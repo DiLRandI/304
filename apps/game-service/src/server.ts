@@ -6,10 +6,12 @@ import { createDatabase } from "./infra/database.js";
 import { createReadiness } from "./infra/readiness.js";
 import { createRedis } from "./infra/redis.js";
 import {
+  AutomationTelemetry,
   Presence,
   RateLimiter,
   RoomLease,
 } from "./infra/redis-coordination.js";
+import { createMetrics } from "./metrics.js";
 import { OutboxPublisher } from "./realtime/outbox-publisher.js";
 import { RedisRoomChangeBus } from "./realtime/room-change-bus.js";
 import { RoomSocketHub } from "./realtime/room-socket-hub.js";
@@ -36,14 +38,32 @@ const game = {
   sessions,
   rateLimiter: new RateLimiter(redis),
 };
+const metrics = createMetrics();
+const automationTelemetry = new AutomationTelemetry(redis);
 const roomChanges = new RedisRoomChangeBus(redis);
-const hub = new RoomSocketHub({ coordinator });
+const hub = new RoomSocketHub({
+  coordinator,
+  onConnectionCount: (count) => metrics.activeWebsocketConnections.set(count),
+});
 await roomChanges.start((notice) => hub.handleRoomChanged(notice));
 const outboxPublisher = new OutboxPublisher({
   store,
   bus: roomChanges,
   pollIntervalMs: config.OUTBOX_POLL_INTERVAL_MS,
+  onPending: (count) => metrics.pendingRoomOutbox.set(count),
 });
+const refreshMetrics = async (): Promise<void> => {
+  const [outboxPending, automationPending, outcomes] = await Promise.all([
+    store.countPendingRoomNotifications(),
+    store.countPendingAutomationJobs(),
+    automationTelemetry.snapshot(),
+  ]);
+  metrics.pendingRoomOutbox.set(outboxPending);
+  metrics.pendingAutomationJobs.set(automationPending);
+  for (const outcome of ["completed", "stale", "failed"] as const) {
+    metrics.automationJobOutcomes.set({ outcome }, outcomes[outcome]);
+  }
+};
 let realtimeStopped = false;
 const realtime = {
   hub,
@@ -60,6 +80,8 @@ const app = await buildApp({
   readiness: createReadiness(database, redis),
   game,
   realtime,
+  metrics,
+  refreshMetrics,
 });
 await outboxPublisher.start();
 

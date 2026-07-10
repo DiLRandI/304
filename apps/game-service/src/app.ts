@@ -6,7 +6,7 @@ import Fastify, { type FastifyInstance, LogController } from "fastify";
 import { ZodError } from "zod";
 import type { ServiceConfig } from "./config.js";
 import { DomainError } from "./domain/errors.js";
-import { createMetrics } from "./metrics.js";
+import { createMetrics, type ServiceMetrics } from "./metrics.js";
 import type { RoomSocketHub } from "./realtime/room-socket-hub.js";
 import { registerRealtimeRoutes } from "./routes/realtime.js";
 import { type GameRuntime, registerV1Routes } from "./routes/v1.js";
@@ -28,11 +28,15 @@ export async function buildApp({
   readiness,
   game,
   realtime,
+  metrics: injectedMetrics,
+  refreshMetrics,
 }: {
   config: ServiceConfig;
   readiness: ReadinessChecks;
   game?: GameRuntime;
   realtime?: RealtimeRuntime;
+  metrics?: ServiceMetrics;
+  refreshMetrics?: () => Promise<void>;
 }): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -49,7 +53,7 @@ export async function buildApp({
         request.url === "/metrics",
     }),
   });
-  const metrics = createMetrics();
+  const metrics = injectedMetrics ?? createMetrics();
 
   await app.register(helmet, {
     contentSecurityPolicy: false,
@@ -111,6 +115,11 @@ export async function buildApp({
     return { status: "ready", dependencies: { database, redis } };
   });
   app.get("/metrics", async (_request, reply) => {
+    try {
+      await refreshMetrics?.();
+    } catch (error) {
+      app.log.warn({ err: error }, "metrics refresh failed");
+    }
     return reply
       .type(metrics.registry.contentType)
       .send(await metrics.registry.metrics());

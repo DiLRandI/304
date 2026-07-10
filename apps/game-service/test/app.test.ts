@@ -122,4 +122,26 @@ describe("game service health surface", () => {
     });
     await app.close();
   });
+
+  it("exports realtime and automation gauges from the metrics surface", async () => {
+    const refreshMetrics = vi.fn().mockResolvedValue(undefined);
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+      refreshMetrics,
+    });
+
+    const metrics = await app.inject("/metrics");
+
+    expect(metrics.payload).toContain("three_zero_four_websocket_connections");
+    expect(metrics.payload).toContain("three_zero_four_room_outbox_pending");
+    expect(metrics.payload).toContain(
+      "three_zero_four_automation_jobs_pending",
+    );
+    expect(metrics.payload).toContain(
+      "three_zero_four_automation_job_outcomes",
+    );
+    expect(refreshMetrics).toHaveBeenCalledOnce();
+    await app.close();
+  });
 });

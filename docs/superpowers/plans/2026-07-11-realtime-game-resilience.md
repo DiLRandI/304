@@ -34,7 +34,7 @@ infra/postgres/migrations/0003_realtime_automation.sql Durable M3 database addit
 apps/game-service/src/domain/room-store.ts             Outbox, job, seat-presence, dual-profile persistence
 apps/game-service/src/domain/room-coordinator.ts       Profile-neutral commands and system automation path
 apps/game-service/src/domain/room-projector.ts         Safe seat state and six-seat projections
-apps/game-service/src/infra/redis-coordination.ts      Presence removal and room-change Pub/Sub bus
+apps/game-service/src/infra/redis-coordination.ts      Presence, leases, rate limiting, and cross-worker telemetry
 apps/game-service/src/realtime/room-change-bus.ts      Redis Pub/Sub room-change transport
 apps/game-service/src/realtime/outbox-publisher.ts     At-least-once PostgreSQL outbox publisher
 apps/game-service/src/realtime/room-socket-hub.ts      Per-process authenticated private socket fanout
@@ -528,8 +528,17 @@ git commit -m "feat: deliver private room updates in realtime"
 
 - Create: `apps/game-service/src/worker/automation-worker.ts`
 - Create: `apps/game-service/src/worker.ts`
+- Modify: `apps/game-service/src/app.ts`
+- Modify: `apps/game-service/src/domain/room-store.ts`
+- Modify: `apps/game-service/src/infra/redis-coordination.ts`
 - Modify: `apps/game-service/src/metrics.ts`
+- Modify: `apps/game-service/src/realtime/outbox-publisher.ts`
+- Modify: `apps/game-service/src/realtime/room-socket-hub.ts`
+- Modify: `apps/game-service/src/server.ts`
 - Modify: `infra/compose/compose.yaml`
+- Create: `apps/game-service/test/automation-worker.test.ts`
+- Modify: `apps/game-service/test/app.test.ts`
+- Modify: `apps/game-service/test/redis-coordination.test.ts`
 - Modify: `apps/game-service/test/room-automation.integration.test.ts`
 
 **Interfaces:**
@@ -538,7 +547,7 @@ git commit -m "feat: deliver private room updates in realtime"
 - Runs the same compiled, tested coordinator artifact in a separately scalable `worker` Compose service.
 - Adds metrics for pending outbox rows, pending jobs, completed automation actions, stale job no-ops, and active WebSocket connections.
 
-- [ ] **Step 1: Write the failing worker integration test**
+- [x] **Step 1: Write the failing worker integration test**
 
 ```ts
 it("two workers claim one due bot job once and publish its new room version", async () => {
@@ -550,13 +559,13 @@ it("two workers claim one due bot job once and publish its new room version", as
 });
 ```
 
-- [ ] **Step 2: Run the worker test and verify RED**
+- [x] **Step 2: Run the worker test and verify RED**
 
 Run: `INTEGRATION_DATABASE_URL=<postgres> INTEGRATION_REDIS_URL=<redis> pnpm --filter @three-zero-four/game-service test -- room-automation.integration.test.ts`
 
 Expected: FAIL because no worker loop claims durable jobs.
 
-- [ ] **Step 3: Implement bounded worker polling and graceful shutdown**
+- [x] **Step 3: Implement bounded worker polling and graceful shutdown**
 
 Implement this worker boundary:
 
@@ -614,18 +623,22 @@ Add Compose service:
 
 Do not expose a worker port. Add an injected `health()` probe to `AutomationWorker` that checks PostgreSQL and Redis before recording `/tmp/g304-worker-heartbeat` after a successful poll. Compose must run a Node healthcheck that fails if this file is missing or older than three poll intervals. The healthcheck must not mutate rooms merely to report health.
 
-- [ ] **Step 4: Verify GREEN**
+Record completed, stale, and failed worker outcomes in a Redis telemetry hash. The HTTP service refreshes pending outbox/job gauges and those cross-worker outcome totals immediately before serving `/metrics`; this makes the public service metric surface meaningful even though workers do not expose an HTTP port.
+
+- [x] **Step 4: Verify GREEN**
 
 Run: `INTEGRATION_DATABASE_URL=<postgres> INTEGRATION_REDIS_URL=<redis> pnpm --filter @three-zero-four/game-service test -- room-automation.integration.test.ts`
 
 Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up --build --wait`
 
+Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --build integration`
+
 Expected: exactly one worker claims each job, automation emits a durable room version, and the production topology reports the worker healthy.
 
-- [ ] **Step 5: Commit the worker process**
+- [x] **Step 5: Commit the worker process**
 
 ```bash
-git add apps/game-service/src/worker apps/game-service/src/worker.ts apps/game-service/src/metrics.ts infra/compose/compose.yaml apps/game-service/test/room-automation.integration.test.ts
+git add apps/game-service/src/{app.ts,server.ts,metrics.ts,worker,worker.ts,domain/room-store.ts,infra/redis-coordination.ts,realtime/outbox-publisher.ts,realtime/room-socket-hub.ts} infra/compose/compose.yaml apps/game-service/test/{app.test.ts,automation-worker.test.ts,redis-coordination.test.ts,room-automation.integration.test.ts}
 git commit -m "feat: run durable room automation worker"
 ```
 

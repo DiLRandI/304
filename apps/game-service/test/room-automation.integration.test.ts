@@ -14,6 +14,7 @@ import {
 import { SessionService } from "../src/domain/session-service.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
 import { Presence, RoomLease } from "../src/infra/redis-coordination.js";
+import { AutomationWorker } from "../src/worker/automation-worker.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
@@ -808,5 +809,69 @@ describeIntegration("durable room automation", () => {
         },
       ],
     });
+  });
+
+  it("lets two workers claim one due autopilot action exactly once", async () => {
+    const game = coordinator();
+    const { created } = await createStartedClassicRoom(game, "Ravi", [
+      "Sachi",
+      "Thilini",
+      "Umesh",
+    ]);
+    await database.query(
+      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'TURN_TIMEOUT' AND state = 'pending'",
+      [created.roomId],
+    );
+    const primingWorker = new AutomationWorker({
+      store,
+      coordinator: game,
+      pollIntervalMs: 500,
+      ownerId: randomUUID(),
+      roomId: created.roomId,
+    });
+    await primingWorker.runOnce();
+    await database.query(
+      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
+      [created.roomId],
+    );
+
+    const outcomes: string[] = [];
+    const first = new AutomationWorker({
+      store,
+      coordinator: game,
+      pollIntervalMs: 500,
+      ownerId: randomUUID(),
+      roomId: created.roomId,
+      onJob: (outcome) => outcomes.push(outcome),
+    });
+    const second = new AutomationWorker({
+      store,
+      coordinator: game,
+      pollIntervalMs: 500,
+      ownerId: randomUUID(),
+      roomId: created.roomId,
+      onJob: (outcome) => outcomes.push(outcome),
+    });
+
+    await Promise.all([first.runOnce(), second.runOnce()]);
+
+    const events = await store.loadEventsAfter(created.roomId, 0);
+    const autopilotEvents = events.filter(
+      (event) => event.eventType === "AUTOPILOT_ACTION",
+    );
+    expect(autopilotEvents).toHaveLength(1);
+    const autopilotEvent = autopilotEvents[0];
+    if (!autopilotEvent) throw new Error("Expected an autopilot event");
+    const room = await store.loadRoom(created.roomId);
+    expect(room?.eventVersion).toBe(autopilotEvent.eventVersion);
+    await expect(
+      database.query<{ event_version: string }>(
+        "SELECT event_version::text FROM room_outbox WHERE room_id = $1 AND event_version = $2",
+        [created.roomId, autopilotEvent.eventVersion],
+      ),
+    ).resolves.toEqual({
+      rows: [{ event_version: String(autopilotEvent.eventVersion) }],
+    });
+    expect(outcomes).toEqual(["completed"]);
   });
 });

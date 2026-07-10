@@ -8,6 +8,7 @@ import type { RoomChangePublisher } from "./room-change-bus.js";
 type OutboxStore = Pick<
   PostgresRoomStore,
   | "claimRoomNotifications"
+  | "countPendingRoomNotifications"
   | "markRoomNotificationPublished"
   | "releaseRoomNotification"
 >;
@@ -28,6 +29,7 @@ export class OutboxPublisher {
       bus: RoomChangePublisher;
       pollIntervalMs: number;
       ownerId?: string;
+      onPending?: (count: number) => void;
     },
   ) {
     this.ownerId = dependencies.ownerId ?? randomUUID();
@@ -67,6 +69,9 @@ export class OutboxPublisher {
     for (const notification of notifications) {
       await this.publishOne(notification);
     }
+    this.dependencies.onPending?.(
+      await this.dependencies.store.countPendingRoomNotifications(),
+    );
   }
 
   private async publishOne(
