@@ -138,38 +138,46 @@ function applySecurityHeaders(response) {
   }
 }
 
+const PUBLIC_STATIC_FILES = new Set(["/", "/index.html", "/styles.css"]);
+const PUBLIC_STATIC_PREFIXES = ["/src/ui/", "/assets/"];
+
 function safePath(urlPath) {
   try {
-    const normalized = path.normalize(decodeURIComponent(urlPath));
-    if (normalized.includes("..") || path.isAbsolute(normalized)) return null;
-    if (normalized.startsWith(path.sep)) {
-      return normalized;
-    }
-    return `/${normalized}`;
-  } catch (error) {
+    const decoded = decodeURIComponent(urlPath);
+    if (decoded.includes("\0") || decoded.includes("\\")) return null;
+    const relativeInput = decoded.replace(/^\/+/, "");
+    if (relativeInput.split("/").includes("..")) return null;
+    const normalized = path.posix.normalize(`/${relativeInput}`);
+    const relativePath = normalized.replace(/^\/+/, "");
+    return relativePath ? `/${relativePath}` : "/";
+  } catch {
     return null;
   }
 }
 
+function isPublicStaticPath(cleanPath) {
+  return (
+    PUBLIC_STATIC_FILES.has(cleanPath) ||
+    PUBLIC_STATIC_PREFIXES.some((prefix) => cleanPath.startsWith(prefix))
+  );
+}
+
 function resolveFile(requested) {
   const cleanPath = safePath(requested);
-  if (!cleanPath) return null;
-  if (cleanPath === "/" || cleanPath === "") {
-    return path.join(ROOT_DIR, "index.html");
-  }
-  const candidate = path.join(ROOT_DIR, cleanPath);
-  if (!candidate.startsWith(`${ROOT_DIR}${path.sep}`) && candidate !== ROOT_DIR) {
+  if (!cleanPath || !isPublicStaticPath(cleanPath)) return null;
+  const candidate =
+    cleanPath === "/"
+      ? path.join(ROOT_DIR, "index.html")
+      : path.resolve(ROOT_DIR, `.${cleanPath}`);
+  if (!candidate.startsWith(`${ROOT_DIR}${path.sep}`)) {
     return null;
   }
   try {
     const stat = fs.statSync(candidate);
-    if (stat.isDirectory()) {
-      return null;
-    }
-  } catch (error) {
+    return stat.isDirectory() ? null : candidate;
+  } catch {
     return null;
   }
-  return candidate;
 }
 
 function writeJson(response, statusCode, payload) {
