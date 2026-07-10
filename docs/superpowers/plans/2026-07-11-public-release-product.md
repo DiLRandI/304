@@ -70,6 +70,7 @@ README.md                                                Accurate public-release
 - Modify: `packages/contracts/test/game.test.ts`
 - Modify: `apps/game-service/src/domain/room-coordinator.ts`
 - Modify: `apps/game-service/test/durable-rooms.integration.test.ts`
+- Modify: `packages/game-engine/src/engine.js`
 
 **Interfaces:**
 
@@ -77,7 +78,7 @@ README.md                                                Accurate public-release
 - Persists the selection in `RoomSettings`, applies it only when empty seats become bots, and projects it in the lobby through the existing `botDifficulty` seat property.
 - Does not expose mid-hand settings mutation, custom rules, or client-selected bot actions.
 
-- [ ] **Step 1: Write the failing contract and integration assertions**
+- [x] **Step 1: Write the failing contract and integration assertions**
 
 ```ts
 expect(CreateRoomRequestSchema.parse({
@@ -94,7 +95,7 @@ expect(started.view.publicState?.seats).toEqual(
 );
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run: `pnpm --filter @three-zero-four/contracts test -- game.test.ts`
 
@@ -102,7 +103,7 @@ Run: `INTEGRATION_DATABASE_URL=<postgres> INTEGRATION_REDIS_URL=<redis> pnpm --f
 
 Expected: the contract rejects `botDifficulty` as an unknown key and started rooms use the hard-coded easy bot setting.
 
-- [ ] **Step 3: Add the bounded preference field**
+- [x] **Step 3: Add the bounded preference field**
 
 ```ts
 const BotDifficultySchema = z.enum(["easy", "normal", "strong"]);
@@ -114,9 +115,9 @@ export const CreateRoomRequestSchema = z.object({
 }).strict();
 ```
 
-Replace the coordinator literal with `botDifficulty: request.botDifficulty`. Retain `enableSecondBidding: true` as a server-owned release rule. Do not create a lobby settings endpoint; the selection is immutable once the room is created.
+Replace the coordinator literal with `botDifficulty: request.botDifficulty`. Expose only bot difficulty in public seat projections so players can understand the table configuration; keep human difficulty private/null. Retain `enableSecondBidding: true` as a server-owned release rule. Do not create a lobby settings endpoint; the selection is immutable once the room is created.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/contracts test -- game.test.ts`
 
@@ -124,10 +125,10 @@ Run: `INTEGRATION_DATABASE_URL=<postgres> INTEGRATION_REDIS_URL=<redis> pnpm --f
 
 Expected: all three allowed values persist through a create/start/recovery cycle and malformed values remain rejected.
 
-- [ ] **Step 5: Commit the public preference boundary**
+- [x] **Step 5: Commit the public preference boundary**
 
 ```bash
-git add packages/contracts apps/game-service/src/domain/room-coordinator.ts apps/game-service/test/durable-rooms.integration.test.ts
+git add packages/contracts packages/game-engine/src/engine.js apps/game-service/src/domain/room-coordinator.ts apps/game-service/test/durable-rooms.integration.test.ts
 git commit -m "feat: configure room bot difficulty"
 ```
 

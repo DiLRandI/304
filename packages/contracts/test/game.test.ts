@@ -77,6 +77,27 @@ describe("durable room request contracts", () => {
       RoomProjectionSchema.parse({ roomId: "bad", eventVersion: -1 }),
     ).toThrow();
   });
+
+  it("accepts a bounded bot difficulty and defaults it for compatibility", () => {
+    expect(
+      CreateRoomRequestSchema.parse({
+        commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+        ruleProfileId: "six_304_36",
+        botDifficulty: "strong",
+      }),
+    ).toMatchObject({ botDifficulty: "strong" });
+    expect(
+      CreateRoomRequestSchema.parse({
+        commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+      }),
+    ).toMatchObject({ botDifficulty: "easy" });
+    expect(() =>
+      CreateRoomRequestSchema.parse({
+        commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+        botDifficulty: "unlimited",
+      }),
+    ).toThrow();
+  });
 });
 
 describe("realtime message contracts", () => {

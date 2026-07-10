@@ -268,4 +268,45 @@ describeIntegration("durable room HTTP API", () => {
       error: { code: "INVALID_REQUEST", message: "Request is invalid" },
     });
   });
+
+  it("uses the host-selected bot difficulty when a room starts with bot fill", async () => {
+    runtime = await buildRealApp();
+    const host = await createGuest(runtime.app, "Ravi");
+    const created = await runtime.app.inject({
+      method: "POST",
+      url: "/v1/rooms",
+      headers: { origin, cookie: host.cookie },
+      payload: {
+        commandId: randomUUID(),
+        ruleProfileId: "classic_304_4p",
+        botDifficulty: "strong",
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const room = created.json() as DurableProjection;
+
+    const started = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/start`,
+      headers: { origin, cookie: host.cookie },
+      payload: { commandId: randomUUID(), expectedVersion: room.eventVersion },
+    });
+    expect(started.statusCode).toBe(200);
+    const publicState = (
+      started.json() as DurableProjection & {
+        view: {
+          publicState: {
+            seats: Array<{ difficulty: string; type: string }>;
+          };
+        };
+      }
+    ).view.publicState;
+    expect(publicState.seats.filter((seat) => seat.type === "bot")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ difficulty: "strong", type: "bot" }),
+        expect.objectContaining({ difficulty: "strong", type: "bot" }),
+        expect.objectContaining({ difficulty: "strong", type: "bot" }),
+      ]),
+    );
+  });
 });

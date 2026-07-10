@@ -4,6 +4,7 @@ const Uuid = z.string().uuid();
 const EventVersion = z.number().int().nonnegative();
 const DisplayName = z.string().trim().min(1).max(48);
 const InviteCode = z.string().regex(/^304-[A-Za-z0-9_-]{12,32}$/);
+const BotDifficulty = z.enum(["easy", "normal", "strong"]);
 
 export const RuleProfileIdSchema = z.enum(["classic_304_4p", "six_304_36"]);
 
@@ -53,6 +54,7 @@ export const CreateRoomRequestSchema = z
   .object({
     commandId: Uuid,
     ruleProfileId: RuleProfileIdSchema.default("classic_304_4p"),
+    botDifficulty: BotDifficulty.default("easy"),
   })
   .strict();
 

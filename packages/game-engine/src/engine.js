@@ -476,6 +476,7 @@ export class GameEngine {
         team: seat.team,
         type: seat.type,
         displayName: seat.displayName,
+        difficulty: seat.type === "bot" ? seat.difficulty || "easy" : null,
         connectionStatus: seat.connectionStatus || "disconnected",
         autopilot: !!seat.autopilot,
         disconnectedAt: seat.disconnectedAt || null,
