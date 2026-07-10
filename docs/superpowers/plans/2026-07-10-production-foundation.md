@@ -12,6 +12,7 @@
 
 - Keep the current `GameEngine` behavior, private projections, and Classic/Six-seat rule profiles intact during this milestone.
 - Pin Node.js to `24.17.0`; use pnpm `11.10.0` with the existing minimum-release-age and trust policy.
+- Allow only reviewed dependency build scripts; M1 permits `esbuild` because Vitest's Vite transform pipeline requires its native binary.
 - PostgreSQL is the only durable authority for game history; Redis is never the only source of a room or player state.
 - Browser and worker code may consume only `@three-zero-four/contracts`; they must not read server-side snapshots or unprojected engine state.
 - Never commit secrets, connection strings, generated `node_modules`, build artifacts, database volumes, or captured game state.
@@ -79,6 +80,7 @@ test("declares the pinned production workspace toolchain", () => {
   assert.match(workspace, /packages:\n\s+- apps\/\*/);
   assert.match(workspace, /\s+- packages\/\*/);
   assert.match(workspace, /minimumReleaseAge: 1440/);
+  assert.match(workspace, /allowBuilds:\n\s+esbuild: true/);
 });
 ```
 
@@ -147,6 +149,8 @@ minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 trustPolicy: no-downgrade
 blockExoticSubdeps: true
+allowBuilds:
+  esbuild: true
 ```
 
 Create `tsconfig.base.json`:

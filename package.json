@@ -1,10 +1,23 @@
 {
-  "name": "304-game",
+  "name": "304-online",
   "private": true,
   "version": "1.0.0",
   "packageManager": "pnpm@11.10.0+sha512.0b7f8b98060031904c017e3a41eb187a16d40eeb829b95c4f8cb03681761fc4ab53dd219115b9b447f4dce1a05a214764461e7d3703392a9f32f9511ce8c86c8",
+  "engines": {
+    "node": "24.17.0"
+  },
   "scripts": {
     "test": "node --test",
+    "test:legacy": "node --test",
+    "test:unit": "pnpm test && pnpm --filter @three-zero-four/game-engine test && pnpm --filter @three-zero-four/contracts test && pnpm --filter @three-zero-four/game-service test && pnpm --filter @three-zero-four/web test",
+    "typecheck": "pnpm --filter @three-zero-four/game-engine typecheck && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "build": "pnpm --filter @three-zero-four/contracts build && pnpm --filter @three-zero-four/game-service build && pnpm --filter @three-zero-four/web build",
+    "check": "pnpm lint && pnpm typecheck && pnpm test:unit",
+    "compose:up": "docker compose -f infra/compose/compose.yaml up --build --wait",
+    "compose:down": "docker compose -f infra/compose/compose.yaml down --volumes --remove-orphans",
+    "db:migrate": "pnpm --filter @three-zero-four/game-service migrate",
     "start": "node server.js",
     "start:prod": "NODE_ENV=production node server.js",
     "start:dev": "NODE_ENV=development PORT=4173 node server.js",
@@ -13,5 +26,12 @@
     "health": "node -e \"const http=require('node:http');const port=process.env.PORT||4173;http.get(`http://localhost:${port}/health`,res=>{console.log(res.statusCode);process.exit(res.statusCode===200?0:1)}).on('error',()=>process.exit(1))\"",
     "security:check": "pnpm audit --audit-level=high",
     "security:check:all": "pnpm install --frozen-lockfile && pnpm audit --audit-level=high && pnpm audit signatures"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.3",
+    "@types/node": "^24.0.0",
+    "tsx": "4.23.0",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
   }
 }
