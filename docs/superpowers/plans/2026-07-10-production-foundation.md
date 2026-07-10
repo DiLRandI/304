@@ -150,6 +150,9 @@ packages:
   - apps/*
   - packages/*
 
+overrides:
+  postcss: 8.5.16
+
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 trustPolicy: no-downgrade
@@ -159,7 +162,7 @@ allowBuilds:
   sharp: false
 ```
 
-The lint command covers the production workspace, infrastructure, and foundation-contract tests. The legacy static prototype remains covered by `test:legacy` until its migration is complete; generated card-art SVGs are not treated as inline application markup.
+The PostCSS override keeps the transitive web build tool above its published security-fix floor. The lint command covers the production workspace, infrastructure, and foundation-contract tests. The legacy static prototype remains covered by `test:legacy` until its migration is complete; generated card-art SVGs are not treated as inline application markup.
 
 Create `tsconfig.base.json`:
 
@@ -1398,7 +1401,7 @@ git commit -m "feat: add production web and compose topology"
 - Produces a pull-request CI job that uses immutable installs, static checks, tests, dependency audit, migration validation, and Compose smoke checks.
 - Produces documented commands for startup, migrations, readiness diagnosis, data backup, restore rehearsal, and safe rollback.
 
-- [ ] **Step 1: Write the failing CI/runbook contract test**
+- [x] **Step 1: Write the failing CI/runbook contract test**
 
 ```js
 // test/production-foundation-ci.test.mjs
@@ -1406,12 +1409,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-test("production CI and runbook cover immutable install, migrations, readiness, backup, and rollback", () => {
+test("production CI and runbook cover immutable install, verification, recovery, and rollback", () => {
   const workflow = fs.readFileSync(".github/workflows/ci.yml", "utf8");
   const runbook = fs.readFileSync("docs/operations/production-foundation.md", "utf8");
+  assert.match(workflow, /uses: actions\/checkout@[0-9a-f]{40}/);
+  assert.match(workflow, /uses: actions\/setup-node@[0-9a-f]{40}/);
   assert.match(workflow, /pnpm install --frozen-lockfile/);
   assert.match(workflow, /pnpm check/);
   assert.match(workflow, /pnpm audit --audit-level=high/);
+  assert.match(workflow, /pnpm audit signatures/);
   assert.match(workflow, /compose\.yaml up --build --wait/);
   assert.match(runbook, /pg_dump/);
   assert.match(runbook, /pg_restore/);
@@ -1419,13 +1425,13 @@ test("production CI and runbook cover immutable install, migrations, readiness, 
 });
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run: `node --test test/production-foundation-ci.test.mjs`
 
 Expected: FAIL because the workflow and runbook do not exist.
 
-- [ ] **Step 3: Implement the CI workflow and runbook**
+- [x] **Step 3: Implement the CI workflow and runbook**
 
 Create `.github/workflows/ci.yml`:
 
@@ -1443,13 +1449,12 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .node-version
-          cache: pnpm
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
@@ -1457,9 +1462,12 @@ jobs:
       - run: pnpm audit signatures
       - run: cp infra/compose/.env.example infra/compose/.env
       - run: docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up --build --wait
-      - run: curl --fail --silent http://127.0.0.1:4100/livez
-      - run: docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes --remove-orphans
-        if: always()
+      - run: curl --fail --silent --show-error http://127.0.0.1:4100/livez
+      - run: curl --fail --silent --show-error http://127.0.0.1:4100/readyz
+      - if: failure()
+        run: docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml logs --no-color
+      - if: always()
+        run: docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes --remove-orphans
 ```
 
 Create `docs/operations/production-foundation.md` with these executable procedures:
@@ -1504,7 +1512,7 @@ Stop traffic to the new service, retain the database, and redeploy the previous 
 
 Add a `Production foundation` section near the README run instructions linking to the runbook and showing `pnpm check` and `pnpm compose:up`.
 
-- [ ] **Step 4: Verify gates GREEN**
+- [x] **Step 4: Verify gates GREEN**
 
 Run: `node --test test/production-foundation-ci.test.mjs`
 
@@ -1512,26 +1520,26 @@ Run: `pnpm check`
 
 Run: `pnpm security:check:all`
 
-Expected: CI/runbook contract passes, all lint/type/unit checks pass, and pnpm reports no high-severity dependency finding or signature error.
+Verified: CI/runbook contract passes, all lint/type/unit checks pass, pnpm reports no dependency findings, package signatures verify, and the freshly rebuilt Compose stack completes its migration and serves healthy `/livez` and `/readyz` responses.
 
-- [ ] **Step 5: Commit the production gates**
+- [x] **Step 5: Commit the production gates**
 
 ```bash
-git add .github/workflows/ci.yml README.md docs/operations/production-foundation.md test/production-foundation-ci.test.mjs
-git commit -m "ci: add production foundation release gates"
+git add .github/workflows/ci.yml README.md docs/operations/production-foundation.md test/production-foundation-ci.test.mjs test/production-foundation-workspace.test.mjs pnpm-workspace.yaml pnpm-lock.yaml
+git commit -m "ci: add production release gates"
 ```
 
 ## M1 completion checklist
 
-- [ ] Existing engine tests and root server tests still pass through their legacy paths.
-- [ ] `@three-zero-four/game-engine` exposes the current rules engine without HTTP or storage dependencies.
-- [ ] Commands and versioned private updates are runtime-validated at one shared contract boundary.
-- [ ] The Fastify process exposes live, readiness, metrics, request IDs, security headers, and JSON errors.
-- [ ] PostgreSQL migration records are checksum-protected and schema creates the durable entities needed by M2.
-- [ ] Redis and PostgreSQL run in a health-gated local topology.
-- [ ] Next.js builds from a separate web package without claiming server authority.
-- [ ] CI executes immutable install, checks, audit/signatures, migrations, and a Compose smoke test.
-- [ ] The operations runbook includes readiness, migration, backup, restore, and rollback procedures.
+- [x] Existing engine tests and root server tests still pass through their legacy paths.
+- [x] `@three-zero-four/game-engine` exposes the current rules engine without HTTP or storage dependencies.
+- [x] Commands and versioned private updates are runtime-validated at one shared contract boundary.
+- [x] The Fastify process exposes live, readiness, metrics, request IDs, security headers, and JSON errors.
+- [x] PostgreSQL migration records are checksum-protected and schema creates the durable entities needed by M2.
+- [x] Redis and PostgreSQL run in a health-gated local topology.
+- [x] Next.js builds from a separate web package without claiming server authority.
+- [x] CI executes immutable install, checks, audit/signatures, migrations, and a Compose smoke test.
+- [x] The operations runbook includes readiness, migration, backup, restore, and rollback procedures.
 
 ## Follow-on implementation plans
 
