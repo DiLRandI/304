@@ -24,6 +24,40 @@ test("starting a classic hand deals four private cards per seat", () => {
   }
 });
 
+test("selecting trump after four-card bidding deals the second batch before second bidding", () => {
+  const engine = new GameEngine({ humanCount: 4, ruleProfile: "classic_304_4p" });
+  engine.startMatch();
+
+  const winningSeat = engine.state.activeSeat;
+  assert.equal(
+    engine.applyAction({ type: "BID", seatIndex: winningSeat, actorSeatIndex: winningSeat, amount: 160 }).ok,
+    true,
+  );
+  while (engine.state.phase === "four_bidding") {
+    const seatIndex = engine.state.activeSeat;
+    assert.equal(
+      engine.applyAction({ type: "PASS_BID", seatIndex, actorSeatIndex: seatIndex }).ok,
+      true,
+    );
+  }
+
+  assert.equal(engine.state.phase, "trump_selection");
+  const trumpAction = engine
+    .getLegalActions(winningSeat)
+    .find((action) => action.type === "SELECT_TRUMP");
+  assert.ok(trumpAction);
+  assert.equal(
+    engine.applyAction({ ...trumpAction, actorSeatIndex: winningSeat }).ok,
+    true,
+  );
+
+  assert.equal(engine.state.phase, "second_bidding");
+  assert.deepEqual(
+    engine.state.seats.map((seat) => seat.hand.length),
+    engine.state.seats.map((seat) => (seat.index === winningSeat ? 7 : 8)),
+  );
+});
+
 test("a viewer receives only their own card identities", () => {
   const engine = new GameEngine({ humanCount: 4, ruleProfile: "classic_304_4p" });
   engine.startMatch();

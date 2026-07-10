@@ -845,7 +845,6 @@ export class GameEngine {
           this.state.bidding.initialMakerSeat = winnerSeat;
           this.state.phase = PHASE.TRUMP_SELECTION;
           this.state.activeSeat = winnerSeat;
-          this.state.bidding.phase = "trump_selected";
           this.state.gameMessage = `Four-card bidding done. Winner is seat ${winnerSeat}. Select trump indicator.`;
           return { ok: true };
         }
@@ -914,13 +913,14 @@ export class GameEngine {
     this.state.gameMessage = `Seat ${seatIndex} selected indicator ${formatCard(chosen)}.`;
     this._appendLog("TRUMP_SELECTED", { seat: seatIndex, cardId, source });
 
-    if (source === "four") {
+    if (source === "first") {
       this._dealCards(this.state.profile.cardBatch[1], false);
       if (this.state.bidding.secondRound.enabled) {
         const highBid = this.state.bidding.currentBid;
         const maker = this.state.trump.maker;
         const currentBidSeat = this.state.bidding.currentBidSeat;
-        return this._startSecondBidding(maker, highBid, currentBidSeat);
+        this._startSecondBidding(maker, highBid, currentBidSeat);
+        return { ok: true };
       }
       this._startTrumpChoice();
       return { ok: true };
