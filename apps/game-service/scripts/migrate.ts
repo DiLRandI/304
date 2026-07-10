@@ -1,13 +1,16 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createDatabase, type Database } from "../src/infra/database.js";
 
-function defaultMigrationsDir(): string {
+export function defaultMigrationsDir(
+  configuredDirectory = process.env.MIGRATIONS_DIR,
+): string {
+  if (configuredDirectory) return path.resolve(configuredDirectory);
   return path.resolve(
-    process.env.MIGRATIONS_DIR ??
-      path.join(process.cwd(), "infra/postgres/migrations"),
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../../infra/postgres/migrations",
   );
 }
 
