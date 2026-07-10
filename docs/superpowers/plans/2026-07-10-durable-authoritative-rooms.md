@@ -588,7 +588,6 @@ git commit -m "feat: coordinate durable room commands"
 - Create: `apps/game-service/src/routes/v1.ts`
 - Modify: `apps/game-service/src/app.ts`
 - Modify: `apps/game-service/src/server.ts`
-- Modify: `apps/game-service/test/app.test.ts`
 - Create: `apps/game-service/test/durable-rooms.integration.test.ts`
 
 **Interfaces:**
@@ -597,7 +596,7 @@ git commit -m "feat: coordinate durable room commands"
 - `POST /v1/rooms`, `GET /v1/rooms/:roomRef`, `POST /v1/rooms/:roomRef/join`, `POST /v1/rooms/:roomId/start`, `GET /v1/rooms/:roomId/snapshot`, and `POST /v1/rooms/:roomId/commands` delegate exclusively to `RoomCoordinator`.
 - All error responses use `{ error: { code, message } }`; unknown exceptions become a redacted `INTERNAL_ERROR`.
 
-- [ ] **Step 1: Write failing HTTP and integration tests**
+- [x] **Step 1: Write failing HTTP and integration tests**
 
 ```ts
 it("creates, joins, starts, plays, reconnects, and protects private cards", async () => {
@@ -630,13 +629,13 @@ it("rejects a missing origin, a seat forgery, and a stale unique command without
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
-Run: `INTEGRATION_DATABASE_URL=postgres://game:game@127.0.0.1:5432/game INTEGRATION_REDIS_URL=redis://127.0.0.1:6379 pnpm --filter @three-zero-four/game-service test -- durable-rooms.integration.test.ts`
+Run: `INTEGRATION_DATABASE_URL=<reachable PostgreSQL URL> INTEGRATION_REDIS_URL=<reachable Redis URL> pnpm --filter @three-zero-four/game-service test -- durable-rooms.integration.test.ts`
 
 Expected: FAIL because `/v1` routes and real dependency composition are absent.
 
-- [ ] **Step 3: Register strict routes, origin checks, and a safe error handler**
+- [x] **Step 3: Register strict routes, origin checks, and a safe error handler**
 
 Use one parser for every JSON request and a route boundary that never accepts a player/seat id:
 
@@ -676,18 +675,18 @@ The Fastify error handler must map `ZodError` to `INVALID_REQUEST` (400), preser
 
 Production `server.ts` creates one database, one Redis client, a `PostgresRoomStore`, `SessionService`, `RoomCoordinator`, `Presence`, and `RateLimiter`, then passes them into `buildApp`. Existing health-only tests may pass a lightweight fake runtime; all `/v1` tests use the real coordinator.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/game-service test`
 
-Run: `INTEGRATION_DATABASE_URL=postgres://game:game@127.0.0.1:5432/game INTEGRATION_REDIS_URL=redis://127.0.0.1:6379 pnpm --filter @three-zero-four/game-service test -- durable-rooms.integration.test.ts`
+Run: `INTEGRATION_DATABASE_URL=<reachable PostgreSQL URL> INTEGRATION_REDIS_URL=<reachable Redis URL> pnpm --filter @three-zero-four/game-service test -- durable-rooms.integration.test.ts`
 
 Expected: authenticated users can create/join/start/reconnect; a valid command advances once; stale/forged/no-origin requests do not mutate state; private-card assertions pass across two cookie jars.
 
-- [ ] **Step 5: Commit the HTTP API**
+- [x] **Step 5: Commit the HTTP API**
 
 ```bash
-git add apps/game-service/src/routes/v1.ts apps/game-service/src/app.ts apps/game-service/src/server.ts apps/game-service/test/app.test.ts apps/game-service/test/durable-rooms.integration.test.ts
+git add apps/game-service/src/routes/v1.ts apps/game-service/src/app.ts apps/game-service/src/server.ts apps/game-service/test/durable-rooms.integration.test.ts
 git commit -m "feat: expose durable room HTTP API"
 ```
 

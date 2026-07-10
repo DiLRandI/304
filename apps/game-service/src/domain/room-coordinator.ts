@@ -341,6 +341,36 @@ export class RoomCoordinator {
     return projection;
   }
 
+  async getRoom(
+    session: AuthenticatedSession,
+    roomReference: string,
+  ): Promise<RoomProjection> {
+    const referencedRoom = await this.store.loadRoomByReference(roomReference);
+    if (!referencedRoom) throw roomNotFound();
+    return this.withRoomLease(referencedRoom.id, async (transaction, room) => {
+      const viewerSeatIndex = await this.store.findSeatIndex(
+        transaction,
+        room.id,
+        session.playerId,
+      );
+      if (viewerSeatIndex != null) {
+        return this.projectCurrent(transaction, room, viewerSeatIndex);
+      }
+      if (room.status !== "lobby") {
+        throw new DomainError(
+          "SEAT_REQUIRED",
+          403,
+          "You are not seated in this room",
+        );
+      }
+      return projectLobbyForViewer(
+        room,
+        await this.store.loadSeats(room.id, transaction),
+        null,
+      );
+    });
+  }
+
   async submitCommand(
     session: AuthenticatedSession,
     command: GameCommand,

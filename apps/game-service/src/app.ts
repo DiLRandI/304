@@ -2,8 +2,11 @@ import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import Fastify, { type FastifyInstance, LogController } from "fastify";
+import { ZodError } from "zod";
 import type { ServiceConfig } from "./config.js";
+import { DomainError } from "./domain/errors.js";
 import { createMetrics } from "./metrics.js";
+import { type GameRuntime, registerV1Routes } from "./routes/v1.js";
 
 export { loadConfig } from "./config.js";
 
@@ -15,9 +18,11 @@ export interface ReadinessChecks {
 export async function buildApp({
   config,
   readiness,
+  game,
 }: {
   config: ServiceConfig;
   readiness: ReadinessChecks;
+  game?: GameRuntime;
 }): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -58,6 +63,23 @@ export async function buildApp({
     });
   });
 
+  if (game) {
+    app.addHook("onRequest", async (request) => {
+      if (request.method !== "POST" || !request.url.startsWith("/v1/")) {
+        return;
+      }
+      const origin = request.headers.origin;
+      if (!origin || !config.corsOrigins.has(origin)) {
+        throw new DomainError(
+          "ORIGIN_DENIED",
+          403,
+          "Request origin is not allowed",
+        );
+      }
+    });
+    await registerV1Routes(app, config, game);
+  }
+
   app.get("/livez", async () => ({ status: "live" }));
   app.get("/readyz", async (_request, reply) => {
     const [database, redis] = await Promise.all([
@@ -75,6 +97,22 @@ export async function buildApp({
     return reply
       .type(metrics.registry.contentType)
       .send(await metrics.registry.metrics());
+  });
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof DomainError) {
+      return reply
+        .code(error.statusCode)
+        .send({ error: { code: error.code, message: error.message } });
+    }
+    if (error instanceof ZodError) {
+      return reply.code(400).send({
+        error: { code: "INVALID_REQUEST", message: "Request is invalid" },
+      });
+    }
+    request.log.error({ err: error }, "unhandled game service error");
+    return reply.code(500).send({
+      error: { code: "INTERNAL_ERROR", message: "Internal server error" },
+    });
   });
   app.setNotFoundHandler((_request, reply) =>
     reply

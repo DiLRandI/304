@@ -70,7 +70,10 @@ export function formatCard(card: EngineCard): string;
 export function generateShuffleSeed(): string;
 export function makeShuffleCommit(...args: unknown[]): string;
 export const SUITS: readonly string[];
-export function shuffleDeck(cards: readonly EngineCard[], seed?: string): EngineCard[];
+export function shuffleDeck(
+  cards: readonly EngineCard[],
+  seed?: string,
+): EngineCard[];
 export const BOT_NAMES: readonly string[];
 export function chooseTableSeatCount(
   humanCount: number,

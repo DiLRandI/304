@@ -57,7 +57,7 @@ function projectableStatus(status: RoomStatus): ProjectableStatus {
 export function projectLobbyForViewer(
   room: StoredRoom,
   seats: readonly StoredSeat[],
-  viewerSeatIndex: number,
+  viewerSeatIndex: number | null,
 ): RoomProjection {
   return {
     roomId: room.id,
