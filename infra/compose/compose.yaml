@@ -104,6 +104,30 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  integration:
+    build:
+      context: ../..
+      dockerfile: apps/game-service/Dockerfile
+      target: test
+    profiles: ["integration"]
+    command:
+      ["pnpm", "--filter", "@three-zero-four/game-service", "test"]
+    environment:
+      NODE_ENV: test
+      INTEGRATION_DATABASE_URL: postgres://game:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      INTEGRATION_REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: http://127.0.0.1:3000
+      SESSION_COOKIE_NAME: g304_session
+      SESSION_SECRET_PEPPER: ${SESSION_SECRET_PEPPER}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
 volumes:
   postgres-data:
   redis-data:

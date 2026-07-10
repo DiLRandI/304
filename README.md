@@ -8,8 +8,8 @@
 - `packages/contracts` validates versioned game commands and private views.
 - `apps/game-service` is the Fastify boundary for the production game API.
 - `apps/web` is a Next.js web shell with no game-state authority.
-- PostgreSQL stores durable room/session/event primitives; Redis provides readiness and coordination infrastructure.
-- The legacy static Node.js server remains the current playable compatibility baseline while durable room commands and realtime delivery are completed.
+- PostgreSQL stores durable guest sessions, rooms, seats, accepted events, and private snapshots; Redis provides room leases, presence, and rate limits.
+- The game service exposes an authenticated `/v1` HTTP room API. The legacy static Node.js server remains the current playable compatibility baseline while realtime delivery and the production player UI are completed.
 
 ## Development
 
@@ -38,6 +38,12 @@ curl --fail --silent --show-error http://127.0.0.1:4100/readyz
 
 The web shell is available at `http://127.0.0.1:3000`. The game service is available at `http://127.0.0.1:4100`. Stop the disposable local topology with `pnpm compose:down`.
 
+Run the durable service integration rehearsal against the Compose PostgreSQL and Redis services with:
+
+```bash
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm integration
+```
+
 ## Security and release checks
 
 ```bash
@@ -57,4 +63,4 @@ For startup, readiness, migrations, backup rehearsals, and rollback, follow [the
 
 ## Release scope
 
-M1 establishes the production boundary and local release topology. Public player launch remains blocked on durable room command handling, realtime reconnection, and final release hardening described in the production platform plan.
+M2 establishes durable HTTP rooms, guest sessions, idempotent commands, private snapshots, and restart recovery for Classic 304. Public player launch remains blocked on realtime resync, bot/timer execution, the production player UI, and final release hardening described in the production platform plan.

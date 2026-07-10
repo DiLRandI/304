@@ -1,6 +1,6 @@
 # Production Foundation Operations
 
-This runbook covers the production-like M1 topology: a Next.js web shell, the Fastify game service, PostgreSQL, Redis, and append-only migrations. It does not authorize public player traffic until the durable command and realtime milestones are complete.
+This runbook covers the production-like M2 topology: a Next.js web shell, the Fastify game service, PostgreSQL, Redis, durable guest sessions/room commands, and append-only migrations. It does not authorize public player traffic until the realtime and public-release milestones are complete.
 
 ## Local production-like startup
 
@@ -24,6 +24,16 @@ curl --fail --silent --show-error http://127.0.0.1:4100/readyz
 ```
 
 If readiness fails, diagnose PostgreSQL and Redis before restarting the game service. The migration job must exit successfully before the game service starts.
+
+## Durable room integration rehearsal
+
+With the local topology running, execute the same database/Redis-backed service test used by CI:
+
+```bash
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm integration
+```
+
+The runner executes `durable-rooms.integration.test.ts` together with the service's durable-store, session, coordination, and recovery checks against the disposable Compose database. It creates test guests and rooms only; it does not contact external systems or authorize public traffic.
 
 ## Migrations
 
@@ -57,7 +67,7 @@ Keep encrypted backups in the production provider's approved backup system. Stor
 1. Stop new player traffic to the unhealthy release.
 2. Preserve the database and running evidence; do not run destructive down migrations.
 3. Redeploy the previous verified service and web images.
-4. Confirm `/livez` and `/readyz` on the restored service before reopening traffic.
+4. Confirm `/livez`, `/readyz`, and the durable room integration rehearsal on the restored service before reopening traffic.
 5. If the schema blocks recovery, restore the latest verified backup into a new database, validate it, and switch traffic only after the checks pass.
 
 ## Local teardown

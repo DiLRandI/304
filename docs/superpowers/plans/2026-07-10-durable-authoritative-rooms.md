@@ -701,10 +701,10 @@ git commit -m "feat: expose durable room HTTP API"
 
 **Interfaces:**
 
-- Adds a non-production `integration` Compose profile that uses the existing `build` Docker stage and can reach `postgres` and `redis` on the private Compose network.
+- Adds a non-production `integration` Compose profile that uses a dedicated full-workspace `test` Docker stage and can reach `postgres` and `redis` on the private Compose network.
 - CI runs the profile after its normal `up --build --wait` health gate.
 
-- [ ] **Step 1: Write the failing release-gate contract**
+- [x] **Step 1: Write the failing release-gate contract**
 
 ```js
 // test/production-foundation-ci.test.mjs
@@ -714,25 +714,25 @@ assert.match(compose, /integration:[\s\S]*profiles: \["integration"\]/);
 assert.match(runbook, /durable-rooms\.integration\.test\.ts/);
 ```
 
-- [ ] **Step 2: Run the contract and verify RED**
+- [x] **Step 2: Run the contract and verify RED**
 
 Run: `node --test test/production-foundation-ci.test.mjs`
 
 Expected: FAIL because CI does not yet execute a PostgreSQL/Redis room flow.
 
-- [ ] **Step 3: Add the Compose integration runner and documentation**
+- [x] **Step 3: Add the Compose integration runner and documentation**
 
-Use the existing full-workspace build stage in the service Dockerfile and define this Compose service:
+Use the dedicated full-workspace `test` stage in the service Dockerfile so the production deployment step cannot prune the runner's test dependencies, then define this Compose service:
 
 ```yaml
   integration:
     build:
       context: ../..
       dockerfile: apps/game-service/Dockerfile
-      target: build
+      target: test
     profiles: ["integration"]
     command:
-      ["pnpm", "--filter", "@three-zero-four/game-service", "test", "--", "durable-rooms.integration.test.ts"]
+      ["pnpm", "--filter", "@three-zero-four/game-service", "test"]
     environment:
       NODE_ENV: test
       INTEGRATION_DATABASE_URL: postgres://game:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -754,7 +754,7 @@ Append this CI step immediately after readiness checks:
 
 Document the local equivalent and state clearly that it exercises a disposable database only. Keep the `down --volumes --remove-orphans` `always()` cleanup unchanged.
 
-- [ ] **Step 4: Verify GREEN with the actual topology**
+- [x] **Step 4: Verify GREEN with the actual topology**
 
 Run: `pnpm check`
 
@@ -768,7 +768,7 @@ Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml
 
 Expected: all unit/contract tests pass; the isolated integration container creates, joins, starts, commands, recovers, and privacy-checks a room against real PostgreSQL and Redis; teardown leaves no containers or volumes.
 
-- [ ] **Step 5: Commit the M2 verification gate**
+- [x] **Step 5: Commit the M2 verification gate**
 
 ```bash
 git add infra/compose/compose.yaml .github/workflows/ci.yml docs/operations/production-foundation.md README.md test/production-foundation-ci.test.mjs
@@ -777,10 +777,10 @@ git commit -m "test: gate durable room integration"
 
 ## M2 completion checklist
 
-- [ ] Guest sessions use high-entropy HTTP-only cookies backed by durable, peppered secret digests.
-- [ ] Classic rooms, seats, lifecycle events, and game snapshots persist in PostgreSQL.
-- [ ] Every accepted room action is locked, idempotent, versioned, evented, and snapshot-backed.
-- [ ] Every `GET`/command response is a private projection with no cross-seat card leak.
-- [ ] Fresh coordinator instances recover rooms from snapshots plus later events.
-- [ ] Redis coordinates leases, presence, and per-subject rate limits without becoming a system of record.
-- [ ] CI exercises the M2 flow against real PostgreSQL and Redis in Compose.
+- [x] Guest sessions use high-entropy HTTP-only cookies backed by durable, peppered secret digests.
+- [x] Classic rooms, seats, lifecycle events, and game snapshots persist in PostgreSQL.
+- [x] Every accepted room action is locked, idempotent, versioned, evented, and snapshot-backed.
+- [x] Every `GET`/command response is a private projection with no cross-seat card leak.
+- [x] Fresh coordinator instances recover rooms from snapshots plus later events.
+- [x] Redis coordinates leases, presence, and per-subject rate limits without becoming a system of record.
+- [x] CI exercises the M2 flow against real PostgreSQL and Redis in Compose.
