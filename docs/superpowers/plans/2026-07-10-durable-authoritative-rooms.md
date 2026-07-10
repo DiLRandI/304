@@ -349,7 +349,7 @@ git commit -m "feat: persist durable room events"
 - Produces `SessionService.create`, `SessionService.require`, and `SessionService.setCookie`.
 - Produces `RoomLease.withLease`, `Presence.touch`, `Presence.onlinePlayerIds`, and `RateLimiter.consume`.
 
-- [ ] **Step 1: Write failing isolated tests**
+- [x] **Step 1: Write failing isolated tests**
 
 ```ts
 it("stores only a peppered session-secret digest and emits a secure production cookie", async () => {
@@ -368,13 +368,13 @@ it("does not execute a room mutation when another owner holds its lease", async 
 });
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run: `pnpm --filter @three-zero-four/game-service test -- session-service.test.ts redis-coordination.test.ts`
 
 Expected: FAIL because no session or coordination services exist.
 
-- [ ] **Step 3: Implement the security and coordination boundaries**
+- [x] **Step 3: Implement the security and coordination boundaries**
 
 Use random opaque credentials and a constant-time digest comparison:
 
@@ -419,13 +419,13 @@ async withLease<T>(roomId: string, work: () => Promise<T>): Promise<T> {
 
 `RateLimiter.consume(scope, subject, limit, windowSeconds)` must use `INCR` followed by an expiry on its first increment and throw `RATE_LIMITED` with status `429` when the count exceeds its bound. `Presence.touch(roomId, playerId)` writes a TTL-only key; it never writes durable room state.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/game-service test -- session-service.test.ts redis-coordination.test.ts`
 
 Expected: credential secrets are not persisted or logged, lease ownership is compared before release, and limit/presence keys expire.
 
-- [ ] **Step 5: Commit identity and coordination**
+- [x] **Step 5: Commit identity and coordination**
 
 ```bash
 git add apps/game-service/src/domain/session-service.ts apps/game-service/src/infra/redis-coordination.ts apps/game-service/test/session-service.test.ts apps/game-service/test/redis-coordination.test.ts
