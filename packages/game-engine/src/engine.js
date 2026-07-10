@@ -1,15 +1,14 @@
+import { pickBotAction } from "./bot.js";
 import {
   buildDeck,
-  shuffleDeck,
-  compareCardsForTrick,
-  compareRank,
-  formatCard,
   cloneCard,
+  compareCardsForTrick,
+  formatCard,
   generateShuffleSeed,
   makeShuffleCommit,
+  shuffleDeck,
 } from "./cardData.js";
-import { getProfile, chooseTableSeatCount, BOT_NAMES } from "./profiles.js";
-import { pickBotAction } from "./bot.js";
+import { BOT_NAMES, chooseTableSeatCount, getProfile } from "./profiles.js";
 
 const PHASE = {
   SETUP: "setup",
@@ -78,7 +77,6 @@ function getTrumpPublicView(state, viewerSeatIndex = null) {
 function cloneSeatsForBot(state, botSeatIndex) {
   return state.seats.map((seat, seatIndex) => {
     const isBotSeat = Number(seatIndex) === Number(botSeatIndex);
-    const hiddenCard = { cardId: "Card Back", hidden: true };
     return {
       ...seat,
       hand: isBotSeat ? seat.hand.map(cloneCard) : [],
@@ -175,7 +173,11 @@ export class GameEngine {
     this.state.seats = [];
     let botIndex = 0;
     let explicitHumanCount = 0;
-    const layout = Array.isArray(initialSeats) && initialSeats.length === this.state.seatCount ? initialSeats : null;
+    const layout =
+      Array.isArray(initialSeats) &&
+      initialSeats.length === this.state.seatCount
+        ? initialSeats
+        : null;
 
     const resolveSeatType = (seat) => {
       if (!seat || typeof seat !== "object") {
@@ -192,7 +194,11 @@ export class GameEngine {
 
     for (let i = 0; i < this.state.seatCount; i++) {
       const templateSeat = layout ? layout[i] : null;
-      const seatType = layout ? resolveSeatType(templateSeat) : (i < this.state.humanCount ? "human" : "bot");
+      const seatType = layout
+        ? resolveSeatType(templateSeat)
+        : i < this.state.humanCount
+          ? "human"
+          : "bot";
       if (seatType === "human") {
         explicitHumanCount += 1;
       }
@@ -201,19 +207,26 @@ export class GameEngine {
         seatLabel: `Seat ${i}`,
         team: teamOf(i),
         type: seatType,
-        connectionStatus: templateSeat?.connectionStatus || (seatType === "human" ? "disconnected" : "online"),
+        connectionStatus:
+          templateSeat?.connectionStatus ||
+          (seatType === "human" ? "disconnected" : "online"),
         autopilot: Boolean(templateSeat?.autopilot),
         disconnectedAt: templateSeat?.disconnectedAt || null,
-        reconnectSummary: Array.isArray(templateSeat?.reconnectSummary) ? [...templateSeat.reconnectSummary] : [],
+        reconnectSummary: Array.isArray(templateSeat?.reconnectSummary)
+          ? [...templateSeat.reconnectSummary]
+          : [],
         displayName:
-          layout && typeof templateSeat.displayName === "string" && templateSeat.displayName.trim()
+          layout &&
+          typeof templateSeat.displayName === "string" &&
+          templateSeat.displayName.trim()
             ? templateSeat.displayName
             : seatType === "human"
               ? i === 0
                 ? playerName
                 : `Guest ${i + 1}`
               : BOT_NAMES[botIndex % BOT_NAMES.length],
-        difficulty: seatType === "human" ? "human" : this.state.settings.botDifficulty,
+        difficulty:
+          seatType === "human" ? "human" : this.state.settings.botDifficulty,
         hand: [],
         firstHand: [],
         wonCards: [],
@@ -250,7 +263,10 @@ export class GameEngine {
 
   startMatch() {
     if (this.state.phase === PHASE.MATCH_COMPLETE) {
-      this.state.tokens = [this.state.profile.matchStartTokens, this.state.profile.matchStartTokens];
+      this.state.tokens = [
+        this.state.profile.matchStartTokens,
+        this.state.profile.matchStartTokens,
+      ];
       this.state.bidding.secondRound.anyBid = false;
     }
     this._startHand();
@@ -262,7 +278,13 @@ export class GameEngine {
     this.state.currentTrick = null;
     this.state.currentLedSuit = null;
     this.state.completedTricks = [];
-    this.state.trump = { maker: null, suit: null, card: null, isOpen: false, indicatorVisible: false };
+    this.state.trump = {
+      maker: null,
+      suit: null,
+      card: null,
+      isOpen: false,
+      indicatorVisible: false,
+    };
     this.state.trumpClosed = true;
     this.state.trumpSuit = null;
     this.state.trumpCard = null;
@@ -270,12 +292,21 @@ export class GameEngine {
     const shuffleSeed = generateShuffleSeed();
     this.state.handShuffle = {
       seed: shuffleSeed,
-      seedCommit: makeShuffleCommit(shuffleSeed, this.state.profile.id, this.state.handNumber),
+      seedCommit: makeShuffleCommit(
+        shuffleSeed,
+        this.state.profile.id,
+        this.state.handNumber,
+      ),
       deckVersion: "mulberry32-v1",
       seatCount: this.state.seatCount,
     };
-    this.state.deck = shuffleDeck(buildDeck(this.state.profile), { seed: shuffleSeed });
-    this.state.dealerSeat = (this.state.handNumber === 1 ? Math.floor(Math.random() * this.state.seatCount) : nextSeat(this.state.seatCount, this.state.dealerSeat));
+    this.state.deck = shuffleDeck(buildDeck(this.state.profile), {
+      seed: shuffleSeed,
+    });
+    this.state.dealerSeat =
+      this.state.handNumber === 1
+        ? Math.floor(Math.random() * this.state.seatCount)
+        : nextSeat(this.state.seatCount, this.state.dealerSeat);
     for (const seat of this.state.seats) {
       seat.hand = [];
       seat.firstHand = [];
@@ -291,7 +322,9 @@ export class GameEngine {
     const count = countEach;
     for (let round = 0; round < count; round++) {
       for (let i = 0; i < this.state.seatCount; i++) {
-        const seatIndex = (this.state.dealerSeat + 1 + i + round * this.state.seatCount) % this.state.seatCount;
+        const seatIndex =
+          (this.state.dealerSeat + 1 + i + round * this.state.seatCount) %
+          this.state.seatCount;
         const card = this.state.deck.pop();
         if (!card) {
           continue;
@@ -313,14 +346,18 @@ export class GameEngine {
     this.state.bidding.actedInRound = [];
     this.state.bidding.noBidPasses = 0;
     this.state.bidding.passesAfterBid = 0;
-    this.state.bidding.secondRound.enabled = this.state.settings.enableSecondBidding && this.state.profile.cardBatch[1] > 0;
+    this.state.bidding.secondRound.enabled =
+      this.state.settings.enableSecondBidding &&
+      this.state.profile.cardBatch[1] > 0;
     this.state.bidding.secondRound.actionsTaken = 0;
     this.state.bidding.secondRound.anyBid = false;
     this.state.bidding.secondRound.order = [];
     this.state.bidding.secondRound.previousBid = 0;
     this.state.bidding.secondRound.previousBidSeat = null;
     for (let i = 1; i <= this.state.seatCount; i++) {
-      this.state.bidding.order.push((this.state.dealerSeat + i) % this.state.seatCount);
+      this.state.bidding.order.push(
+        (this.state.dealerSeat + i) % this.state.seatCount,
+      );
     }
     this.state.bidding.activeOrderIndex = 0;
     this.state.activeSeat = this.state.bidding.order[0];
@@ -339,18 +376,24 @@ export class GameEngine {
     state.bidding.currentBidSeat = previousBidSeat;
     state.bidding.secondRound.order = [];
     for (let i = 1; i <= state.seatCount; i++) {
-      state.bidding.secondRound.order.push((previousMakerSeat + i - 1) % state.seatCount);
+      state.bidding.secondRound.order.push(
+        (previousMakerSeat + i - 1) % state.seatCount,
+      );
     }
     state.bidding.secondRound.actionsTaken = 0;
     state.bidding.secondRound.anyBid = false;
     state.bidding.secondRound.activeOrderIndex = 0;
     state.activeSeat = state.bidding.secondRound.order[0];
     state.phase = PHASE.SECOND_BIDDING;
-    state.gameMessage = "Eight-card bidding: bids must be >= 250 and higher than existing.";
+    state.gameMessage =
+      "Eight-card bidding: bids must be >= 250 and higher than existing.";
   }
 
   _startTrumpChoice() {
-    if (!this.state.profile.allowOpenTrump && !this.state.profile.allowClosedTrump) {
+    if (
+      !this.state.profile.allowOpenTrump &&
+      !this.state.profile.allowClosedTrump
+    ) {
       this._forceTrumpClose();
       return;
     }
@@ -410,8 +453,14 @@ export class GameEngine {
     const viewer = toSeatIndex(viewerSeatIndex);
     const viewerSeat = viewer != null ? this.state.seats[viewer] : null;
     const projectedTrick = this._projectTrickForPublic(this.state.currentTrick);
-    const projectedCompleted = this.state.completedTricks.map((trick) => this._projectTrickForPublic(trick).current);
-    const latestTrick = this.state.completedTricks.length ? this._projectTrickForPublic(this.state.completedTricks[this.state.completedTricks.length - 1]).current : null;
+    const projectedCompleted = this.state.completedTricks.map(
+      (trick) => this._projectTrickForPublic(trick).current,
+    );
+    const latestTrick = this.state.completedTricks.length
+      ? this._projectTrickForPublic(
+          this.state.completedTricks[this.state.completedTricks.length - 1],
+        ).current
+      : null;
     const trump = getTrumpPublicView(this.state, viewer);
     return {
       inviteCode: this.state.inviteCode,
@@ -430,7 +479,9 @@ export class GameEngine {
         connectionStatus: seat.connectionStatus || "disconnected",
         autopilot: !!seat.autopilot,
         disconnectedAt: seat.disconnectedAt || null,
-        reconnectSummary: Array.isArray(seat.reconnectSummary) ? seat.reconnectSummary.slice(-12) : [],
+        reconnectSummary: Array.isArray(seat.reconnectSummary)
+          ? seat.reconnectSummary.slice(-12)
+          : [],
         handSize: seat.hand.length,
         trickPoints: seat.trickPoints,
         isMe: viewerSeat != null ? viewerSeat.index === seat.index : false,
@@ -443,7 +494,8 @@ export class GameEngine {
       latestTrick,
       bidHistory: this.state.bidding.actions,
       handAudit:
-        this.state.phase === PHASE.HAND_RESULT || this.state.phase === PHASE.MATCH_COMPLETE
+        this.state.phase === PHASE.HAND_RESULT ||
+        this.state.phase === PHASE.MATCH_COMPLETE
           ? {
               handNumber: this.state.handNumber,
               seedCommit: this.state.handShuffle.seedCommit,
@@ -470,10 +522,14 @@ export class GameEngine {
       connectionStatus: seat.connectionStatus || "disconnected",
       autopilot: !!seat.autopilot,
       disconnectedAt: seat.disconnectedAt || null,
-      reconnectSummary: Array.isArray(seat.reconnectSummary) ? seat.reconnectSummary.slice(-12) : [],
+      reconnectSummary: Array.isArray(seat.reconnectSummary)
+        ? seat.reconnectSummary.slice(-12)
+        : [],
       difficulty: seat.difficulty,
       trickPoints: seat.trickPoints,
-      hand: isMySeat ? seat.hand.map(cloneCard) : seat.hand.map(() => ({ cardId: "Card Back", hidden: true })),
+      hand: isMySeat
+        ? seat.hand.map(cloneCard)
+        : seat.hand.map(() => ({ cardId: "Card Back", hidden: true })),
       firstHand: isMySeat ? seat.firstHand.map(cloneCard) : [],
       wonCards: isMySeat ? seat.wonCards.map(cloneCard) : [],
     };
@@ -509,10 +565,23 @@ export class GameEngine {
   _legalBidValues() {
     const profile = this.state.profile;
     const currentBid = this.state.bidding.currentBid;
-    const step = this.state.bidding.phase === "four" ? profile.fourCardBidStep : profile.eightCardBidStep;
-    const minRoundBid = this.state.bidding.phase === "four" ? profile.minFourCardBid : profile.minEightCardBid;
-    let nextMin = currentBid > 0 ? currentBid + step : minRoundBid;
-    return [nextMin, nextMin + step, nextMin + 2 * step, nextMin + 3 * step, nextMin + 4 * step, nextMin + 5 * step];
+    const step =
+      this.state.bidding.phase === "four"
+        ? profile.fourCardBidStep
+        : profile.eightCardBidStep;
+    const minRoundBid =
+      this.state.bidding.phase === "four"
+        ? profile.minFourCardBid
+        : profile.minEightCardBid;
+    const nextMin = currentBid > 0 ? currentBid + step : minRoundBid;
+    return [
+      nextMin,
+      nextMin + step,
+      nextMin + 2 * step,
+      nextMin + 3 * step,
+      nextMin + 4 * step,
+      nextMin + 5 * step,
+    ];
   }
 
   _getLegalBidsForSeat(seatIndex) {
@@ -520,14 +589,27 @@ export class GameEngine {
     const actedAlready = this.state.bidding.actedInRound[seatIndex] || false;
     const partnerSeat = (seatIndex + 2) % this.state.seatCount;
     const currentHighSeat = this.state.bidding.currentBidSeat;
-    const minForRound = this.state.bidding.phase === "four" ? this.state.profile.minFourCardBid : this.state.profile.minEightCardBid;
-    const step = this.state.bidding.phase === "four" ? this.state.profile.fourCardBidStep : this.state.profile.eightCardBidStep;
+    const minForRound =
+      this.state.bidding.phase === "four"
+        ? this.state.profile.minFourCardBid
+        : this.state.profile.minEightCardBid;
+    const step =
+      this.state.bidding.phase === "four"
+        ? this.state.profile.fourCardBidStep
+        : this.state.profile.eightCardBidStep;
     const legal = [];
     for (const amount of values) {
       if (amount % step !== 0) continue;
       if (amount < minForRound) continue;
-      if (this.state.bidding.phase === "four" && actedAlready && amount < 200) continue;
-      if (this.state.bidding.phase === "four" && this.state.bidding.currentBid > 0 && partnerSeat === currentHighSeat && amount < 200) continue;
+      if (this.state.bidding.phase === "four" && actedAlready && amount < 200)
+        continue;
+      if (
+        this.state.bidding.phase === "four" &&
+        this.state.bidding.currentBid > 0 &&
+        partnerSeat === currentHighSeat &&
+        amount < 200
+      )
+        continue;
       legal.push(amount);
     }
     return legal.filter((value) => value > this.state.bidding.currentBid);
@@ -538,7 +620,10 @@ export class GameEngine {
     const seat = this.state.seats[seatIndex];
     if (!seat) return legal;
     const isActiveSeat = this.state.activeSeat === seatIndex;
-    if (this.state.phase === PHASE.FOUR_BIDDING || this.state.phase === PHASE.SECOND_BIDDING) {
+    if (
+      this.state.phase === PHASE.FOUR_BIDDING ||
+      this.state.phase === PHASE.SECOND_BIDDING
+    ) {
       if (!isActiveSeat) return [];
       const bids = this._getLegalBidsForSeat(seatIndex);
       for (const amount of bids) {
@@ -554,9 +639,10 @@ export class GameEngine {
     }
     if (this.state.phase === PHASE.TRUMP_SELECTION) {
       if (!isActiveSeat) return [];
-      const trumpCandidateCards = this.state.bidding.phase === "four"
-        ? this.state.seats[seatIndex].firstHand
-        : this.state.seats[seatIndex].hand;
+      const trumpCandidateCards =
+        this.state.bidding.phase === "four"
+          ? this.state.seats[seatIndex].firstHand
+          : this.state.seats[seatIndex].hand;
       const used = new Set();
       for (const card of trumpCandidateCards) {
         if (used.has(card.cardId)) continue;
@@ -573,15 +659,29 @@ export class GameEngine {
     }
     if (this.state.phase === PHASE.TRUMP_CHOICE) {
       if (!isActiveSeat) return [];
-      if (this.state.profile.allowOpenTrump) legal.push({ type: "TRUMP_OPEN", label: "Open trump", ariaLabel: "Open trump" });
-      if (this.state.profile.allowClosedTrump) legal.push({ type: "TRUMP_CLOSE", label: "Closed trump", ariaLabel: "Closed trump" });
+      if (this.state.profile.allowOpenTrump)
+        legal.push({
+          type: "TRUMP_OPEN",
+          label: "Open trump",
+          ariaLabel: "Open trump",
+        });
+      if (this.state.profile.allowClosedTrump)
+        legal.push({
+          type: "TRUMP_CLOSE",
+          label: "Closed trump",
+          ariaLabel: "Closed trump",
+        });
       return legal;
     }
     if (this.state.phase === PHASE.TRICK_PLAY && isActiveSeat) {
       return this._getLegalCardActions(seatIndex);
     }
     if (this.state.phase === PHASE.HAND_RESULT) {
-      legal.push({ type: "ACK_RESULT", label: "Next hand", ariaLabel: "Continue to next hand" });
+      legal.push({
+        type: "ACK_RESULT",
+        label: "Next hand",
+        ariaLabel: "Continue to next hand",
+      });
       return legal;
     }
     return legal;
@@ -594,7 +694,9 @@ export class GameEngine {
     const isLeader = this.state.currentTrick.plays.length === 0;
     const leadSuit = this.state.currentLedSuit;
     const hand = seat.hand;
-    const hasLeadSuit = leadSuit ? hand.some((card) => card.suit === leadSuit) : false;
+    const hasLeadSuit = leadSuit
+      ? hand.some((card) => card.suit === leadSuit)
+      : false;
     const includeTrumpIndicator =
       this.state.trump.card &&
       this.state.trumpClosed &&
@@ -676,10 +778,18 @@ export class GameEngine {
   }
 
   getBotAction(seatIndex) {
-    if (!this.state.seats[seatIndex] || this.state.phase === PHASE.SETUP || this.state.phase === PHASE.MATCH_COMPLETE) {
+    if (
+      !this.state.seats[seatIndex] ||
+      this.state.phase === PHASE.SETUP ||
+      this.state.phase === PHASE.MATCH_COMPLETE
+    ) {
       return null;
     }
-    if (this.state.seats[seatIndex].type !== "bot" && !this.state.seats[seatIndex].autopilot) return null;
+    if (
+      this.state.seats[seatIndex].type !== "bot" &&
+      !this.state.seats[seatIndex].autopilot
+    )
+      return null;
     if (this.state.activeSeat !== seatIndex) return null;
     const stateForBot = cloneStateForBotsOnly(this.state);
     stateForBot.seats = cloneSeatsForBot(this.state, seatIndex);
@@ -688,16 +798,19 @@ export class GameEngine {
       stateForBot.trump = {
         ...stateForBot.trump,
         card:
-          stateForBot.trump.card && (!stateForBot.trumpClosed || isTrumpMaker || stateForBot.trump.isOpen)
+          stateForBot.trump.card &&
+          (!stateForBot.trumpClosed || isTrumpMaker || stateForBot.trump.isOpen)
             ? stateForBot.trump.card
             : { cardId: "Card Back", hidden: true },
       };
     }
-    if (stateForBot.currentTrick && stateForBot.currentTrick.plays) {
+    if (stateForBot.currentTrick?.plays) {
       stateForBot.currentTrick = {
         ...stateForBot.currentTrick,
         plays: stateForBot.currentTrick.plays.map((play) =>
-          play.faceDown && !stateForBot.trump.isOpen ? { ...play, card: { cardId: "Card Back", hidden: true } } : play,
+          play.faceDown && !stateForBot.trump.isOpen
+            ? { ...play, card: { cardId: "Card Back", hidden: true } }
+            : play,
         ),
       };
     }
@@ -706,14 +819,25 @@ export class GameEngine {
     stateForBot.trumpClosed = this.state.trumpClosed;
     stateForBot.trumpSuit = this.state.trumpSuit;
     stateForBot.trumpCard = this.state.trumpCard;
-    stateForBot.leadingSeat = this.state.currentTrick ? this.state.currentTrick.leaderSeat : null;
+    stateForBot.leadingSeat = this.state.currentTrick
+      ? this.state.currentTrick.leaderSeat
+      : null;
     return pickBotAction(stateForBot, seatIndex);
   }
 
   applyAction(rawAction) {
     const action = { ...rawAction };
-    const clientKnownVersion = action.clientKnownVersion != null ? Number(action.clientKnownVersion) : action.clientVersion != null ? Number(action.clientVersion) : null;
-    if (typeof clientKnownVersion === "number" && Number.isFinite(clientKnownVersion) && clientKnownVersion !== this.state.version) {
+    const clientKnownVersion =
+      action.clientKnownVersion != null
+        ? Number(action.clientKnownVersion)
+        : action.clientVersion != null
+          ? Number(action.clientVersion)
+          : null;
+    if (
+      typeof clientKnownVersion === "number" &&
+      Number.isFinite(clientKnownVersion) &&
+      clientKnownVersion !== this.state.version
+    ) {
       this.state.error = "State version mismatch. Please refresh.";
       return { ok: false, reason: this.state.error };
     }
@@ -730,8 +854,14 @@ export class GameEngine {
       this._startHand();
       return { ok: true };
     }
-    const seatIndex = action.seatIndex != null ? toSeatIndex(action.seatIndex) : this.state.activeSeat;
-    const actorSeat = action.actorSeatIndex != null ? toSeatIndex(action.actorSeatIndex) : seatIndex;
+    const seatIndex =
+      action.seatIndex != null
+        ? toSeatIndex(action.seatIndex)
+        : this.state.activeSeat;
+    const actorSeat =
+      action.actorSeatIndex != null
+        ? toSeatIndex(action.actorSeatIndex)
+        : seatIndex;
     if (actorSeat == null) {
       this.state.error = "No actor seat.";
       return { ok: false, reason: this.state.error };
@@ -764,21 +894,30 @@ export class GameEngine {
       return this._handleBid(seatIndex, action.amount);
     }
     if (action.type === "SELECT_TRUMP") {
-      if (this.state.activeSeat !== seatIndex || this.state.phase !== PHASE.TRUMP_SELECTION) {
+      if (
+        this.state.activeSeat !== seatIndex ||
+        this.state.phase !== PHASE.TRUMP_SELECTION
+      ) {
         this.state.error = "Not the trump turn.";
         return { ok: false, reason: this.state.error };
       }
       return this._handleTrumpSelection(seatIndex, action.cardId);
     }
     if (action.type === "TRUMP_OPEN" || action.type === "TRUMP_CLOSE") {
-      if (this.state.activeSeat !== seatIndex || this.state.phase !== PHASE.TRUMP_CHOICE) {
+      if (
+        this.state.activeSeat !== seatIndex ||
+        this.state.phase !== PHASE.TRUMP_CHOICE
+      ) {
         this.state.error = "Not trump choice turn.";
         return { ok: false, reason: this.state.error };
       }
       return this._handleTrumpChoice(seatIndex, action.type === "TRUMP_OPEN");
     }
     if (action.type === "PLAY_CARD") {
-      if (this.state.phase !== PHASE.TRICK_PLAY || this.state.activeSeat !== seatIndex) {
+      if (
+        this.state.phase !== PHASE.TRICK_PLAY ||
+        this.state.activeSeat !== seatIndex
+      ) {
         this.state.error = "Not your play turn.";
         return { ok: false, reason: this.state.error };
       }
@@ -791,7 +930,10 @@ export class GameEngine {
   _isHumanActionAllowed(seatIndex) {
     if (this.state.activeSeat !== seatIndex) return false;
     if (this.state.seats[seatIndex]?.autopilot) return false;
-    return this.state.phase === PHASE.FOUR_BIDDING || this.state.phase === PHASE.SECOND_BIDDING;
+    return (
+      this.state.phase === PHASE.FOUR_BIDDING ||
+      this.state.phase === PHASE.SECOND_BIDDING
+    );
   }
 
   _handleBid(seatIndex, amount) {
@@ -800,7 +942,6 @@ export class GameEngine {
       this.state.error = "That bid is not legal.";
       return { ok: false, reason: this.state.error };
     }
-    const profile = this.state.profile;
     this.state.bidding.currentBid = amount;
     this.state.bidding.currentBidSeat = seatIndex;
     this.state.bidding.actions.push({ seatIndex, type: "bid", amount });
@@ -870,7 +1011,8 @@ export class GameEngine {
 
   _advanceBidTurn() {
     const order = this.state.bidding.order;
-    this.state.bidding.activeOrderIndex = (this.state.bidding.activeOrderIndex + 1) % order.length;
+    this.state.bidding.activeOrderIndex =
+      (this.state.bidding.activeOrderIndex + 1) % order.length;
     this.state.activeSeat = order[this.state.bidding.activeOrderIndex];
     return { ok: true };
   }
@@ -959,7 +1101,10 @@ export class GameEngine {
         if (secondRoundWonByDifferentMaker) {
           this._returnIndicatorToMaker();
         }
-        if (this.state.profile.enableSecondBidding && secondRoundWonByDifferentMaker) {
+        if (
+          this.state.profile.enableSecondBidding &&
+          secondRoundWonByDifferentMaker
+        ) {
           this.state.phase = PHASE.TRUMP_SELECTION;
           this.state.activeSeat = this.state.trump.maker;
           this.state.gameMessage = `Seat ${this.state.trump.maker} won second bidding. Re-select indicator from full hand.`;
@@ -971,7 +1116,8 @@ export class GameEngine {
       this._startTrumpChoice();
       return { ok: true };
     }
-    this.state.activeSeat = order[this.state.bidding.secondRound.activeOrderIndex];
+    this.state.activeSeat =
+      order[this.state.bidding.secondRound.activeOrderIndex];
     return { ok: true };
   }
 
@@ -1009,7 +1155,15 @@ export class GameEngine {
   }
 
   _getLegalTurnSeat() {
-    const turnAfter = this.state.currentTrick.plays.length === 0 ? this.state.currentTrick.leaderSeat : nextSeat(this.state.seatCount, this.state.currentTrick.plays[this.state.currentTrick.plays.length - 1].seatIndex);
+    const turnAfter =
+      this.state.currentTrick.plays.length === 0
+        ? this.state.currentTrick.leaderSeat
+        : nextSeat(
+            this.state.seatCount,
+            this.state.currentTrick.plays[
+              this.state.currentTrick.plays.length - 1
+            ].seatIndex,
+          );
     return turnAfter;
   }
 
@@ -1068,8 +1222,14 @@ export class GameEngine {
       when: new Date().toISOString(),
     };
     this.state.currentTrick.plays.push(play);
-    this.state.currentTrick.points = (this.state.currentTrick.points || 0) + (card.points || 0);
-    this._appendLog("PLAY", { seat: seatIndex, cardId: card.cardId, faceDown, source });
+    this.state.currentTrick.points =
+      (this.state.currentTrick.points || 0) + (card.points || 0);
+    this._appendLog("PLAY", {
+      seat: seatIndex,
+      cardId: card.cardId,
+      faceDown,
+      source,
+    });
     if (this.state.currentTrick.plays.length >= this.state.seatCount) {
       this._resolveTrick();
       return { ok: true };
@@ -1080,10 +1240,15 @@ export class GameEngine {
   }
 
   currentTrickLeads() {
-    return this.state.currentTrick ? { seatIndex: this.state.currentTrick.leaderSeat, card: this.state.currentTrick.plays[0]?.card } : null;
+    return this.state.currentTrick
+      ? {
+          seatIndex: this.state.currentTrick.leaderSeat,
+          card: this.state.currentTrick.plays[0]?.card,
+        }
+      : null;
   }
 
-  _nextTrickSeat(playsPlayed, leaderSeat) {
+  _nextTrickSeat(playsPlayed) {
     if (!this.state.currentTrick) return null;
     let leader = this.state.currentTrick.plays[0]?.seatIndex;
     if (leader == null) {
@@ -1096,14 +1261,21 @@ export class GameEngine {
     const trick = this.state.currentTrick;
     const first = trick.plays[0];
     const ledSuit = first.card.suit;
-    const profile = this.state.profile;
     let shouldOpen = false;
     if (!this.state.trump.isOpen) {
-      const hiddenTrumpPlayed = trick.plays.some((play) => play.faceDown && play.card.suit === this.state.trump.suit);
+      const hiddenTrumpPlayed = trick.plays.some(
+        (play) => play.faceDown && play.card.suit === this.state.trump.suit,
+      );
       if (hiddenTrumpPlayed) {
         shouldOpen = true;
       }
-      if (!shouldOpen && this.state.profile.revealTrumpAfterFirstTrickAtBidAtLeast && this.state.bidding.currentBid >= this.state.profile.revealTrumpAfterFirstTrickAtBidAtLeast && this.state.completedTricks.length === 0) {
+      if (
+        !shouldOpen &&
+        this.state.profile.revealTrumpAfterFirstTrickAtBidAtLeast &&
+        this.state.bidding.currentBid >=
+          this.state.profile.revealTrumpAfterFirstTrickAtBidAtLeast &&
+        this.state.completedTricks.length === 0
+      ) {
         shouldOpen = true;
       }
     }
@@ -1111,21 +1283,39 @@ export class GameEngine {
       this.state.trump.isOpen = true;
       this.state.trumpClosed = false;
       this.state.gameMessage = `Trump ${this.state.trump.suit} opened.`;
-      this._appendLog("TRUMP_OPEN_BY_RULE", { reason: "cut_or_high_bid", suit: this.state.trump.suit });
+      this._appendLog("TRUMP_OPEN_BY_RULE", {
+        reason: "cut_or_high_bid",
+        suit: this.state.trump.suit,
+      });
     }
-    const winner = this._resolveTrickWinner(trick.plays, ledSuit, this.state.trump.isOpen);
+    const winner = this._resolveTrickWinner(
+      trick.plays,
+      ledSuit,
+      this.state.trump.isOpen,
+    );
     trick.winnerSeat = winner.seatIndex;
     trick.leadSuit = ledSuit;
     trick.openedTrumpThisTrick = shouldOpen;
-    trick.pointValue = trick.plays.reduce((sum, item) => sum + (item.card.points || 0), 0);
+    trick.pointValue = trick.plays.reduce(
+      (sum, item) => sum + (item.card.points || 0),
+      0,
+    );
     for (const play of trick.plays) {
       this.state.seats[winner.seatIndex].wonCards.push(play.card);
     }
     this.state.seats[winner.seatIndex].trickPoints += trick.pointValue;
     this.state.completedTricks.push(trick);
     const expectedLeader = winner.seatIndex;
-    this._appendLog("TRICK_END", { winner: winner.seatIndex, points: trick.pointValue, openTrump: shouldOpen });
-    if (this.state.seats.every((seat) => seat.hand.length === 0) || this.state.completedTricks.length >= this.state.profile.cardBatch[0] + this.state.profile.cardBatch[1]) {
+    this._appendLog("TRICK_END", {
+      winner: winner.seatIndex,
+      points: trick.pointValue,
+      openTrump: shouldOpen,
+    });
+    if (
+      this.state.seats.every((seat) => seat.hand.length === 0) ||
+      this.state.completedTricks.length >=
+        this.state.profile.cardBatch[0] + this.state.profile.cardBatch[1]
+    ) {
       this._finishHand();
       return;
     }
@@ -1148,7 +1338,16 @@ export class GameEngine {
       }
       const a = play.card;
       const b = winner.card;
-      if (compareCardsForTrick(this.state.profile, a, b, this.state.trump.suit, ledSuit, trumpOpen) > 0) {
+      if (
+        compareCardsForTrick(
+          this.state.profile,
+          a,
+          b,
+          this.state.trump.suit,
+          ledSuit,
+          trumpOpen,
+        ) > 0
+      ) {
         winner = play;
       }
     }
@@ -1162,11 +1361,15 @@ export class GameEngine {
         teamPoints[seat.team] += card.points || 0;
       }
     }
-    const trumpMakerTeam = this.state.seats[this.state.trump.maker]?.team || "A";
+    const trumpMakerTeam =
+      this.state.seats[this.state.trump.maker]?.team || "A";
     const bidderPoints = teamPoints[trumpMakerTeam];
     const required = this.state.bidding.currentBid;
     const success = bidderPoints >= required && required > 0;
-    const tier = this.state.profile.tokenProfile.find((entry) => !entry.maxBidExclusive || required < entry.maxBidExclusive) || this.state.profile.tokenProfile[0];
+    const tier =
+      this.state.profile.tokenProfile.find(
+        (entry) => !entry.maxBidExclusive || required < entry.maxBidExclusive,
+      ) || this.state.profile.tokenProfile[0];
     const bidderIndex = trumpMakerTeam === "A" ? 0 : 1;
     const oppIndex = 1 - bidderIndex;
     const movement = success ? tier.successTokens : tier.failureTokens;
@@ -1189,7 +1392,10 @@ export class GameEngine {
       movement,
       matchComplete,
       tokens: [...this.state.tokens],
-      firstSeatCards: this.state.seats.map((seat) => ({ seat: seat.index, won: seat.wonCards.length })),
+      firstSeatCards: this.state.seats.map((seat) => ({
+        seat: seat.index,
+        won: seat.wonCards.length,
+      })),
       trickCount: this.state.completedTricks.length,
       shuffleSeed: this.state.handShuffle.seed,
       seedCommit: this.state.handShuffle.seedCommit,
@@ -1227,14 +1433,17 @@ export class GameEngine {
     if (!trick) {
       return { current: null };
     }
-    const trumpOpen = this.state.trump && this.state.trump.isOpen;
+    const trumpOpen = Boolean(this.state.trump?.isOpen);
     const hideCard = (play) => ({
       seatIndex: play.seatIndex,
       source: play.source,
       faceDown: play.faceDown,
       fromIndicator: play.fromIndicator,
       when: play.when,
-      card: play.faceDown && !trumpOpen ? { cardId: "Card Back", hidden: true } : play.card,
+      card:
+        play.faceDown && !trumpOpen
+          ? { cardId: "Card Back", hidden: true }
+          : play.card,
       cardId: play.faceDown && !trumpOpen ? "Card Back" : play.card?.cardId,
     });
     return {

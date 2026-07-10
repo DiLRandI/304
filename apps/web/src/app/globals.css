@@ -1,0 +1,163 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  background: #081510;
+  color: #f1f7f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: #081510;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 12% 12%, rgb(47 103 67 / 24%), transparent 33rem),
+    radial-gradient(circle at 87% 85%, rgb(190 145 56 / 16%), transparent 30rem),
+    #081510;
+}
+
+main {
+  display: grid;
+  width: min(100% - 2rem, 70rem);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(2rem, 9vw, 8rem) 0;
+  align-content: center;
+  gap: clamp(3rem, 8vw, 7rem);
+}
+
+.hero {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 46rem;
+}
+
+.brand {
+  width: fit-content;
+  margin: 0;
+  color: #d9b765;
+  font-size: 0.875rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  max-width: 12ch;
+  font-size: clamp(3rem, 9vw, 6.5rem);
+  font-weight: 720;
+  letter-spacing: -0.065em;
+  line-height: 0.94;
+}
+
+.summary {
+  max-width: 40rem;
+  color: #bdcbbf;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  line-height: 1.65;
+}
+
+.readiness {
+  display: grid;
+  gap: 1.25rem;
+}
+
+h2 {
+  color: #d8e9da;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border-block: 1px solid rgb(194 218 196 / 24%);
+}
+
+dl > div {
+  display: grid;
+  align-content: start;
+  gap: 0.7rem;
+  min-height: 9.5rem;
+  padding: 1.5rem;
+}
+
+dl > div + div {
+  border-inline-start: 1px solid rgb(194 218 196 / 24%);
+}
+
+dt {
+  color: #93aa97;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+dd {
+  margin: 0;
+  color: #f1f7f0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+dd[data-state="ready"] {
+  color: #b8e6bf;
+}
+
+dd[data-state="missing"] {
+  color: #f1d18e;
+}
+
+@media (max-width: 46rem) {
+  main {
+    width: min(100% - 1.5rem, 70rem);
+    padding-block: 4rem;
+  }
+
+  h1 {
+    max-width: 11ch;
+    font-size: clamp(2.8rem, 15vw, 4.5rem);
+  }
+
+  dl {
+    grid-template-columns: 1fr;
+  }
+
+  dl > div {
+    min-height: auto;
+    padding: 1.25rem 0;
+  }
+
+  dl > div + div {
+    border-block-start: 1px solid rgb(194 218 196 / 24%);
+    border-inline-start: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto;
+  }
+}

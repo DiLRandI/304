@@ -1,17 +1,8 @@
-export { GameEngine } from "./engine.js";
 export { pickBotAction } from "./bot.js";
 export {
-  BOT_NAMES,
-  GAME_PROFILES,
-  PROFILE_DEFAULTS,
-  chooseTableSeatCount,
-  getProfile,
-} from "./profiles.js";
-export {
+  buildDeck,
   CLASSIC_CARD_POINTS,
   CLASSIC_DECK_RANKS,
-  SUITS,
-  buildDeck,
   cardId,
   cloneCard,
   compareCardsForTrick,
@@ -19,5 +10,14 @@ export {
   formatCard,
   generateShuffleSeed,
   makeShuffleCommit,
+  SUITS,
   shuffleDeck,
 } from "./cardData.js";
+export { GameEngine } from "./engine.js";
+export {
+  BOT_NAMES,
+  chooseTableSeatCount,
+  GAME_PROFILES,
+  getProfile,
+  PROFILE_DEFAULTS,
+} from "./profiles.js";

@@ -8,13 +8,13 @@ export const SUITS = [
 export const CLASSIC_DECK_RANKS = ["7", "8", "9", "10", "J", "Q", "K", "A"];
 export const CLASSIC_CARD_POINTS = {
   J: 30,
-  "9": 20,
+  9: 20,
   A: 11,
-  "10": 10,
+  10: 10,
   K: 3,
   Q: 2,
-  "8": 0,
-  "7": 0,
+  8: 0,
+  7: 0,
 };
 
 export function cardId(suit, rank) {
@@ -95,7 +95,14 @@ export function compareRank(profile, a, b) {
   return 0;
 }
 
-export function compareCardsForTrick(profile, a, b, trumpSuit, ledSuit, trumpOpen) {
+export function compareCardsForTrick(
+  profile,
+  a,
+  b,
+  trumpSuit,
+  ledSuit,
+  trumpOpen,
+) {
   const aIsTrump = trumpOpen && a.suit === trumpSuit;
   const bIsTrump = trumpOpen && b.suit === trumpSuit;
   if (aIsTrump && !bIsTrump) return 1;
@@ -128,12 +135,12 @@ export function shuffleDeck(cards, { seed = null } = {}) {
     seed != null
       ? createSeededRandom(seed)
       : typeof crypto !== "undefined" && crypto.getRandomValues
-      ? () => {
-          const buf = new Uint32Array(1);
-          crypto.getRandomValues(buf);
-          return buf[0] / 4294967296;
-        }
-      : () => Math.random();
+        ? () => {
+            const buf = new Uint32Array(1);
+            crypto.getRandomValues(buf);
+            return buf[0] / 4294967296;
+          }
+        : () => Math.random();
   for (let i = deck.length - 1; i > 0; i--) {
     const swapIndex = Math.floor(random() * (i + 1));
     const t = deck[i];

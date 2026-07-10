@@ -6,7 +6,7 @@
 
 **Architecture:** Convert the repository into a pnpm workspace with a pure shared game-engine package, versioned contracts package, Next.js web application, and Fastify game-service application. PostgreSQL 18.4 is introduced as durable storage and Redis as coordination infrastructure; M1 only lays the schema and infrastructure boundary, while M2 implements durable room commands and recovery.
 
-**Tech Stack:** Node.js 24.17.0, pnpm 11.10.0, TypeScript 7.0.2, Vitest 4.1.10, Biome 2.5.3, Fastify 5.10.0, Next.js 16.2.10, React 19.2.7, Zod 4.4.3, node-postgres 8.22.0, node-redis 6.1.0, prom-client 15.1.3, PostgreSQL 18.4, Redis Open Source in Docker Compose.
+**Tech Stack:** Node.js 24.17.0, pnpm 11.10.0, TypeScript 5.9.3, Vitest 4.1.10, Biome 2.5.3, Fastify 5.10.0, Next.js 16.2.10, React 19.2.7, Zod 4.4.3, node-postgres 8.22.0, node-redis 6.1.0, prom-client 15.1.3, PostgreSQL 18.4, Redis Open Source in Docker Compose.
 
 ## Global Constraints
 
@@ -123,12 +123,12 @@ Replace the root package manifest with this shape, retaining every legacy start 
     "test:legacy": "node --test test/*.test.mjs",
     "test:unit": "pnpm test && pnpm --filter @three-zero-four/game-engine test && pnpm --filter @three-zero-four/contracts test && pnpm --filter @three-zero-four/game-service test && pnpm --filter @three-zero-four/web test",
     "typecheck": "pnpm --filter @three-zero-four/game-engine typecheck && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
-    "lint": "biome check .",
+    "lint": "biome check apps packages infra biome.json package.json pnpm-workspace.yaml test/production-foundation-*.test.mjs",
     "format": "biome format --write .",
     "build": "pnpm --filter @three-zero-four/contracts build && pnpm --filter @three-zero-four/game-service build && pnpm --filter @three-zero-four/web build",
     "check": "pnpm lint && pnpm typecheck && pnpm test:unit",
-    "compose:up": "docker compose -f infra/compose/compose.yaml up --build --wait",
-    "compose:down": "docker compose -f infra/compose/compose.yaml down --volumes --remove-orphans",
+    "compose:up": "docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up --build --wait",
+    "compose:down": "docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes --remove-orphans",
     "db:migrate": "pnpm --filter @three-zero-four/game-service migrate",
     "security:check": "pnpm audit --audit-level=high",
     "security:check:all": "pnpm install --frozen-lockfile && pnpm audit --audit-level=high && pnpm audit signatures"
@@ -137,7 +137,7 @@ Replace the root package manifest with this shape, retaining every legacy start 
     "@biomejs/biome": "2.5.3",
     "@types/node": "^24.0.0",
     "tsx": "4.23.0",
-    "typescript": "7.0.2",
+    "typescript": "5.9.3",
     "vitest": "4.1.10"
   }
 }
@@ -156,7 +156,10 @@ trustPolicy: no-downgrade
 blockExoticSubdeps: true
 allowBuilds:
   esbuild: true
+  sharp: false
 ```
+
+The lint command covers the production workspace, infrastructure, and foundation-contract tests. The legacy static prototype remains covered by `test:legacy` until its migration is complete; generated card-art SVGs are not treated as inline application markup.
 
 Create `tsconfig.base.json`:
 
@@ -1072,12 +1075,14 @@ git commit -m "feat: add durable game service infrastructure"
 - Create: `apps/web/src/app/layout.tsx`
 - Create: `apps/web/src/app/page.tsx`
 - Create: `apps/web/src/app/globals.css`
+- Create: `apps/web/src/app/icon.svg`
 - Create: `apps/web/public/.gitkeep`
 - Create: `apps/web/Dockerfile`
 - Create: `apps/game-service/Dockerfile`
 - Create: `.dockerignore`
 - Create: `infra/compose/compose.yaml`
 - Create: `infra/compose/.env.example`
+- Modify: `package.json`
 
 **Interfaces:**
 
@@ -1085,7 +1090,7 @@ git commit -m "feat: add durable game service infrastructure"
 - Produces a Compose stack whose game service starts only after PostgreSQL, Redis, and migrations are healthy/successful.
 - Produces the local endpoints `http://127.0.0.1:3000` and `http://127.0.0.1:4100/livez`.
 
-- [ ] **Step 1: Write the failing web build check**
+- [x] **Step 1: Write the failing web build check**
 
 Create `apps/web/test/build-contract.test.mjs`:
 
@@ -1101,13 +1106,13 @@ test("web shell declares an explicitly configured game API origin", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run: `node --test apps/web/test/build-contract.test.mjs`
 
 Expected: FAIL because the web package does not yet exist.
 
-- [ ] **Step 3: Implement the web shell and Compose files**
+- [x] **Step 3: Implement the web shell and Compose files**
 
 Create `apps/web/package.json`:
 
@@ -1116,11 +1121,12 @@ Create `apps/web/package.json`:
   "name": "@three-zero-four/web",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test test",
+    "test": "node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -1128,7 +1134,11 @@ Create `apps/web/package.json`:
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },
-  "devDependencies": { "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0" }
+  "devDependencies": {
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3"
+  }
 }
 ```
 
@@ -1150,8 +1160,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
-  output: "standalone",
-  experimental: { typedRoutes: true }
+  output: "standalone"
 };
 
 export default nextConfig;
@@ -1234,14 +1243,17 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages ./packages
 COPY apps ./apps
+COPY infra ./infra
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @three-zero-four/contracts build && pnpm --filter @three-zero-four/game-service build
-RUN pnpm --filter @three-zero-four/game-service --prod deploy /opt/game-service
+RUN pnpm --filter @three-zero-four/contracts build
+RUN pnpm --filter @three-zero-four/game-service build
+RUN pnpm --filter @three-zero-four/game-service --prod deploy --legacy /opt/game-service
 
 FROM node:24.17.0-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build --chown=node:node /opt/game-service ./
+COPY --from=build --chown=node:node /app/infra/postgres/migrations ./infra/postgres/migrations
 USER node
 EXPOSE 4100
 CMD ["node", "dist/src/server.js"]
@@ -1297,7 +1309,7 @@ services:
       timeout: 3s
       retries: 12
       start_period: 10s
-    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    volumes: ["postgres-data:/var/lib/postgresql"]
 
   redis:
     image: redis:8-alpine
@@ -1352,7 +1364,7 @@ volumes:
   redis-data:
 ```
 
-- [ ] **Step 4: Verify web and container interfaces GREEN**
+- [x] **Step 4: Verify web and container interfaces GREEN**
 
 Run: `node --test apps/web/test/build-contract.test.mjs`
 
@@ -1364,7 +1376,7 @@ Run: `curl --fail --silent http://127.0.0.1:4100/livez`
 
 Expected: the web build succeeds, Compose marks PostgreSQL and Redis healthy, migration exits successfully, and `/livez` returns `{"status":"live"}`.
 
-- [ ] **Step 5: Tear down and commit the local release topology**
+- [x] **Step 5: Tear down and commit the local release topology**
 
 Run: `docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes --remove-orphans`
 

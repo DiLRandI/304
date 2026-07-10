@@ -17,6 +17,10 @@ test("declares the pinned production workspace toolchain", () => {
   assert.match(packageJson.packageManager, /^pnpm@11\.10\.0/);
   assert.equal(packageJson.scripts.test, "node --test test/*.test.mjs");
   assert.equal(
+    packageJson.scripts.lint,
+    "biome check apps packages infra biome.json package.json pnpm-workspace.yaml test/production-foundation-*.test.mjs",
+  );
+  assert.equal(
     packageJson.scripts.check,
     "pnpm lint && pnpm typecheck && pnpm test:unit",
   );
@@ -24,6 +28,7 @@ test("declares the pinned production workspace toolchain", () => {
   assert.match(workspace, /\s+- packages\/\*/);
   assert.match(workspace, /minimumReleaseAge: 1440/);
   assert.match(workspace, /allowBuilds:\n\s+esbuild: true/);
+  assert.match(workspace, /\n\s+sharp: false\n/);
   assert.equal(biome.linter.rules.preset, "recommended");
   assert.equal(biome.assist.actions.source.organizeImports, "on");
   assert.deepEqual(biome.files.includes, [
@@ -33,4 +38,11 @@ test("declares the pinned production workspace toolchain", () => {
     "!**/.next",
     "!**/coverage",
   ]);
+});
+
+test("uses PostgreSQL 18's supported persistent volume target", () => {
+  const compose = read("infra/compose/compose.yaml");
+
+  assert.match(compose, /postgres-data:\/var\/lib\/postgresql\n/);
+  assert.doesNotMatch(compose, /postgres-data:\/var\/lib\/postgresql\/data/);
 });

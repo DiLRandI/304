@@ -8,3 +8,4 @@ trustPolicy: no-downgrade
 blockExoticSubdeps: true
 allowBuilds:
   esbuild: true
+  sharp: false
