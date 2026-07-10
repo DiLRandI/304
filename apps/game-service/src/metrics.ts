@@ -30,12 +30,18 @@ export function createMetrics() {
     labelNames: ["outcome"] as const,
     registers: [registry],
   });
+  const workerHeartbeatAgeSeconds = new Gauge({
+    name: "three_zero_four_worker_heartbeat_age_seconds",
+    help: "Seconds since the automation worker completed a healthy poll",
+    registers: [registry],
+  });
   activeWebsocketConnections.set(0);
   pendingRoomOutbox.set(0);
   pendingAutomationJobs.set(0);
   for (const outcome of ["completed", "stale", "failed"]) {
     automationJobOutcomes.set({ outcome }, 0);
   }
+  workerHeartbeatAgeSeconds.set(Number.POSITIVE_INFINITY);
   return {
     registry,
     requests,
@@ -43,6 +49,7 @@ export function createMetrics() {
     pendingRoomOutbox,
     pendingAutomationJobs,
     automationJobOutcomes,
+    workerHeartbeatAgeSeconds,
   };
 }
 

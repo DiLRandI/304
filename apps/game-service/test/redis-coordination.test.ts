@@ -6,6 +6,7 @@ import {
   Presence,
   RateLimiter,
   RoomLease,
+  WorkerTelemetry,
 } from "../src/infra/redis-coordination.js";
 
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
@@ -91,6 +92,20 @@ describeIntegration("Redis game coordination", () => {
       failed: 0,
       stale: 1,
     });
+    await redis.del(key);
+  });
+
+  it("publishes a bounded worker heartbeat age for service metrics", async () => {
+    const key = `g304:test:worker-heartbeat:${randomUUID()}`;
+    const telemetry = new WorkerTelemetry(redis, key, 30_000);
+
+    await expect(telemetry.ageSeconds(1_700_000_000_000)).resolves.toBe(
+      Infinity,
+    );
+    await telemetry.recordHeartbeat(1_700_000_000_000);
+    await expect(telemetry.ageSeconds(1_700_000_005_000)).resolves.toBe(5);
+    await expect(telemetry.ageSeconds(1_699_999_999_000)).resolves.toBe(0);
+
     await redis.del(key);
   });
 });

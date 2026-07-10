@@ -34,6 +34,34 @@ The automation worker claims version-bound PostgreSQL jobs for bots, turn timeou
 
 If a request returns `ROOM_RECOVERY_FAILED`, treat it as an availability incident. Preserve the database, worker/game-service logs, and room id; do not hand-edit `game_events` or `game_snapshots`. Investigate the failing replay against a restored copy, then recover using the approved release or backup process.
 
+## Metrics and monitoring
+
+The game service exposes Prometheus-compatible metrics at `/metrics`. The
+metrics surface contains service request and WebSocket counts, durable outbox and
+automation queue counts, automation outcomes, and
+`three_zero_four_worker_heartbeat_age_seconds`. The last metric is finite only
+after the independent worker completes a healthy PostgreSQL/Redis poll; an
+absent heartbeat is represented as `+Inf`.
+
+Start the optional local Prometheus profile only alongside the local Compose
+stack:
+
+```bash
+docker compose --env-file infra/compose/.env \
+  -f infra/compose/compose.yaml \
+  -f infra/compose/compose.monitoring.yaml up --build --wait
+curl --fail --silent --show-error http://127.0.0.1:9090/-/ready
+```
+
+The shipped alerts are conservative warnings for a missing scrape, stale worker
+heartbeat, persistent outbox backlog, and persistent automation backlog. They
+are local rule definitions, not configured alert delivery. An operator must
+connect them to an approved notification channel before public use.
+
+When an alert fires, first inspect `/readyz`, `/metrics`, and the game-service
+and worker logs. Do not put room views, card data, player identifiers, session
+cookies, invite codes, or raw events into alert labels or annotations.
+
 ## Durable room integration rehearsal
 
 With the local topology running, execute the same database/Redis-backed service test used by CI:

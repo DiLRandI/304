@@ -141,6 +141,9 @@ describe("game service health surface", () => {
     expect(metrics.payload).toContain(
       "three_zero_four_automation_job_outcomes",
     );
+    expect(metrics.payload).toContain(
+      "three_zero_four_worker_heartbeat_age_seconds",
+    );
     expect(refreshMetrics).toHaveBeenCalledOnce();
     await app.close();
   });

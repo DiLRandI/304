@@ -10,6 +10,7 @@ import {
   Presence,
   RateLimiter,
   RoomLease,
+  WorkerTelemetry,
 } from "./infra/redis-coordination.js";
 import { createMetrics } from "./metrics.js";
 import { OutboxPublisher } from "./realtime/outbox-publisher.js";
@@ -40,6 +41,7 @@ const game = {
 };
 const metrics = createMetrics();
 const automationTelemetry = new AutomationTelemetry(redis);
+const workerTelemetry = new WorkerTelemetry(redis);
 const roomChanges = new RedisRoomChangeBus(redis);
 const hub = new RoomSocketHub({
   coordinator,
@@ -53,16 +55,19 @@ const outboxPublisher = new OutboxPublisher({
   onPending: (count) => metrics.pendingRoomOutbox.set(count),
 });
 const refreshMetrics = async (): Promise<void> => {
-  const [outboxPending, automationPending, outcomes] = await Promise.all([
-    store.countPendingRoomNotifications(),
-    store.countPendingAutomationJobs(),
-    automationTelemetry.snapshot(),
-  ]);
+  const [outboxPending, automationPending, outcomes, workerHeartbeatAge] =
+    await Promise.all([
+      store.countPendingRoomNotifications(),
+      store.countPendingAutomationJobs(),
+      automationTelemetry.snapshot(),
+      workerTelemetry.ageSeconds(),
+    ]);
   metrics.pendingRoomOutbox.set(outboxPending);
   metrics.pendingAutomationJobs.set(automationPending);
   for (const outcome of ["completed", "stale", "failed"] as const) {
     metrics.automationJobOutcomes.set({ outcome }, outcomes[outcome]);
   }
+  metrics.workerHeartbeatAgeSeconds.set(workerHeartbeatAge);
 };
 let realtimeStopped = false;
 const realtime = {

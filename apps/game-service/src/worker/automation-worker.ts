@@ -39,6 +39,7 @@ export class AutomationWorker {
       roomId?: string;
       onJob?: (outcome: AutomationWorkerOutcome) => void | Promise<void>;
       onPending?: (count: number) => void | Promise<void>;
+      onHealthyPoll?: () => void | Promise<void>;
       health?: () => Promise<boolean>;
       heartbeatPath?: string;
     },
@@ -161,8 +162,19 @@ export class AutomationWorker {
   }
 
   private async recordHeartbeat(): Promise<void> {
-    if (!this.dependencies.health || !this.dependencies.heartbeatPath) return;
+    if (!this.dependencies.health) return;
     if (!(await this.dependencies.health())) return;
-    await writeFile(this.dependencies.heartbeatPath, `${Date.now()}\n`, "utf8");
+    try {
+      await this.dependencies.onHealthyPoll?.();
+    } catch {
+      // Monitoring must not prevent durable automation work from completing.
+    }
+    if (this.dependencies.heartbeatPath) {
+      await writeFile(
+        this.dependencies.heartbeatPath,
+        `${Date.now()}\n`,
+        "utf8",
+      );
+    }
   }
 }

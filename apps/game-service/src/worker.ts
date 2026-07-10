@@ -8,6 +8,7 @@ import {
   AutomationTelemetry,
   Presence,
   RoomLease,
+  WorkerTelemetry,
 } from "./infra/redis-coordination.js";
 import { AutomationWorker } from "./worker/automation-worker.js";
 
@@ -26,6 +27,11 @@ const coordinator = new RoomCoordinator({
 });
 const readiness = createReadiness(database, redis);
 const telemetry = new AutomationTelemetry(redis);
+const workerTelemetry = new WorkerTelemetry(
+  redis,
+  undefined,
+  config.AUTOMATION_POLL_INTERVAL_MS * 3 + 1_000,
+);
 const worker = new AutomationWorker({
   store,
   coordinator,
@@ -39,6 +45,7 @@ const worker = new AutomationWorker({
   },
   heartbeatPath: "/tmp/g304-worker-heartbeat",
   onJob: (outcome) => telemetry.record(outcome),
+  onHealthyPoll: () => workerTelemetry.recordHeartbeat(),
 });
 
 await worker.start();

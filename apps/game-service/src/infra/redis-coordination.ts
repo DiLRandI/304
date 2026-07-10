@@ -7,6 +7,7 @@ const RELEASE_LEASE_SCRIPT =
 const FIXED_WINDOW_INCREMENT_SCRIPT =
   "local count = redis.call('INCR', KEYS[1]); if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end return count";
 const AUTOMATION_OUTCOME_METRICS_KEY = "g304:metrics:automation-outcomes";
+const WORKER_HEARTBEAT_METRICS_KEY = "g304:metrics:worker-heartbeat";
 
 export type AutomationOutcomeMetric = "completed" | "stale" | "failed";
 
@@ -134,5 +135,29 @@ export class AutomationTelemetry {
       stale: parse("stale"),
       failed: parse("failed"),
     };
+  }
+}
+
+export class WorkerTelemetry {
+  constructor(
+    private readonly redis: RedisClientType,
+    private readonly key = WORKER_HEARTBEAT_METRICS_KEY,
+    private readonly ttlMs = 90_000,
+  ) {}
+
+  async recordHeartbeat(timestampMs = Date.now()): Promise<void> {
+    if (!Number.isSafeInteger(timestampMs) || timestampMs < 0) return;
+    await this.redis.set(this.key, String(timestampMs), {
+      PX: Math.max(1_000, this.ttlMs),
+    });
+  }
+
+  async ageSeconds(nowMs = Date.now()): Promise<number> {
+    if (!Number.isSafeInteger(nowMs) || nowMs < 0) return Infinity;
+    const raw = await this.redis.get(this.key);
+    if (raw === null) return Infinity;
+    const timestampMs = Number(raw);
+    if (!Number.isSafeInteger(timestampMs) || timestampMs < 0) return Infinity;
+    return Math.max(0, (nowMs - timestampMs) / 1_000);
   }
 }
