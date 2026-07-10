@@ -10,7 +10,7 @@
     "test": "node --test test/*.test.mjs",
     "test:legacy": "node --test test/*.test.mjs",
     "test:unit": "pnpm test && pnpm --filter @three-zero-four/game-engine test && pnpm --filter @three-zero-four/contracts test && pnpm --filter @three-zero-four/game-service test && pnpm --filter @three-zero-four/web test",
-    "typecheck": "pnpm --filter @three-zero-four/game-engine typecheck && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
+    "typecheck": "pnpm --filter @three-zero-four/game-engine typecheck && pnpm --filter @three-zero-four/contracts build && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
     "lint": "biome check apps packages infra biome.json package.json pnpm-workspace.yaml test/production-foundation-*.test.mjs",
     "format": "biome format --write .",
     "build": "pnpm --filter @three-zero-four/contracts build && pnpm --filter @three-zero-four/game-service build && pnpm --filter @three-zero-four/web build",

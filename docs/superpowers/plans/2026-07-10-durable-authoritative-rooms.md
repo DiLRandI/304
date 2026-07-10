@@ -446,7 +446,7 @@ git commit -m "feat: secure durable game sessions"
 - Produces `projectRoomForPlayer(room, engine, viewer)` and `projectLobbyForViewer(room, viewer)`.
 - A duplicate command returns the snapshot at the event version stored in `command_deduplications`; a stale non-duplicate command returns `VERSION_CONFLICT`.
 
-- [ ] **Step 1: Write failing coordinator tests**
+- [x] **Step 1: Write failing coordinator tests**
 
 ```ts
 it("replays accepted actions from the latest earlier snapshot after a fresh coordinator is created", async () => {
@@ -475,13 +475,13 @@ it("returns the original command outcome for a duplicate before checking a now-s
 });
 ```
 
-- [ ] **Step 2: Run the unit tests and verify RED**
+- [x] **Step 2: Run the unit tests and verify RED**
 
 Run: `pnpm --filter @three-zero-four/game-service test -- room-coordinator.test.ts`
 
 Expected: FAIL because room lifecycle, recovery, and projection services do not exist.
 
-- [ ] **Step 3: Implement the coordinator without leaking engine state**
+- [x] **Step 3: Implement the coordinator without leaking engine state**
 
 Create new engines only at the locked `ROOM_STARTED` transition. Empty lobby seats become deterministic bot records at that point; M2 does not schedule bot moves. Build the engine from durable seat records:
 
@@ -568,13 +568,13 @@ return this.lease.withLease(roomId, () =>
 );
 ```
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/game-service test -- room-coordinator.test.ts`
 
 Expected: a restart reconstructs the same private hand, a duplicate cannot produce a second event, a stale unique command is rejected, and another player's cards are absent from every projection.
 
-- [ ] **Step 5: Commit the durable coordinator**
+- [x] **Step 5: Commit the durable coordinator**
 
 ```bash
 git add apps/game-service/src/domain/room-projector.ts apps/game-service/src/domain/room-coordinator.ts apps/game-service/test/room-coordinator.test.ts

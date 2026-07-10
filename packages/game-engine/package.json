@@ -4,7 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.js",
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
     "./card-data": "./src/cardData.js",
     "./profiles": "./src/profiles.js"
   },
