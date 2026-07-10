@@ -191,7 +191,7 @@ git commit -m "feat: define durable room contracts"
 - Adds room settings, durable global/session create dedupe, and command actor ownership without changing the M1 migration.
 - `appendEventAndSnapshot` inserts exactly one event, one snapshot, and increments `rooms.event_version` in the caller's transaction.
 
-- [ ] **Step 1: Write migration and store integration tests**
+- [x] **Step 1: Write migration and store integration tests**
 
 ```ts
 it("stores an immutable event, exact snapshot, and command result atomically", async () => {
@@ -213,13 +213,13 @@ it("stores an immutable event, exact snapshot, and command result atomically", a
 });
 ```
 
-- [ ] **Step 2: Run the integration test and verify RED**
+- [x] **Step 2: Run the integration test and verify RED**
 
-Run: `INTEGRATION_DATABASE_URL=postgres://game:game@127.0.0.1:5432/game pnpm --filter @three-zero-four/game-service test -- room-store.integration.test.ts`
+Run: `INTEGRATION_DATABASE_URL=<reachable PostgreSQL URL> pnpm --filter @three-zero-four/game-service test -- room-store.integration.test.ts`
 
 Expected: FAIL because the M2 migration and room store do not exist. Run this after the Compose PostgreSQL service is healthy.
 
-- [ ] **Step 3: Add the append-only migration and focused store**
+- [x] **Step 3: Add the append-only migration and focused store**
 
 Create `0002_durable_rooms.sql`:
 
@@ -320,15 +320,15 @@ export class PostgresRoomStore {
 
 Use parameterized SQL exclusively. The store must map `bigint` values with `Number`, reject values outside `Number.MAX_SAFE_INTEGER`, and join `players` only to obtain human display names.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/game-service typecheck`
 
-Run: `INTEGRATION_DATABASE_URL=postgres://game:game@127.0.0.1:5432/game pnpm --filter @three-zero-four/game-service test -- migrations.integration.test.ts room-store.integration.test.ts`
+Run: `INTEGRATION_DATABASE_URL=<reachable PostgreSQL URL> pnpm --filter @three-zero-four/game-service test -- migrations.integration.test.ts room-store.integration.test.ts`
 
 Expected: both migrations apply exactly once; a room event, snapshot, and dedupe record commit atomically.
 
-- [ ] **Step 5: Commit the durable store**
+- [x] **Step 5: Commit the durable store**
 
 ```bash
 git add infra/postgres/migrations/0002_durable_rooms.sql apps/game-service/src/domain/errors.ts apps/game-service/src/domain/room-store.ts apps/game-service/test/room-store.integration.test.ts apps/game-service/test/migrations.integration.test.ts
