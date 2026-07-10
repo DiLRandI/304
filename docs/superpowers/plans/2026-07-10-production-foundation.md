@@ -541,8 +541,10 @@ git commit -m "feat: add validated game service contracts"
 - Produces `loadConfig(source): ServiceConfig` and `buildApp({ config, readiness }): Promise<FastifyInstance>`.
 - `readiness` exposes `database(): Promise<boolean>` and `redis(): Promise<boolean>`; adapters in Task 5 satisfy it.
 - `/livez` is process-only, `/readyz` requires both infrastructure checks, `/metrics` returns Prometheus text, and every unknown route returns a stable JSON error envelope.
+- `CORS_ORIGINS` is parsed as an allowlist of exact `http` or `https` origins; paths, malformed URLs, and empty lists are rejected at process startup.
+- Fastify's `LogController` suppresses noisy probe logs without relying on the deprecated top-level `disableRequestLogging` option.
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 ```ts
 // apps/game-service/test/app.test.ts
@@ -586,13 +588,13 @@ describe("game service health surface", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run: `pnpm --filter @three-zero-four/game-service test`
 
 Expected: FAIL because the game-service workspace package does not exist.
 
-- [ ] **Step 3: Implement the service boundary**
+- [x] **Step 3: Implement the service boundary**
 
 Create `apps/game-service/package.json`:
 
@@ -612,7 +614,7 @@ Create `apps/game-service/package.json`:
     "migrate:dev": "tsx scripts/migrate.ts"
   },
   "dependencies": {
-    "@fastify/cookie": "11.1.1",
+    "@fastify/cookie": "11.1.0",
     "@fastify/cors": "11.3.0",
     "@fastify/helmet": "13.1.0",
     "@fastify/websocket": "11.3.0",
@@ -743,7 +745,7 @@ await app.listen({ host: config.HOST, port: config.PORT });
 
 The temporary `false` readiness implementation is replaced in Task 5; it deliberately makes a process live but not ready if infrastructure wiring is absent.
 
-- [ ] **Step 4: Verify the service shell GREEN**
+- [x] **Step 4: Verify the service shell GREEN**
 
 Run: `pnpm --filter @three-zero-four/game-service test`
 
@@ -751,7 +753,7 @@ Run: `pnpm --filter @three-zero-four/game-service typecheck`
 
 Expected: the two health tests pass, the test process uses no network services, and TypeScript exits zero.
 
-- [ ] **Step 5: Commit the observable service shell**
+- [x] **Step 5: Commit the observable service shell**
 
 ```bash
 git add apps/game-service package.json pnpm-lock.yaml
