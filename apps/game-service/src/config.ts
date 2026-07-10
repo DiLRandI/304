@@ -19,6 +19,37 @@ const EnvironmentSchema = z.object({
     .max(30_000)
     .default(5_000),
   PRESENCE_TTL_SECONDS: z.coerce.number().int().min(15).max(300).default(75),
+  WS_HEARTBEAT_SECONDS: z.coerce.number().int().min(10).max(60).default(20),
+  WS_MAX_PAYLOAD_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1_024)
+    .max(32 * 1_024)
+    .default(8 * 1_024),
+  OUTBOX_POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(100)
+    .max(5_000)
+    .default(250),
+  AUTOMATION_POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(100)
+    .max(5_000)
+    .default(500),
+  DISCONNECT_GRACE_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(90)
+    .max(900)
+    .default(120),
+  BOT_ACTION_DELAY_MS: z.coerce
+    .number()
+    .int()
+    .min(250)
+    .max(10_000)
+    .default(900),
 });
 
 export type ServiceConfig = z.infer<typeof EnvironmentSchema> & {
@@ -64,6 +95,13 @@ export function loadConfig(
       .map((issue) => issue.path.join("."))
       .join(", ");
     throw new Error(`Invalid service configuration: ${fields}`);
+  }
+  if (
+    parsed.data.DISCONNECT_GRACE_SECONDS <= parsed.data.PRESENCE_TTL_SECONDS
+  ) {
+    throw new Error(
+      "DISCONNECT_GRACE_SECONDS must exceed PRESENCE_TTL_SECONDS",
+    );
   }
   return {
     ...parsed.data,

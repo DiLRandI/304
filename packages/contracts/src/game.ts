@@ -5,6 +5,8 @@ const EventVersion = z.number().int().nonnegative();
 const DisplayName = z.string().trim().min(1).max(48);
 const InviteCode = z.string().regex(/^304-[A-Za-z0-9_-]{12,32}$/);
 
+export const RuleProfileIdSchema = z.enum(["classic_304_4p", "six_304_36"]);
+
 export const GameActionSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("BID"),
@@ -66,16 +68,44 @@ export const RoomProjectionSchema = z
     inviteCode: InviteCode,
     eventVersion: EventVersion,
     status: z.enum(["lobby", "in_hand", "hand_result"]),
-    viewerSeatIndex: z.number().int().min(0).max(3).nullable(),
+    viewerSeatIndex: z.number().int().min(0).max(5).nullable(),
     view: z.record(z.string(), z.unknown()),
   })
   .strict();
+
+export const RealtimeClientMessageSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("PING") }).strict(),
+  z.object({ type: z.literal("RESYNC"), roomId: Uuid }).strict(),
+]);
+
+export const RealtimeServerMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({ type: z.literal("SNAPSHOT"), projection: RoomProjectionSchema })
+    .strict(),
+  z
+    .object({
+      type: z.literal("RESYNC_REQUIRED"),
+      roomId: Uuid,
+      eventVersion: EventVersion,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("ERROR"),
+      code: z.string().min(1).max(64),
+      message: z.string().min(1).max(160),
+    })
+    .strict(),
+]);
 
 export type CreateRoomRequest = z.infer<typeof CreateRoomRequestSchema>;
 export type GameAction = z.infer<typeof GameActionSchema>;
 export type GameCommand = z.infer<typeof GameCommandSchema>;
 export type GuestSessionRequest = z.infer<typeof GuestSessionRequestSchema>;
 export type JoinRoomRequest = z.infer<typeof JoinRoomRequestSchema>;
+export type RealtimeClientMessage = z.infer<typeof RealtimeClientMessageSchema>;
+export type RealtimeServerMessage = z.infer<typeof RealtimeServerMessageSchema>;
+export type RuleProfileId = z.infer<typeof RuleProfileIdSchema>;
 export type RoomProjection = z.infer<typeof RoomProjectionSchema>;
 export type StartRoomRequest = z.infer<typeof StartRoomRequestSchema>;
 export type VersionedPrivateView = z.infer<typeof VersionedPrivateViewSchema>;

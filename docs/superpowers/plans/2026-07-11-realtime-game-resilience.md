@@ -66,14 +66,15 @@ README.md                                                Accurate production cap
 - Produces `ServiceConfig.WS_HEARTBEAT_SECONDS`, `WS_MAX_PAYLOAD_BYTES`, `OUTBOX_POLL_INTERVAL_MS`, `AUTOMATION_POLL_INTERVAL_MS`, `DISCONNECT_GRACE_SECONDS`, and `BOT_ACTION_DELAY_MS`.
 - Adds the already-implemented `GameEngine#getBotAction(seatIndex)` method to the engine type boundary.
 
-- [ ] **Step 1: Write the failing contract and configuration tests**
+- [x] **Step 1: Write the failing contract and configuration tests**
 
 ```ts
-it("accepts only the two public profiles and versioned realtime envelopes", () => {
-  expect(CreateRoomRequestSchema.parse({
+it("defines two profile ids without exposing an unfinished room mode", () => {
+  expect(RuleProfileIdSchema.parse("six_304_36")).toBe("six_304_36");
+  expect(() => CreateRoomRequestSchema.parse({
     commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
     ruleProfileId: "six_304_36",
-  }).ruleProfileId).toBe("six_304_36");
+  })).toThrow();
 
   expect(() => RealtimeClientMessageSchema.parse({
     type: "RESYNC",
@@ -87,12 +88,12 @@ it("accepts only the two public profiles and versioned realtime envelopes", () =
 
 expect(() => loadConfig({
   ...baseConfig,
-  DISCONNECT_GRACE_SECONDS: "10",
-  PRESENCE_TTL_SECONDS: "75",
+  DISCONNECT_GRACE_SECONDS: "100",
+  PRESENCE_TTL_SECONDS: "100",
 })).toThrow("DISCONNECT_GRACE_SECONDS");
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run: `pnpm --filter @three-zero-four/contracts test -- game.test.ts`
 
@@ -102,16 +103,16 @@ Run: `pnpm --filter @three-zero-four/game-service test -- app.test.ts`
 
 Expected: FAIL because M3 timing configuration is not validated.
 
-- [ ] **Step 3: Add strict wire schemas and bounded timing settings**
+- [x] **Step 3: Add strict wire schemas and bounded timing settings**
 
-Replace the single-profile literal with this shared profile schema and retain strict request objects:
+Define the shared profile vocabulary now, but retain the Classic-only public create-room literal until Task 3 has made every authoritative persistence, engine, recovery, and projection path six-seat-safe. This prevents clients from creating a room mode that the running service cannot fulfill:
 
 ```ts
 export const RuleProfileIdSchema = z.enum(["classic_304_4p", "six_304_36"]);
 
 export const CreateRoomRequestSchema = z.object({
   commandId: Uuid,
-  ruleProfileId: RuleProfileIdSchema.default("classic_304_4p"),
+  ruleProfileId: z.literal("classic_304_4p").default("classic_304_4p"),
 }).strict();
 
 export const RealtimeClientMessageSchema = z.discriminatedUnion("type", [
@@ -145,15 +146,15 @@ BOT_ACTION_DELAY_MS: z.coerce.number().int().min(250).max(10_000).default(900),
 
 After parsing, reject `DISCONNECT_GRACE_SECONDS <= PRESENCE_TTL_SECONDS` with a clear configuration error. Add development values to `.env.example`; no production secret or endpoint belongs there.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `pnpm --filter @three-zero-four/contracts test -- game.test.ts`
 
 Run: `pnpm --filter @three-zero-four/game-service test -- app.test.ts`
 
-Expected: both profiles validate, unknown realtime fields are rejected, and grace cannot expire before presence.
+Expected: the shared profile vocabulary validates both supported ids while public room creation remains Classic until Task 3, unknown realtime fields are rejected, and grace cannot expire before presence.
 
-- [ ] **Step 5: Commit the contract boundary**
+- [x] **Step 5: Commit the contract boundary**
 
 ```bash
 git add packages/contracts packages/game-engine/src/index.d.ts apps/game-service/src/config.ts apps/game-service/test/app.test.ts infra/compose/.env.example
@@ -309,6 +310,9 @@ git commit -m "feat: persist realtime and automation jobs"
 - Modify: `apps/game-service/src/domain/room-coordinator.ts`
 - Modify: `apps/game-service/src/domain/room-projector.ts`
 - Modify: `apps/game-service/src/domain/room-store.ts`
+- Modify: `packages/contracts/src/game.ts`
+- Modify: `packages/contracts/src/index.ts`
+- Modify: `packages/contracts/test/game.test.ts`
 - Modify: `apps/game-service/test/room-coordinator.test.ts`
 - Create: `apps/game-service/test/room-automation.integration.test.ts`
 
@@ -365,6 +369,8 @@ function tableModeForProfile(ruleProfileId: RuleProfileId): "classic_4" | "six_6
 
 Build seats with `Array.from({ length: seatCountForProfile(...) })`, make `RoomSettings.botDifficulty` the enum `"easy" | "normal" | "strong"`, and pass the profile/table mode directly to `GameEngine`. Change every Classic-only storage and recovery type to `RuleProfileId`; reject a snapshot whose profile differs from its room.
 
+Only after those in-memory and durable boundaries are profile-neutral, replace the public request field with `RuleProfileIdSchema.default("classic_304_4p")` and change the contract test so `CreateRoomRequestSchema` accepts `six_304_36`. The same commit must make a six-seat request create six persistent seats, a matching six-seat engine snapshot, and a six-seat private projection; never widen the endpoint in an earlier task.
+
 After each `createRoom`, `joinRoom`, `startRoom`, human `submitCommand`, reconnect transition, or automated action, call a single `scheduleNextAutomation(transaction, room, engine)` helper. It must cancel pending turn jobs for the room first, then create exactly one of:
 
 ```ts
@@ -391,7 +397,7 @@ Expected: both profiles start, automatic actions are durable and idempotent, sta
 - [ ] **Step 5: Commit profile and automation coordination**
 
 ```bash
-git add apps/game-service/src/domain/room-coordinator.ts apps/game-service/src/domain/room-projector.ts apps/game-service/src/domain/room-store.ts apps/game-service/test/room-coordinator.test.ts apps/game-service/test/room-automation.integration.test.ts
+git add apps/game-service/src/domain/room-coordinator.ts apps/game-service/src/domain/room-projector.ts apps/game-service/src/domain/room-store.ts packages/contracts/src/game.ts packages/contracts/src/index.ts packages/contracts/test/game.test.ts apps/game-service/test/room-coordinator.test.ts apps/game-service/test/room-automation.integration.test.ts
 git commit -m "feat: automate durable room turns"
 ```
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildApp, loadConfig } from "../src/app.js";
 
-const config = loadConfig({
+const baseConfig = {
   NODE_ENV: "test",
   PORT: "4100",
   DATABASE_URL: "postgres://game:game@127.0.0.1:5432/game",
@@ -9,7 +9,8 @@ const config = loadConfig({
   CORS_ORIGINS: "http://127.0.0.1:3000",
   SESSION_COOKIE_NAME: "g304_session",
   SESSION_SECRET_PEPPER: "test-only-session-pepper-must-be-32-chars",
-});
+};
+const config = loadConfig(baseConfig);
 
 describe("game service configuration", () => {
   it("rejects an origin list with a path instead of a browser origin", () => {
@@ -29,15 +30,29 @@ describe("game service configuration", () => {
   it("requires a sufficiently long session secret pepper", () => {
     expect(() =>
       loadConfig({
-        NODE_ENV: "test",
-        PORT: "4100",
-        DATABASE_URL: "postgres://game:game@127.0.0.1:5432/game",
-        REDIS_URL: "redis://127.0.0.1:6379",
-        CORS_ORIGINS: "http://127.0.0.1:3000",
-        SESSION_COOKIE_NAME: "g304_session",
+        ...baseConfig,
         SESSION_SECRET_PEPPER: "short",
       }),
     ).toThrow("Invalid service configuration: SESSION_SECRET_PEPPER");
+  });
+
+  it("requires a disconnect grace period longer than the presence lease", () => {
+    expect(() =>
+      loadConfig({
+        ...baseConfig,
+        PRESENCE_TTL_SECONDS: "100",
+        DISCONNECT_GRACE_SECONDS: "100",
+      }),
+    ).toThrow("DISCONNECT_GRACE_SECONDS must exceed PRESENCE_TTL_SECONDS");
+  });
+
+  it("defaults realtime timing to a grace period after presence expires", () => {
+    expect(config.DISCONNECT_GRACE_SECONDS).toBeGreaterThan(
+      config.PRESENCE_TTL_SECONDS,
+    );
+    expect(config.WS_HEARTBEAT_SECONDS).toBeGreaterThanOrEqual(10);
+    expect(config.OUTBOX_POLL_INTERVAL_MS).toBeGreaterThanOrEqual(100);
+    expect(config.AUTOMATION_POLL_INTERVAL_MS).toBeGreaterThanOrEqual(100);
   });
 });
 
