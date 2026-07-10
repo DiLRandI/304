@@ -790,7 +790,12 @@ export class GameEngine {
       !this.state.seats[seatIndex].autopilot
     )
       return null;
-    if (this.state.activeSeat !== seatIndex) return null;
+    if (
+      this.state.phase !== PHASE.HAND_RESULT &&
+      this.state.activeSeat !== seatIndex
+    ) {
+      return null;
+    }
     const stateForBot = cloneStateForBotsOnly(this.state);
     stateForBot.seats = cloneSeatsForBot(this.state, seatIndex);
     const isTrumpMaker = this.state.trump.maker === seatIndex;
@@ -825,6 +830,38 @@ export class GameEngine {
     return pickBotAction(stateForBot, seatIndex);
   }
 
+  applyAutomationAction(rawAction, seatIndex) {
+    const resolvedSeatIndex = toSeatIndex(seatIndex);
+    const isHandResultAcknowledgement =
+      this.state.phase === PHASE.HAND_RESULT &&
+      this.state.activeSeat == null &&
+      rawAction?.type === "ACK_RESULT";
+    if (
+      resolvedSeatIndex == null ||
+      (!isHandResultAcknowledgement &&
+        resolvedSeatIndex !== this.state.activeSeat)
+    ) {
+      this.state.error = "Automation action is not for the active seat.";
+      return { ok: false, reason: this.state.error };
+    }
+    const seat = this.state.seats[resolvedSeatIndex];
+    if (!seat || (seat.type !== "bot" && !seat.autopilot)) {
+      this.state.error = "Automation action is not allowed for this seat.";
+      return { ok: false, reason: this.state.error };
+    }
+    const wasAutopilot = Boolean(seat.autopilot);
+    if (wasAutopilot) seat.autopilot = false;
+    try {
+      return this.applyAction({
+        ...rawAction,
+        seatIndex: resolvedSeatIndex,
+        actorSeatIndex: resolvedSeatIndex,
+      });
+    } finally {
+      if (wasAutopilot) seat.autopilot = true;
+    }
+  }
+
   applyAction(rawAction) {
     const action = { ...rawAction };
     const clientKnownVersion =
@@ -842,6 +879,19 @@ export class GameEngine {
       return { ok: false, reason: this.state.error };
     }
     if (action.type === "ACK_RESULT") {
+      const acknowledgedSeat =
+        action.actorSeatIndex != null
+          ? toSeatIndex(action.actorSeatIndex)
+          : action.seatIndex != null
+            ? toSeatIndex(action.seatIndex)
+            : null;
+      if (
+        acknowledgedSeat != null &&
+        this.state.seats[acknowledgedSeat]?.autopilot
+      ) {
+        this.state.error = "Seat is currently under autopilot.";
+        return { ok: false, reason: this.state.error };
+      }
       this.state.error = null;
       if (this.state.phase === PHASE.MATCH_COMPLETE) {
         this.startMatch();

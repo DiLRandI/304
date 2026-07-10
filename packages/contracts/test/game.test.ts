@@ -53,19 +53,19 @@ describe("VersionedPrivateViewSchema", () => {
 });
 
 describe("durable room request contracts", () => {
-  it("keeps room creation on the implemented Classic surface", () => {
+  it("accepts only the two durable room profiles", () => {
     expect(
       CreateRoomRequestSchema.parse({
         commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
         ruleProfileId: "classic_304_4p",
       }),
     ).toMatchObject({ ruleProfileId: "classic_304_4p" });
-    expect(() =>
+    expect(
       CreateRoomRequestSchema.parse({
         commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
         ruleProfileId: "six_304_36",
       }),
-    ).toThrow();
+    ).toMatchObject({ ruleProfileId: "six_304_36" });
     expect(() =>
       JoinRoomRequestSchema.parse({
         commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",

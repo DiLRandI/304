@@ -189,11 +189,12 @@ describeIntegration("realtime room store", () => {
     });
 
     const firstOwner = randomUUID();
-    const [claimed] = await realtimeStore().claimDueAutomationJobs(
+    const claimedJobs = await realtimeStore().claimDueAutomationJobs(
       firstOwner,
       new Date(),
-      10,
+      1_000,
     );
+    const claimed = claimedJobs.find((candidate) => candidate.id === jobId);
     expect(claimed).toMatchObject({
       id: jobId,
       roomId,
@@ -202,20 +203,24 @@ describeIntegration("realtime room store", () => {
       targetSeatIndex: 1,
     });
     expect(
-      await realtimeStore().claimDueAutomationJobs(
-        randomUUID(),
-        new Date(),
-        10,
-      ),
-    ).toEqual([]);
+      (
+        await realtimeStore().claimDueAutomationJobs(
+          randomUUID(),
+          new Date(),
+          1_000,
+        )
+      ).some((candidate) => candidate.id === jobId),
+    ).toBe(false);
     await realtimeStore().completeAutomationJob(claimed?.id ?? "", firstOwner);
     expect(
-      await realtimeStore().claimDueAutomationJobs(
-        randomUUID(),
-        new Date(),
-        10,
-      ),
-    ).toEqual([]);
+      (
+        await realtimeStore().claimDueAutomationJobs(
+          randomUUID(),
+          new Date(),
+          1_000,
+        )
+      ).some((candidate) => candidate.id === jobId),
+    ).toBe(false);
 
     const seat = await database.query<{
       connection_status: string;

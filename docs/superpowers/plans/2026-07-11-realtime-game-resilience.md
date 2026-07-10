@@ -311,19 +311,26 @@ git commit -m "feat: persist realtime and automation jobs"
 - Modify: `apps/game-service/src/domain/room-coordinator.ts`
 - Modify: `apps/game-service/src/domain/room-projector.ts`
 - Modify: `apps/game-service/src/domain/room-store.ts`
+- Modify: `apps/game-service/src/infra/redis-coordination.ts`
 - Modify: `packages/contracts/src/game.ts`
 - Modify: `packages/contracts/src/index.ts`
 - Modify: `packages/contracts/test/game.test.ts`
+- Modify: `packages/game-engine/src/engine.js`
+- Modify: `packages/game-engine/src/index.d.ts`
+- Modify: `test/engine-contract.test.mjs`
 - Modify: `apps/game-service/test/room-coordinator.test.ts`
+- Modify: `apps/game-service/test/realtime-store.integration.test.ts`
+- Modify: `apps/game-service/test/redis-coordination.test.ts`
+- Modify: `apps/game-service/test/room-store.integration.test.ts`
 - Create: `apps/game-service/test/room-automation.integration.test.ts`
 
 **Interfaces:**
 
 - Produces `RoomCoordinator.runAutomation(job)`, `RoomCoordinator.markRealtimePresence(session, roomId)`, `RoomCoordinator.markRealtimeDisconnected(session, roomId)`, and profile-neutral create/start/recovery behavior.
 - Schedules one version-bound next-action job after every committed room event.
-- Guarantees all automation enters `GameEngine#applyAction` with its server-derived seat, never a browser actor.
+- Guarantees all automation enters the server-only `GameEngine#applyAutomationAction` path with a server-derived seat, never a browser actor.
 
-- [ ] **Step 1: Write failing coordinator tests**
+- [x] **Step 1: Write failing coordinator tests**
 
 ```ts
 it("starts a six-seat room with six durable seats and a private four-card hand", async () => {
@@ -348,13 +355,13 @@ it("applies one stale-safe bot job through an immutable system event", async () 
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `INTEGRATION_DATABASE_URL=<postgres> INTEGRATION_REDIS_URL=<redis> pnpm --filter @three-zero-four/game-service test -- room-coordinator.test.ts room-automation.integration.test.ts`
 
 Expected: FAIL because rooms are Classic-only and no worker-facing automation method exists.
 
-- [ ] **Step 3: Make room creation, recovery, and projections profile-neutral**
+- [x] **Step 3: Make room creation, recovery, and projections profile-neutral**
 
 Use the engine profile as the only seat-count authority:
 
@@ -389,13 +396,13 @@ Use `30_000` ms for bidding, trump-selection, and card-play; `15_000` ms for tru
 
 Keep `projectRoomForPlayer` as the privacy boundary. It may expose `connectionStatus` and `autopilot` for every seat but must not expose another seat's cards, indicator, or legal actions. Use the existing engine private/public projection functions; never clone raw engine state into a room response.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run: `INTEGRATION_DATABASE_URL=<postgres> INTEGRATION_REDIS_URL=<redis> pnpm --filter @three-zero-four/game-service test -- room-coordinator.test.ts room-automation.integration.test.ts`
 
 Expected: both profiles start, automatic actions are durable and idempotent, stale jobs do not alter state, and private projections remain card-safe.
 
-- [ ] **Step 5: Commit profile and automation coordination**
+- [x] **Step 5: Commit profile and automation coordination**
 
 ```bash
 git add apps/game-service/src/domain/room-coordinator.ts apps/game-service/src/domain/room-projector.ts apps/game-service/src/domain/room-store.ts packages/contracts/src/game.ts packages/contracts/src/index.ts packages/contracts/test/game.test.ts apps/game-service/test/room-coordinator.test.ts apps/game-service/test/room-automation.integration.test.ts

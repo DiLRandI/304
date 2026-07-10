@@ -97,6 +97,7 @@ describeIntegration("durable room store", () => {
         payload: { ruleProfileId: "classic_304_4p" },
         snapshot: startedEngine.getSnapshot(),
         status: "in_hand",
+        ruleProfileId: "classic_304_4p",
       }),
     );
 

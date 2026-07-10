@@ -52,6 +52,12 @@ export class Presence {
     );
   }
 
+  async remove(roomId: string, playerId: string): Promise<void> {
+    await this.redis.del(
+      `g304:presence:${redisKeyPart(roomId)}:${redisKeyPart(playerId)}`,
+    );
+  }
+
   async onlinePlayerIds(
     roomId: string,
     playerIds: readonly string[],

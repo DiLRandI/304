@@ -4,6 +4,7 @@ import type {
   GameCommand,
   JoinRoomRequest,
   RoomProjection,
+  RuleProfileId,
   StartRoomRequest,
 } from "@three-zero-four/contracts";
 import {
@@ -18,8 +19,10 @@ import {
   projectRoomForPlayer,
 } from "./room-projector.js";
 import type {
+  ClaimedAutomationJob,
   PostgresRoomStore,
   Queryable,
+  RoomSettings,
   RoomStatus,
   StoredRoom,
   StoredSeat,
@@ -36,6 +39,10 @@ interface RoomCoordinatorDependencies {
   store: PostgresRoomStore;
   lease: RoomLease;
   presence: Presence;
+  automation?: {
+    botActionDelayMs: number;
+    disconnectGraceSeconds?: number;
+  };
 }
 
 type CommandRequest = JoinRoomRequest | StartRoomRequest | GameCommand;
@@ -43,6 +50,12 @@ type ActiveRoomStatus = Extract<
   RoomStatus,
   "lobby" | "in_hand" | "hand_result"
 >;
+
+const DEFAULT_AUTOMATION = {
+  botActionDelayMs: 900,
+  turnTimeoutMs: 30_000,
+  disconnectGraceSeconds: 120,
+};
 
 function createInviteCode(): string {
   return `304-${randomBytes(16).toString("base64url")}`;
@@ -59,28 +72,68 @@ function activeStatusForEngine(engine: GameEngine): ActiveRoomStatus {
   return "in_hand";
 }
 
+function seatCountForProfile(ruleProfileId: RuleProfileId): number {
+  return ruleProfileId === "six_304_36" ? 6 : 4;
+}
+
+function tableModeForProfile(
+  ruleProfileId: RuleProfileId,
+): "classic_4" | "six_6" {
+  return ruleProfileId === "six_304_36" ? "six_6" : "classic_4";
+}
+
+function activeSeatIndex(engine: GameEngine): number | null {
+  const activeSeat = engine.state.activeSeat;
+  return typeof activeSeat === "number" && Number.isInteger(activeSeat)
+    ? activeSeat
+    : null;
+}
+
+function automationSeatIndex(engine: GameEngine): number | null {
+  const activeSeat = activeSeatIndex(engine);
+  if (activeSeat != null) return activeSeat;
+  if (engine.state.phase !== "hand_result") return null;
+  const automaticSeat =
+    engine.state.seats.find(
+      (seat) => seat.type === "bot" || Boolean(seat.autopilot),
+    ) ?? engine.state.seats.find((seat) => seat.type === "human");
+  return automaticSeat?.index ?? null;
+}
+
+function phaseTimeoutMs(engine: GameEngine): number {
+  if (engine.state.phase === "trump_choice") return 15_000;
+  if (engine.state.phase === "hand_result") return 20_000;
+  return DEFAULT_AUTOMATION.turnTimeoutMs;
+}
+
 function engineSeat(seat: StoredSeat): EngineSeat {
   const result: EngineSeat = {
     index: seat.seatIndex,
     type: seat.occupantType,
-    connectionStatus: "online",
+    connectionStatus:
+      seat.connectionStatus ??
+      (seat.occupantType === "bot" ? "online" : "disconnected"),
   };
   if (seat.displayName) result.displayName = seat.displayName;
   if (seat.playerId) result.userId = seat.playerId;
   if (seat.botDifficulty) result.difficulty = seat.botDifficulty;
+  if (seat.connectionStatus === "autopilot") result.autopilot = true;
   return result;
 }
 
 function createLobbyEngine(
   host: AuthenticatedSession,
   seats: readonly StoredSeat[],
+  ruleProfileId: RuleProfileId,
+  settings: RoomSettings,
 ): GameEngine {
   return new GameEngine({
     playerName: host.displayName,
     humanCount: seats.filter((seat) => seat.occupantType === "human").length,
-    tableMode: "classic_4",
-    ruleProfile: "classic_304_4p",
-    botDifficulty: "easy",
+    tableMode: tableModeForProfile(ruleProfileId),
+    ruleProfile: ruleProfileId,
+    botDifficulty: settings.botDifficulty,
+    enableSecondBidding: settings.enableSecondBidding,
     initialSeats: seats.map(engineSeat),
   });
 }
@@ -93,8 +146,8 @@ function createStartedEngine(
   const engine = new GameEngine({
     playerName: host?.displayName ?? "Host",
     humanCount: seats.filter((seat) => seat.occupantType === "human").length,
-    tableMode: "classic_4",
-    ruleProfile: "classic_304_4p",
+    tableMode: tableModeForProfile(room.ruleProfileId),
+    ruleProfile: room.ruleProfileId,
     botDifficulty: room.settings.botDifficulty,
     enableSecondBidding: room.settings.enableSecondBidding,
     initialSeats: seats.map(engineSeat),
@@ -112,10 +165,22 @@ function applyLobbySeat(engine: GameEngine, seat: StoredSeat): void {
   else delete target.userId;
   if (seat.botDifficulty) target.difficulty = seat.botDifficulty;
   else delete target.difficulty;
-  target.connectionStatus = "online";
+  target.connectionStatus = seat.connectionStatus ?? "online";
+  target.autopilot = seat.connectionStatus === "autopilot";
   engine.state.humanCount = engine.state.seats.filter(
     (candidate) => candidate.type === "human",
   ).length;
+}
+
+function applyConnectionState(
+  engine: GameEngine,
+  seatIndex: number,
+  connectionStatus: "online" | "disconnected" | "autopilot",
+): void {
+  const target = engine.state.seats[seatIndex];
+  if (!target) throw new RecoveryError("unknown");
+  target.connectionStatus = connectionStatus;
+  target.autopilot = connectionStatus === "autopilot";
 }
 
 function roomNotFound(): DomainError {
@@ -135,11 +200,18 @@ export class RoomCoordinator {
   private readonly store: PostgresRoomStore;
   private readonly lease: RoomLease;
   private readonly presence: Presence;
+  private readonly automation: RoomCoordinatorDependencies["automation"];
 
-  constructor({ store, lease, presence }: RoomCoordinatorDependencies) {
+  constructor({
+    store,
+    lease,
+    presence,
+    automation,
+  }: RoomCoordinatorDependencies) {
     this.store = store;
     this.lease = lease;
     this.presence = presence;
+    this.automation = automation;
   }
 
   async createRoom(
@@ -152,24 +224,38 @@ export class RoomCoordinator {
     );
     if (duplicate) return this.getSnapshot(session, duplicate.roomId);
 
-    const seats: StoredSeat[] = [
-      {
-        seatIndex: 0,
-        playerId: session.playerId,
-        occupantType: "human",
-        botDifficulty: null,
-        displayName: session.displayName,
-      },
-      ...[1, 2, 3].map((seatIndex) => ({
-        seatIndex,
-        playerId: null,
-        occupantType: "empty" as const,
-        botDifficulty: null,
-        displayName: null,
-      })),
-    ];
+    const settings: RoomSettings = {
+      botDifficulty: "easy",
+      enableSecondBidding: true,
+    };
+    const seats: StoredSeat[] = Array.from(
+      { length: seatCountForProfile(request.ruleProfileId) },
+      (_, seatIndex) =>
+        seatIndex === 0
+          ? {
+              seatIndex,
+              playerId: session.playerId,
+              occupantType: "human",
+              botDifficulty: null,
+              displayName: session.displayName,
+              connectionStatus: "online",
+            }
+          : {
+              seatIndex,
+              playerId: null,
+              occupantType: "empty" as const,
+              botDifficulty: null,
+              displayName: null,
+              connectionStatus: "disconnected",
+            },
+    );
     const roomId = randomUUID();
-    const engine = createLobbyEngine(session, seats);
+    const engine = createLobbyEngine(
+      session,
+      seats,
+      request.ruleProfileId,
+      settings,
+    );
     const room = await this.store.createRoom({
       id: roomId,
       inviteCode: createInviteCode(),
@@ -177,7 +263,7 @@ export class RoomCoordinator {
       sessionId: session.sessionId,
       commandId: request.commandId,
       ruleProfileId: request.ruleProfileId,
-      settings: { botDifficulty: "easy", enableSecondBidding: true },
+      settings,
       seats,
       snapshot: engine.getSnapshot(),
     });
@@ -252,6 +338,7 @@ export class RoomCoordinator {
             },
             snapshot: engine.getSnapshot(),
             status: "lobby",
+            ruleProfileId: room.ruleProfileId,
           },
         );
         const updatedRoom = { ...room, eventVersion };
@@ -272,6 +359,7 @@ export class RoomCoordinator {
     roomId: string,
     request: StartRoomRequest,
   ): Promise<RoomProjection> {
+    await this.markRealtimePresence(session, roomId);
     const projection = await this.withRoomCommand(
       roomId,
       session,
@@ -306,19 +394,24 @@ export class RoomCoordinator {
             commandId: request.commandId,
             actorPlayerId: session.playerId,
             eventType: "ROOM_STARTED",
-            payload: { ruleProfileId: room.ruleProfileId },
+            payload: {
+              ruleProfileId: room.ruleProfileId,
+              state: engine.getSnapshot(),
+            },
             snapshot: engine.getSnapshot(),
             status: "in_hand",
+            ruleProfileId: room.ruleProfileId,
           },
         );
-        return projectRoomForPlayer(
-          { ...room, eventVersion, status: "in_hand" },
-          engine,
-          viewerSeatIndex,
-        );
+        const updatedRoom = {
+          ...room,
+          eventVersion,
+          status: "in_hand" as const,
+        };
+        await this.scheduleNextAutomation(transaction, updatedRoom, engine);
+        return projectRoomForPlayer(updatedRoom, engine, viewerSeatIndex);
       },
     );
-    await this.presence.touch(roomId, session.playerId);
     return projection;
   }
 
@@ -326,6 +419,7 @@ export class RoomCoordinator {
     session: AuthenticatedSession,
     roomId: string,
   ): Promise<RoomProjection> {
+    await this.markRealtimePresence(session, roomId);
     const projection = await this.withRoomLease(
       roomId,
       async (transaction, room) => {
@@ -337,7 +431,6 @@ export class RoomCoordinator {
         return this.projectCurrent(transaction, room, viewerSeatIndex);
       },
     );
-    await this.presence.touch(roomId, session.playerId);
     return projection;
   }
 
@@ -347,34 +440,42 @@ export class RoomCoordinator {
   ): Promise<RoomProjection> {
     const referencedRoom = await this.store.loadRoomByReference(roomReference);
     if (!referencedRoom) throw roomNotFound();
-    return this.withRoomLease(referencedRoom.id, async (transaction, room) => {
-      const viewerSeatIndex = await this.store.findSeatIndex(
-        transaction,
-        room.id,
-        session.playerId,
-      );
-      if (viewerSeatIndex != null) {
-        return this.projectCurrent(transaction, room, viewerSeatIndex);
-      }
-      if (room.status !== "lobby") {
-        throw new DomainError(
-          "SEAT_REQUIRED",
-          403,
-          "You are not seated in this room",
+    const projection = await this.withRoomLease(
+      referencedRoom.id,
+      async (transaction, room) => {
+        const viewerSeatIndex = await this.store.findSeatIndex(
+          transaction,
+          room.id,
+          session.playerId,
         );
-      }
-      return projectLobbyForViewer(
-        room,
-        await this.store.loadSeats(room.id, transaction),
-        null,
-      );
-    });
+        if (viewerSeatIndex != null) {
+          return this.projectCurrent(transaction, room, viewerSeatIndex);
+        }
+        if (room.status !== "lobby") {
+          throw new DomainError(
+            "SEAT_REQUIRED",
+            403,
+            "You are not seated in this room",
+          );
+        }
+        return projectLobbyForViewer(
+          room,
+          await this.store.loadSeats(room.id, transaction),
+          null,
+        );
+      },
+    );
+    if (projection.viewerSeatIndex != null) {
+      return this.getSnapshot(session, projection.roomId);
+    }
+    return projection;
   }
 
   async submitCommand(
     session: AuthenticatedSession,
     command: GameCommand,
   ): Promise<RoomProjection> {
+    await this.markRealtimePresence(session, command.roomId);
     const projection = await this.withRoomCommand(
       command.roomId,
       session,
@@ -408,17 +509,215 @@ export class RoomCoordinator {
             payload: { action: command.action },
             snapshot: engine.getSnapshot(),
             status,
+            ruleProfileId: room.ruleProfileId,
           },
         );
-        return projectRoomForPlayer(
-          { ...room, eventVersion, status },
-          engine,
-          viewerSeatIndex,
-        );
+        const updatedRoom = { ...room, eventVersion, status };
+        await this.scheduleNextAutomation(transaction, updatedRoom, engine);
+        return projectRoomForPlayer(updatedRoom, engine, viewerSeatIndex);
       },
     );
-    await this.presence.touch(command.roomId, session.playerId);
     return projection;
+  }
+
+  async runAutomation(
+    job: ClaimedAutomationJob,
+  ): Promise<"completed" | "stale"> {
+    return this.withRoomLease(job.roomId, async (transaction, room) => {
+      if (room.eventVersion !== job.expectedEventVersion) return "stale";
+      if (room.status !== "in_hand" && room.status !== "hand_result") {
+        return "stale";
+      }
+
+      const engine = await this.recoverLockedRoom(transaction, room);
+      const activeSeat = activeSeatIndex(engine);
+      const isHandResultAcknowledgement =
+        engine.state.phase === "hand_result" && activeSeat == null;
+      if (
+        job.kind !== "DISCONNECT_GRACE" &&
+        activeSeat !== job.targetSeatIndex &&
+        !isHandResultAcknowledgement
+      ) {
+        return "stale";
+      }
+      const seat = engine.state.seats[job.targetSeatIndex];
+      if (!seat) return "stale";
+
+      if (job.kind === "TURN_TIMEOUT" || job.kind === "DISCONNECT_GRACE") {
+        if (job.kind === "DISCONNECT_GRACE") {
+          const seats = await this.store.loadSeats(room.id, transaction);
+          const storedSeat = seats.find(
+            (candidate) => candidate.seatIndex === job.targetSeatIndex,
+          );
+          if (!storedSeat?.playerId) return "stale";
+          const onlinePlayerIds = await this.presence.onlinePlayerIds(room.id, [
+            storedSeat.playerId,
+          ]);
+          if (onlinePlayerIds.has(storedSeat.playerId)) return "stale";
+        }
+        if (seat.type !== "human" || seat.autopilot) return "stale";
+        seat.autopilot = true;
+        seat.connectionStatus = "autopilot";
+        await this.store.markSeatAutopilot(
+          transaction,
+          room.id,
+          job.targetSeatIndex,
+        );
+        const eventVersion = await this.store.appendEventAndSnapshot(
+          transaction,
+          {
+            roomId: room.id,
+            expectedVersion: room.eventVersion,
+            commandId: job.id,
+            actorPlayerId: null,
+            eventType: "AUTOPILOT_ENABLED",
+            payload: { seatIndex: job.targetSeatIndex, reason: job.kind },
+            snapshot: engine.getSnapshot(),
+            status: activeStatusForEngine(engine),
+            ruleProfileId: room.ruleProfileId,
+          },
+        );
+        const updatedRoom = {
+          ...room,
+          eventVersion,
+          status: activeStatusForEngine(engine),
+        };
+        await this.scheduleNextAutomation(transaction, updatedRoom, engine);
+        return "completed";
+      }
+
+      if (job.kind !== "BOT_ACTION") return "stale";
+      if (seat.type !== "bot" && !seat.autopilot) return "stale";
+      const action = engine.getBotAction(job.targetSeatIndex);
+      if (!action) return "stale";
+      const result = engine.applyAutomationAction(action, job.targetSeatIndex);
+      if (!result.ok) {
+        throw new DomainError(
+          "AUTOMATION_ACTION_REJECTED",
+          500,
+          "Automation action was rejected",
+        );
+      }
+      const status = activeStatusForEngine(engine);
+      const eventVersion = await this.store.appendEventAndSnapshot(
+        transaction,
+        {
+          roomId: room.id,
+          expectedVersion: room.eventVersion,
+          commandId: job.id,
+          actorPlayerId: null,
+          eventType: seat.autopilot ? "AUTOPILOT_ACTION" : "BOT_ACTION",
+          payload: { seatIndex: job.targetSeatIndex, action },
+          snapshot: engine.getSnapshot(),
+          status,
+          ruleProfileId: room.ruleProfileId,
+        },
+      );
+      const updatedRoom = { ...room, eventVersion, status };
+      await this.scheduleNextAutomation(transaction, updatedRoom, engine);
+      return "completed";
+    });
+  }
+
+  async markRealtimePresence(
+    session: AuthenticatedSession,
+    roomId: string,
+  ): Promise<void> {
+    await this.withRoomLease(roomId, async (transaction, room) => {
+      const viewerSeatIndex = await this.store.requireHumanSeat(
+        transaction,
+        room.id,
+        session.playerId,
+      );
+      const seats = await this.store.loadSeats(room.id, transaction);
+      const storedSeat = seats.find(
+        (seat) => seat.seatIndex === viewerSeatIndex,
+      );
+      if (!storedSeat) throw new RecoveryError(room.id);
+      await this.presence.touch(room.id, session.playerId);
+      if (storedSeat.connectionStatus === "online") {
+        await this.store.markSeatOnline(transaction, room.id, session.playerId);
+        return;
+      }
+
+      if (
+        storedSeat.connectionStatus === "autopilot" &&
+        (await this.store.hasAutopilotActionSinceLatestEnable(
+          transaction,
+          room.id,
+          viewerSeatIndex,
+        ))
+      ) {
+        return;
+      }
+
+      const engine = await this.recoverLockedRoom(transaction, room);
+      applyConnectionState(engine, viewerSeatIndex, "online");
+      await this.store.markSeatOnline(transaction, room.id, session.playerId);
+      const status = activeStatusForEngine(engine);
+      const eventVersion = await this.store.appendEventAndSnapshot(
+        transaction,
+        {
+          roomId: room.id,
+          expectedVersion: room.eventVersion,
+          commandId: randomUUID(),
+          actorPlayerId: session.playerId,
+          eventType:
+            storedSeat.connectionStatus === "autopilot"
+              ? "AUTOPILOT_CANCELLED"
+              : "PLAYER_RECONNECTED",
+          payload: { seatIndex: viewerSeatIndex },
+          snapshot: engine.getSnapshot(),
+          status,
+          ruleProfileId: room.ruleProfileId,
+        },
+      );
+      await this.scheduleNextAutomation(
+        transaction,
+        { ...room, eventVersion, status },
+        engine,
+      );
+    });
+  }
+
+  async markRealtimeDisconnected(
+    session: AuthenticatedSession,
+    roomId: string,
+  ): Promise<void> {
+    await this.withRoomLease(roomId, async (transaction, room) => {
+      const viewerSeatIndex = await this.store.requireHumanSeat(
+        transaction,
+        room.id,
+        session.playerId,
+      );
+      const seats = await this.store.loadSeats(room.id, transaction);
+      const storedSeat = seats.find(
+        (seat) => seat.seatIndex === viewerSeatIndex,
+      );
+      if (storedSeat?.connectionStatus !== "online") return;
+
+      const engine = await this.recoverLockedRoom(transaction, room);
+      applyConnectionState(engine, viewerSeatIndex, "disconnected");
+      await this.store.markSeatOffline(transaction, room.id, session.playerId);
+      const status = activeStatusForEngine(engine);
+      const eventVersion = await this.store.appendEventAndSnapshot(
+        transaction,
+        {
+          roomId: room.id,
+          expectedVersion: room.eventVersion,
+          commandId: randomUUID(),
+          actorPlayerId: session.playerId,
+          eventType: "PLAYER_DISCONNECTED",
+          payload: { seatIndex: viewerSeatIndex },
+          snapshot: engine.getSnapshot(),
+          status,
+          ruleProfileId: room.ruleProfileId,
+        },
+      );
+      const updatedRoom = { ...room, eventVersion, status };
+      await this.scheduleNextAutomation(transaction, updatedRoom, engine);
+    });
+    await this.presence.remove(roomId, session.playerId);
   }
 
   private async withRoomCommand(
@@ -462,10 +761,10 @@ export class RoomCoordinator {
     });
   }
 
-  private async withRoomLease(
+  private async withRoomLease<T>(
     roomId: string,
-    work: (transaction: Queryable, room: StoredRoom) => Promise<RoomProjection>,
-  ): Promise<RoomProjection> {
+    work: (transaction: Queryable, room: StoredRoom) => Promise<T>,
+  ): Promise<T> {
     try {
       return await this.lease.withLease(roomId, () =>
         this.store.transaction(async (transaction) => {
@@ -485,6 +784,77 @@ export class RoomCoordinator {
         );
       }
       throw error;
+    }
+  }
+
+  private async scheduleNextAutomation(
+    transaction: Queryable,
+    room: StoredRoom,
+    engine: GameEngine,
+  ): Promise<void> {
+    await this.store.cancelAutomationForRoom(transaction, room.id, [
+      "BOT_ACTION",
+      "TURN_TIMEOUT",
+    ]);
+    await this.store.cancelAutomationForRoom(transaction, room.id, [
+      "DISCONNECT_GRACE",
+    ]);
+    if (
+      room.status === "in_hand" ||
+      (room.status === "hand_result" && engine.state.phase !== "match_complete")
+    ) {
+      await this.scheduleDisconnectGraceJobs(transaction, room);
+    }
+    const targetSeatIndex = automationSeatIndex(engine);
+    if (targetSeatIndex == null) return;
+    const seat = engine.state.seats[targetSeatIndex];
+    if (!seat) return;
+    const isAutomated = seat.type === "bot" || Boolean(seat.autopilot);
+    if (seat.type !== "human" && seat.type !== "bot") return;
+    if (seat.type === "human" && seat.connectionStatus === "disconnected") {
+      return;
+    }
+    const botActionDelayMs =
+      this.automation?.botActionDelayMs ?? DEFAULT_AUTOMATION.botActionDelayMs;
+    await this.store.scheduleAutomation(transaction, {
+      id: randomUUID(),
+      roomId: room.id,
+      expectedEventVersion: room.eventVersion,
+      kind: isAutomated ? "BOT_ACTION" : "TURN_TIMEOUT",
+      targetSeatIndex,
+      dueAt: new Date(
+        Date.now() + (isAutomated ? botActionDelayMs : phaseTimeoutMs(engine)),
+      ),
+    });
+  }
+
+  private async scheduleDisconnectGraceJobs(
+    transaction: Queryable,
+    room: StoredRoom,
+  ): Promise<void> {
+    const disconnectGraceSeconds =
+      this.automation?.disconnectGraceSeconds ??
+      DEFAULT_AUTOMATION.disconnectGraceSeconds;
+    const seats = await this.store.loadSeats(room.id, transaction);
+    for (const seat of seats) {
+      if (
+        seat.occupantType !== "human" ||
+        !seat.playerId ||
+        seat.connectionStatus !== "disconnected"
+      ) {
+        continue;
+      }
+      await this.store.scheduleAutomation(transaction, {
+        id: randomUUID(),
+        roomId: room.id,
+        expectedEventVersion: room.eventVersion,
+        kind: "DISCONNECT_GRACE",
+        targetSeatIndex: seat.seatIndex,
+        dueAt: new Date(
+          (seat.disconnectedAt?.getTime() ?? Date.now()) +
+            disconnectGraceSeconds * 1_000,
+        ),
+      });
     }
   }
 
@@ -521,6 +891,9 @@ export class RoomCoordinator {
       eventVersion,
     );
     if (!snapshot) throw new RecoveryError(room.id);
+    if (snapshot.ruleProfileId !== room.ruleProfileId) {
+      throw new RecoveryError(room.id);
+    }
     const engine = GameEngine.hydrate(
       structuredClone(snapshot.state) as EngineState,
     );
@@ -544,7 +917,10 @@ export class RoomCoordinator {
     if (!snapshot || snapshot.eventVersion > room.eventVersion) {
       throw new RecoveryError(room.id);
     }
-    const engine = GameEngine.hydrate(
+    if (snapshot.ruleProfileId !== room.ruleProfileId) {
+      throw new RecoveryError(room.id);
+    }
+    let engine = GameEngine.hydrate(
       structuredClone(snapshot.state) as EngineState,
     );
     const events = await this.store.loadEventsAfter(
@@ -554,6 +930,27 @@ export class RoomCoordinator {
     );
     try {
       for (const event of events) {
+        if (event.eventType === "ROOM_STARTED") {
+          const payload = event.payload as Record<string, unknown>;
+          const state = payload.state;
+          if (!state || typeof state !== "object" || Array.isArray(state)) {
+            throw new RecoveryError(room.id);
+          }
+          const started = GameEngine.hydrate(
+            structuredClone(state) as EngineState,
+          );
+          const profile = started.state.profile;
+          if (
+            !profile ||
+            typeof profile !== "object" ||
+            Array.isArray(profile) ||
+            (profile as Record<string, unknown>).id !== room.ruleProfileId
+          ) {
+            throw new RecoveryError(room.id);
+          }
+          engine = started;
+          continue;
+        }
         if (event.eventType === "PLAYER_JOINED") {
           const payload = event.payload as Record<string, unknown>;
           const seatIndex = payload.seatIndex;
@@ -596,9 +993,62 @@ export class RoomCoordinator {
           if (!result.ok) throw new RecoveryError(room.id);
           continue;
         }
+        if (
+          event.eventType === "PLAYER_DISCONNECTED" ||
+          event.eventType === "PLAYER_RECONNECTED" ||
+          event.eventType === "AUTOPILOT_ENABLED" ||
+          event.eventType === "AUTOPILOT_CANCELLED"
+        ) {
+          const payload = event.payload as Record<string, unknown>;
+          const seatIndex = payload.seatIndex;
+          if (typeof seatIndex !== "number" || !Number.isInteger(seatIndex)) {
+            throw new RecoveryError(room.id);
+          }
+          applyConnectionState(
+            engine,
+            seatIndex,
+            event.eventType === "PLAYER_DISCONNECTED"
+              ? "disconnected"
+              : event.eventType === "AUTOPILOT_ENABLED"
+                ? "autopilot"
+                : "online",
+          );
+          continue;
+        }
+        if (
+          event.eventType === "BOT_ACTION" ||
+          event.eventType === "AUTOPILOT_ACTION"
+        ) {
+          const payload = event.payload as Record<string, unknown>;
+          const seatIndex = payload.seatIndex;
+          const action = payload.action;
+          if (
+            typeof seatIndex !== "number" ||
+            !Number.isInteger(seatIndex) ||
+            !action ||
+            typeof action !== "object" ||
+            Array.isArray(action)
+          ) {
+            throw new RecoveryError(room.id);
+          }
+          const result = engine.applyAutomationAction(
+            action as Record<string, unknown>,
+            seatIndex,
+          );
+          if (!result.ok) throw new RecoveryError(room.id);
+          continue;
+        }
         if (event.eventType !== "ROOM_CREATED") {
           throw new RecoveryError(room.id);
         }
+      }
+      const seats = await this.store.loadSeats(room.id, transaction);
+      for (const seat of seats) {
+        applyConnectionState(
+          engine,
+          seat.seatIndex,
+          seat.connectionStatus ?? "disconnected",
+        );
       }
     } catch (error) {
       if (error instanceof RecoveryError) throw error;

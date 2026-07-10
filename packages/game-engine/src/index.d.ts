@@ -49,6 +49,10 @@ export class GameEngine {
   getPrompt(): string;
   getLegalActions(seatIndex: number): Array<Record<string, unknown>>;
   getBotAction(seatIndex: number): Record<string, unknown> | null;
+  applyAutomationAction(
+    action: Record<string, unknown>,
+    seatIndex: number,
+  ): { ok: boolean; reason?: string };
   applyAction(action: Record<string, unknown>): {
     ok: boolean;
     reason?: string;

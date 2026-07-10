@@ -52,7 +52,7 @@ export const GuestSessionRequestSchema = z
 export const CreateRoomRequestSchema = z
   .object({
     commandId: Uuid,
-    ruleProfileId: z.literal("classic_304_4p").default("classic_304_4p"),
+    ruleProfileId: RuleProfileIdSchema.default("classic_304_4p"),
   })
   .strict();
 

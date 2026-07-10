@@ -1,3 +1,4 @@
+import type { RuleProfileId } from "@three-zero-four/contracts";
 import type { QueryResultRow } from "pg";
 import type { Database } from "../infra/database.js";
 import { DomainError } from "./errors.js";
@@ -16,7 +17,7 @@ export type AutomationJobKind =
   | "DISCONNECT_GRACE";
 
 export interface RoomSettings {
-  botDifficulty: "easy";
+  botDifficulty: "easy" | "normal" | "strong";
   enableSecondBidding: boolean;
 }
 
@@ -26,7 +27,7 @@ export interface StoredRoom {
   status: RoomStatus;
   eventVersion: number;
   hostPlayerId: string;
-  ruleProfileId: "classic_304_4p";
+  ruleProfileId: RuleProfileId;
   settings: RoomSettings;
   recoveryError: string | null;
 }
@@ -46,7 +47,7 @@ export interface StoredSeat {
 export interface StoredSnapshot {
   eventVersion: number;
   schemaVersion: number;
-  ruleProfileId: "classic_304_4p";
+  ruleProfileId: RuleProfileId;
   state: unknown;
 }
 
@@ -73,7 +74,7 @@ export interface NewRoomInput {
   hostPlayerId: string;
   sessionId?: string;
   commandId: string;
-  ruleProfileId: "classic_304_4p";
+  ruleProfileId: RuleProfileId;
   settings: RoomSettings;
   seats: readonly StoredSeat[];
   snapshot: unknown;
@@ -83,12 +84,12 @@ export interface AppendEventInput {
   roomId: string;
   expectedVersion: number;
   commandId: string;
-  actorPlayerId: string;
+  actorPlayerId: string | null;
   eventType: string;
   payload: unknown;
   snapshot: unknown;
   status: Extract<RoomStatus, "lobby" | "in_hand" | "hand_result">;
-  ruleProfileId?: "classic_304_4p";
+  ruleProfileId: RuleProfileId;
 }
 
 export interface PendingRoomNotification {
@@ -199,6 +200,7 @@ const automationJobKinds = new Set<AutomationJobKind>([
   "TURN_TIMEOUT",
   "DISCONNECT_GRACE",
 ]);
+const ruleProfileIds = new Set<RuleProfileId>(["classic_304_4p", "six_304_36"]);
 
 function toSafeNumber(value: string | number, field: string): number {
   const parsed = Number(value);
@@ -215,13 +217,13 @@ function parseSettings(value: unknown): RoomSettings {
   const settings = value as Record<string, unknown>;
   const enableSecondBidding = settings.enableSecondBidding;
   if (
-    settings.botDifficulty !== "easy" ||
+    !["easy", "normal", "strong"].includes(settings.botDifficulty as string) ||
     typeof enableSecondBidding !== "boolean"
   ) {
     throw new DomainError("ROOM_DATA_INVALID", 500, "Invalid room settings");
   }
   return {
-    botDifficulty: "easy",
+    botDifficulty: settings.botDifficulty as RoomSettings["botDifficulty"],
     enableSecondBidding,
   };
 }
@@ -230,7 +232,7 @@ function mapRoom(row: RoomRow): StoredRoom {
   if (!roomStatuses.has(row.status as RoomStatus)) {
     throw new DomainError("ROOM_DATA_INVALID", 500, "Invalid room status");
   }
-  if (row.rule_profile_id !== "classic_304_4p") {
+  if (!ruleProfileIds.has(row.rule_profile_id as RuleProfileId)) {
     throw new DomainError(
       "ROOM_DATA_INVALID",
       500,
@@ -243,7 +245,7 @@ function mapRoom(row: RoomRow): StoredRoom {
     status: row.status as RoomStatus,
     eventVersion: toSafeNumber(row.event_version, "room event version"),
     hostPlayerId: row.host_player_id,
-    ruleProfileId: row.rule_profile_id,
+    ruleProfileId: row.rule_profile_id as RuleProfileId,
     settings: parseSettings(row.settings),
     recoveryError: row.recovery_error,
   };
@@ -274,7 +276,7 @@ function mapSeat(row: SeatRow): StoredSeat {
 }
 
 function mapSnapshot(row: SnapshotRow): StoredSnapshot {
-  if (row.rule_profile_id !== "classic_304_4p") {
+  if (!ruleProfileIds.has(row.rule_profile_id as RuleProfileId)) {
     throw new DomainError(
       "ROOM_DATA_INVALID",
       500,
@@ -284,7 +286,7 @@ function mapSnapshot(row: SnapshotRow): StoredSnapshot {
   return {
     eventVersion: toSafeNumber(row.event_version, "snapshot event version"),
     schemaVersion: row.schema_version,
-    ruleProfileId: row.rule_profile_id,
+    ruleProfileId: row.rule_profile_id as RuleProfileId,
     state: row.state,
   };
 }
@@ -333,11 +335,12 @@ export class PostgresRoomStore {
   }
 
   async createRoom(input: NewRoomInput): Promise<StoredRoom> {
-    if (input.seats.length !== 4) {
+    const expectedSeatCount = input.ruleProfileId === "six_304_36" ? 6 : 4;
+    if (input.seats.length !== expectedSeatCount) {
       throw new DomainError(
         "ROOM_DATA_INVALID",
         500,
-        "Classic rooms require four seats",
+        "Room seat count does not match its rule profile",
       );
     }
     return this.transaction(async (transaction) => {
@@ -529,7 +532,7 @@ export class PostgresRoomStore {
       throw new DomainError("ROOM_FULL", 409, "Room is full");
     }
     await transaction.query(
-      "UPDATE room_seats SET player_id = $3, occupant_type = 'human', bot_difficulty = NULL, joined_at = now() WHERE room_id = $1 AND seat_index = $2",
+      "UPDATE room_seats SET player_id = $3, occupant_type = 'human', bot_difficulty = NULL, joined_at = now(), connection_status = 'online', last_presence_at = now(), disconnected_at = NULL, autopilot_started_at = NULL WHERE room_id = $1 AND seat_index = $2",
       [roomId, row.seat_index, playerId],
     );
     const seats = await this.loadSeats(roomId, transaction);
@@ -547,10 +550,10 @@ export class PostgresRoomStore {
   async fillEmptySeatsWithBots(
     transaction: Queryable,
     roomId: string,
-    botDifficulty: "easy",
+    botDifficulty: RoomSettings["botDifficulty"],
   ): Promise<void> {
     await transaction.query(
-      "UPDATE room_seats SET occupant_type = 'bot', bot_difficulty = $2, joined_at = NULL WHERE room_id = $1 AND occupant_type = 'empty'",
+      "UPDATE room_seats SET occupant_type = 'bot', bot_difficulty = $2, joined_at = NULL, connection_status = 'online', last_presence_at = now(), disconnected_at = NULL, autopilot_started_at = NULL WHERE room_id = $1 AND occupant_type = 'empty'",
       [roomId, botDifficulty],
     );
   }
@@ -680,7 +683,7 @@ export class PostgresRoomStore {
       [
         input.roomId,
         nextVersion,
-        input.ruleProfileId ?? "classic_304_4p",
+        input.ruleProfileId,
         JSON.stringify(input.snapshot),
       ],
     );
@@ -806,9 +809,21 @@ export class PostgresRoomStore {
   ): Promise<void> {
     if (kinds.length === 0) return;
     await transaction.query(
-      "UPDATE room_automation_jobs SET state = 'cancelled', lease_owner = NULL, lease_until = NULL WHERE room_id = $1 AND kind = ANY($2::text[]) AND state IN ('pending', 'claimed')",
+      "UPDATE room_automation_jobs SET state = 'cancelled', lease_owner = NULL, lease_until = NULL WHERE room_id = $1 AND kind = ANY($2::text[]) AND state = 'pending'",
       [roomId, kinds],
     );
+  }
+
+  async hasAutopilotActionSinceLatestEnable(
+    transaction: Queryable,
+    roomId: string,
+    seatIndex: number,
+  ): Promise<boolean> {
+    const result = await transaction.query<{ has_action: boolean }>(
+      "WITH latest_enable AS (SELECT event_version FROM game_events WHERE room_id = $1 AND event_type = 'AUTOPILOT_ENABLED' AND payload->>'seatIndex' = $2 ORDER BY event_version DESC LIMIT 1) SELECT EXISTS (SELECT 1 FROM game_events AS event JOIN latest_enable ON event.event_version > latest_enable.event_version WHERE event.room_id = $1 AND event.event_type = 'AUTOPILOT_ACTION' AND event.payload->>'seatIndex' = $2) AS has_action",
+      [roomId, String(seatIndex)],
+    );
+    return result.rows[0]?.has_action ?? false;
   }
 
   async markSeatOnline(
@@ -831,6 +846,17 @@ export class PostgresRoomStore {
     await transaction.query(
       "UPDATE room_seats SET connection_status = 'disconnected', disconnected_at = COALESCE(disconnected_at, now()) WHERE room_id = $1 AND player_id = $2 AND occupant_type = 'human' AND connection_status = 'online'",
       [roomId, playerId],
+    );
+  }
+
+  async markSeatAutopilot(
+    transaction: Queryable,
+    roomId: string,
+    seatIndex: number,
+  ): Promise<void> {
+    await transaction.query(
+      "UPDATE room_seats SET connection_status = 'autopilot', autopilot_started_at = COALESCE(autopilot_started_at, now()) WHERE room_id = $1 AND seat_index = $2 AND occupant_type = 'human'",
+      [roomId, seatIndex],
     );
   }
 

@@ -48,6 +48,10 @@ describeIntegration("Redis game coordination", () => {
     await expect(presence.onlinePlayerIds(roomId, [playerId])).resolves.toEqual(
       new Set([playerId]),
     );
+    await presence.remove(roomId, playerId);
+    await expect(presence.onlinePlayerIds(roomId, [playerId])).resolves.toEqual(
+      new Set(),
+    );
   });
 
   it("limits a subject after the configured fixed window capacity", async () => {
