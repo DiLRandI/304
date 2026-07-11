@@ -121,3 +121,16 @@ test("delivery workflow keeps local and external-Postgres AWS contracts visible"
   assert.match(awsGuide, /ap-south-1/);
   assert.match(awsGuide, /DataTransfer/);
 });
+
+test("AWS Make targets migrate before readiness and retain Redis data on shutdown", () => {
+  const makefile = read("Makefile");
+  const awsDown = makefile.match(/^aws-down:\n(?:\t.*\n)*/m)?.[0] ?? "";
+
+  assert.match(makefile, /^aws-up: aws-migrate$/m);
+  assert.match(
+    makefile,
+    /\$\(AWS_COMPOSE\) up --build --detach --wait redis game-service worker/,
+  );
+  assert.match(awsDown, /\$\(AWS_COMPOSE\) down --remove-orphans/);
+  assert.doesNotMatch(awsDown, /--volumes/);
+});

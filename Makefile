@@ -40,13 +40,13 @@ aws-migrate:
 	@test -f $(AWS_ENV) || (echo "Copy infra/compose/.env.aws.example to $(AWS_ENV) first." >&2; exit 1)
 	$(AWS_COMPOSE) --profile migration run --rm migrate
 
-aws-up:
+aws-up: aws-migrate
 	@test -f $(AWS_ENV) || (echo "Copy infra/compose/.env.aws.example to $(AWS_ENV) first." >&2; exit 1)
-	$(AWS_COMPOSE) up --build -d redis game-service worker
+	$(AWS_COMPOSE) up --build --detach --wait redis game-service worker
 
 aws-down:
 	@test -f $(AWS_ENV) || (echo "Copy infra/compose/.env.aws.example to $(AWS_ENV) first." >&2; exit 1)
-	$(AWS_COMPOSE) down --volumes --remove-orphans
+	$(AWS_COMPOSE) down --remove-orphans
 
 aws-logs:
 	@test -f $(AWS_ENV) || (echo "Copy infra/compose/.env.aws.example to $(AWS_ENV) first." >&2; exit 1)
