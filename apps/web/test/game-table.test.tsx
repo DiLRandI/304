@@ -13,6 +13,37 @@ import {
 describe("GameTable", () => {
   afterEach(cleanup);
 
+  it("offers table exit only after the active hand finishes", async () => {
+    const activeRender = render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={activeProjection()}
+        submit={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Leave table" })).toBeNull();
+    expect(
+      screen.getByText("You can leave after this hand finishes."),
+    ).toBeTruthy();
+    activeRender.unmount();
+
+    const user = userEvent.setup();
+    const leave = vi.fn();
+    render(
+      <GameTable
+        connection="live"
+        leave={leave}
+        projection={resultProjection()}
+        submit={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Leave table" }));
+    expect(leave).toHaveBeenCalledOnce();
+  });
+
   it("enables only a legal projected card and submits its server action", async () => {
     const user = userEvent.setup();
     const submit = vi.fn();

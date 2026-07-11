@@ -590,6 +590,11 @@ dd[data-state="missing"] {
   justify-content: end;
 }
 
+.table-exit-note {
+  color: #aebfb0;
+  font-size: 0.8rem;
+}
+
 .connection-state {
   display: inline-flex;
   min-height: 1.85rem;

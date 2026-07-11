@@ -165,6 +165,12 @@ test("a guest starts Classic practice and submits its first legal action", async
   await action.click();
   expect((await commandResponse).status()).toBe(200);
   await expect(page.locator('[aria-label="304 game table"]')).toBeVisible();
+  await expect(
+    page.getByText("You can leave after this hand finishes."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Leave table" })).toHaveCount(
+    0,
+  );
 });
 
 test("a guest retries a transient initial room-load failure without reloading", async ({
@@ -274,6 +280,9 @@ for (const [profile, label] of [
     await expect(result).toBeVisible();
     await expect(result).toContainText(/Winning team [AB]|No score movement/);
     await expect(page.getByRole("button", { name: "Next hand" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Leave table" }),
+    ).toBeVisible();
 
     const nextHand = page.waitForResponse((response) =>
       isCommandResponse(response.url(), response.request().method()),
