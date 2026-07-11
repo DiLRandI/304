@@ -87,3 +87,36 @@ test("never offers a bid above the profile's 304-point deck total", () => {
 
   assert.deepEqual(bids, []);
 });
+
+test("offers an acknowledgement that starts another match after match completion", () => {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  engine.startMatch();
+  engine.state.tokens = [1, 11];
+  engine.state.bidding.currentBid = 160;
+  engine.state.trump.maker = 0;
+  for (const seat of engine.state.seats) seat.wonCards = [];
+
+  engine._finishHand();
+
+  assert.equal(engine.state.phase, "match_complete");
+  assert.deepEqual(engine.getLegalActions(0), [
+    {
+      ariaLabel: "Play another match",
+      label: "Play another match",
+      type: "ACK_RESULT",
+    },
+  ]);
+  assert.deepEqual(
+    engine.applyAction({
+      actorSeatIndex: 0,
+      seatIndex: 0,
+      type: "ACK_RESULT",
+    }),
+    { ok: true },
+  );
+  assert.equal(engine.state.phase, "four_bidding");
+  assert.deepEqual(engine.state.tokens, [11, 11]);
+});

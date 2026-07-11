@@ -694,11 +694,20 @@ export class GameEngine {
     if (this.state.phase === PHASE.TRICK_PLAY && isActiveSeat) {
       return this._getLegalCardActions(seatIndex);
     }
-    if (this.state.phase === PHASE.HAND_RESULT) {
+    if (
+      this.state.phase === PHASE.HAND_RESULT ||
+      this.state.phase === PHASE.MATCH_COMPLETE
+    ) {
       legal.push({
         type: "ACK_RESULT",
-        label: "Next hand",
-        ariaLabel: "Continue to next hand",
+        label:
+          this.state.phase === PHASE.MATCH_COMPLETE
+            ? "Play another match"
+            : "Next hand",
+        ariaLabel:
+          this.state.phase === PHASE.MATCH_COMPLETE
+            ? "Play another match"
+            : "Continue to next hand",
       });
       return legal;
     }
@@ -798,8 +807,7 @@ export class GameEngine {
   getBotAction(seatIndex) {
     if (
       !this.state.seats[seatIndex] ||
-      this.state.phase === PHASE.SETUP ||
-      this.state.phase === PHASE.MATCH_COMPLETE
+      this.state.phase === PHASE.SETUP
     ) {
       return null;
     }
@@ -810,6 +818,7 @@ export class GameEngine {
       return null;
     if (
       this.state.phase !== PHASE.HAND_RESULT &&
+      this.state.phase !== PHASE.MATCH_COMPLETE &&
       this.state.activeSeat !== seatIndex
     ) {
       return null;
@@ -851,7 +860,8 @@ export class GameEngine {
   applyAutomationAction(rawAction, seatIndex) {
     const resolvedSeatIndex = toSeatIndex(seatIndex);
     const isHandResultAcknowledgement =
-      this.state.phase === PHASE.HAND_RESULT &&
+      (this.state.phase === PHASE.HAND_RESULT ||
+        this.state.phase === PHASE.MATCH_COMPLETE) &&
       this.state.activeSeat == null &&
       rawAction?.type === "ACK_RESULT";
     if (
