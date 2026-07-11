@@ -25,6 +25,43 @@ function socket() {
 describe("useRoomController", () => {
   afterEach(cleanup);
 
+  it("retries a transient WebSocket constructor failure", async () => {
+    const initial = lobbyProjection();
+    const recoveredSocket = socket();
+    const client = {
+      getRoom: vi.fn().mockResolvedValue(initial),
+      getSnapshot: vi.fn(),
+      joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
+      roomSocketUrl: vi
+        .fn()
+        .mockReturnValue("wss://api.example.test/v1/realtime/rooms/room"),
+      startRoom: vi.fn(),
+      submitCommand: vi.fn(),
+    };
+    const createSocket = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error("transient constructor failure");
+      })
+      .mockReturnValueOnce(recoveredSocket);
+    const { result } = renderHook(() =>
+      useRoomController("304-abcdefghijkl", client, { createSocket }),
+    );
+
+    await waitFor(() => expect(createSocket).toHaveBeenCalledOnce());
+    expect(result.current.error).toBe(
+      "The live table could not connect. Retrying shortly.",
+    );
+    await waitFor(() => expect(createSocket).toHaveBeenCalledTimes(2), {
+      timeout: 2_000,
+    });
+
+    act(() => recoveredSocket.onopen?.(new Event("open")));
+    await waitFor(() => expect(result.current.connection).toBe("live"));
+    expect(result.current.error).toBeNull();
+  });
+
   it("retries the initial room bootstrap after a transient load failure", async () => {
     const initial = lobbyProjection();
     const roomSocket = socket();

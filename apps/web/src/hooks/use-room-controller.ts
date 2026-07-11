@@ -17,6 +17,8 @@ import { applyProjection } from "../lib/room-state";
 const OPEN_SOCKET = 1;
 const PING_INTERVAL_MS = 15_000;
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 5_000, 10_000] as const;
+const SOCKET_CONNECT_ERROR =
+  "The live table could not connect. Retrying shortly.";
 
 export type RoomConnection = "connecting" | "live" | "offline" | "reconnecting";
 
@@ -165,7 +167,19 @@ export function useRoomController(
       setError(message.message);
     };
 
-    const openSocket = (roomId: string) => {
+    function scheduleReconnect(roomId: string): void {
+      if (disposed || leftRoomRef.current) return;
+      clearReconnectTimer();
+      reconnectAttempt += 1;
+      setConnection("reconnecting");
+      const delay =
+        RECONNECT_DELAYS_MS[
+          Math.min(reconnectAttempt - 1, RECONNECT_DELAYS_MS.length - 1)
+        ] ?? RECONNECT_DELAYS_MS[RECONNECT_DELAYS_MS.length - 1];
+      reconnectTimerRef.current = setTimeout(() => openSocket(roomId), delay);
+    }
+
+    function openSocket(roomId: string): void {
       if (disposed || leftRoomRef.current) return;
       clearReconnectTimer();
       setConnection(reconnectAttempt === 0 ? "connecting" : "reconnecting");
@@ -173,8 +187,9 @@ export function useRoomController(
       try {
         socket = socketFactory(client.roomSocketUrl(roomId));
       } catch {
-        setConnection("offline");
-        setError("The live table could not connect. Retrying shortly.");
+        socketRef.current = null;
+        setError(SOCKET_CONNECT_ERROR);
+        scheduleReconnect(roomId);
         return;
       }
       socketRef.current = socket;
@@ -185,6 +200,9 @@ export function useRoomController(
         }
         reconnectAttempt = 0;
         setConnection("live");
+        setError((current) =>
+          current === SOCKET_CONNECT_ERROR ? null : current,
+        );
       };
       socket.onmessage = handleRealtimeMessage;
       socket.onerror = () => {
@@ -193,15 +211,9 @@ export function useRoomController(
       socket.onclose = () => {
         if (disposed || leftRoomRef.current) return;
         if (socketRef.current === socket) socketRef.current = null;
-        reconnectAttempt += 1;
-        setConnection("reconnecting");
-        const delay =
-          RECONNECT_DELAYS_MS[
-            Math.min(reconnectAttempt - 1, RECONNECT_DELAYS_MS.length - 1)
-          ] ?? RECONNECT_DELAYS_MS[RECONNECT_DELAYS_MS.length - 1];
-        reconnectTimerRef.current = setTimeout(() => openSocket(roomId), delay);
+        scheduleReconnect(roomId);
       };
-    };
+    }
 
     const bootstrap = async () => {
       if (bootstrapInFlight || disposed || leftRoomRef.current) return;
