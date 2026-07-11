@@ -100,3 +100,24 @@ test("public-release CI includes browser, scanner, load, and restore gates", () 
   assert.match(releaseRunbook, /G304_RESTORE_REHEARSAL=1/);
   assert.match(readme, /Public-release rehearsal/);
 });
+
+test("delivery workflow keeps local and external-Postgres AWS contracts visible", () => {
+  const makefile = read("Makefile");
+  const awsCompose = read("infra/compose/compose.aws.yaml");
+  const awsEnv = read("infra/compose/.env.aws.example");
+  const vercelGuide = read("docs/deployment/vercel-supabase-development.md");
+  const awsGuide = read("docs/deployment/aws-mumbai-production-cost-first.md");
+
+  assert.match(makefile, /^local-up:/m);
+  assert.match(makefile, /^aws-config:/m);
+  assert.match(makefile, /^aws-migrate:/m);
+  assert.match(makefile, /^aws-up:/m);
+  assert.match(awsCompose, /services:[\s\S]*game-service:/);
+  assert.match(awsCompose, /services:[\s\S]*worker:/);
+  assert.match(awsCompose, /services:[\s\S]*redis:/);
+  assert.doesNotMatch(awsCompose, /^  postgres:/m);
+  assert.match(awsEnv, /DATABASE_URL=/);
+  assert.match(vercelGuide, /NEXT_PUBLIC_GAME_SERVICE_URL/);
+  assert.match(awsGuide, /ap-south-1/);
+  assert.match(awsGuide, /DataTransfer/);
+});
