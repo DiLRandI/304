@@ -74,6 +74,31 @@ function getTrumpPublicView(state, viewerSeatIndex = null) {
   };
 }
 
+function projectHandResultForPublic(result) {
+  if (!result) return null;
+  if (result.noScore === true) {
+    return {
+      handNumber: result.handNumber,
+      noScore: true,
+      reason: result.reason,
+      tokens: [...result.tokens],
+    };
+  }
+  return {
+    bidderTeam: result.bidderTeam,
+    bidderTeamPoints: result.bidderTeamPoints,
+    bid: result.bid,
+    handNumber: result.handNumber,
+    matchComplete: result.matchComplete,
+    movement: result.movement,
+    otherTeamPoints: result.otherTeamPoints,
+    success: result.success,
+    tokens: [...result.tokens],
+    trickCount: result.trickCount,
+    winningTeam: result.winningTeam,
+  };
+}
+
 function cloneSeatsForBot(state, botSeatIndex) {
   return state.seats.map((seat, seatIndex) => {
     const isBotSeat = Number(seatIndex) === Number(botSeatIndex);
@@ -494,17 +519,8 @@ export class GameEngine {
       completedTricks: projectedCompleted,
       latestTrick,
       bidHistory: this.state.bidding.actions,
-      handAudit:
-        this.state.phase === PHASE.HAND_RESULT ||
-        this.state.phase === PHASE.MATCH_COMPLETE
-          ? {
-              handNumber: this.state.handNumber,
-              seedCommit: this.state.handShuffle.seedCommit,
-              deckVersion: this.state.handShuffle.deckVersion,
-            }
-          : null,
       tokens: this.state.tokens,
-      handResult: this.state.handResult,
+      handResult: projectHandResultForPublic(this.state.handResult),
       gameMessage: this.state.gameMessage,
       version: this.state.version,
     };
@@ -1450,6 +1466,11 @@ export class GameEngine {
       success,
       movement,
       matchComplete,
+      winningTeam: success
+        ? trumpMakerTeam
+        : trumpMakerTeam === "A"
+          ? "B"
+          : "A",
       tokens: [...this.state.tokens],
       firstSeatCards: this.state.seats.map((seat) => ({
         seat: seat.index,
