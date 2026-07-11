@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import type { RoomProjection } from "@three-zero-four/contracts";
 
 function uniqueName(prefix: string): string {
   return `${prefix} ${Date.now()} ${Math.random().toString(36).slice(2, 8)}`;
@@ -55,17 +56,18 @@ async function nextVisibleAction(page: Page) {
   return null;
 }
 
-async function submitVisibleAction(page: Page): Promise<boolean> {
+async function submitVisibleAction(page: Page): Promise<RoomProjection | null> {
   const action = await nextVisibleAction(page);
-  if (!action) return false;
+  if (!action) return null;
   const commandResponse = page.waitForResponse(
     (response) =>
       isCommandResponse(response.url(), response.request().method()),
     { timeout: 15_000 },
   );
   await action.click();
-  expect((await commandResponse).status()).toBe(200);
-  return true;
+  const response = await commandResponse;
+  expect(response.status()).toBe(200);
+  return (await response.json()) as RoomProjection;
 }
 
 async function playVisibleActionsToResult(page: Page): Promise<void> {
@@ -91,18 +93,20 @@ async function playVisibleActionsToResult(page: Page): Promise<void> {
 
 async function playVisibleActionsUntil(
   pages: readonly Page[],
-  complete: () => Promise<boolean>,
+  complete: (projection: RoomProjection | null) => Promise<boolean>,
   description: string,
 ): Promise<void> {
   const deadline = Date.now() + 110_000;
   let submittedActions = 0;
   while (Date.now() < deadline && submittedActions < 80) {
-    if (await complete()) return;
+    if (await complete(null)) return;
     let submitted = false;
     for (const page of pages) {
-      if (await submitVisibleAction(page)) {
+      const projection = await submitVisibleAction(page);
+      if (projection) {
         submitted = true;
         submittedActions += 1;
+        if (await complete(projection)) return;
         break;
       }
     }
@@ -113,10 +117,31 @@ async function playVisibleActionsUntil(
   );
 }
 
+function hasSixCardsPerSeat(projection: RoomProjection | null): boolean {
+  const publicState = (
+    projection?.view as
+      | { publicState?: { seats?: Array<{ handSize?: number }> } }
+      | undefined
+  )?.publicState;
+  return (
+    publicState?.seats?.length === 6 &&
+    publicState.seats.every((seat) => seat.handSize === 6)
+  );
+}
+
 test("a guest starts Classic practice and submits its first legal action", async ({
   page,
 }) => {
   await openPractice(page, uniqueName("Practice guest"));
+
+  await page.getByRole("button", { name: "Rules and card values" }).click();
+  await expect(
+    page.getByRole("heading", { name: "How bidding works" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Trump and cutting" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close rules" }).click();
 
   const action = page.locator('[aria-label="Legal actions"] button').first();
   await expect(action).toBeVisible();
@@ -303,7 +328,8 @@ test("five browser guests start a six-seat private room with one bot and six car
 
     await playVisibleActionsUntil(
       pages,
-      async () =>
+      async (projection) =>
+        hasSixCardsPerSeat(projection) ||
         (await host.locator('.seat-panel[data-hand-size="6"]').count()) === 6,
       "all six seats to receive six cards",
     );
