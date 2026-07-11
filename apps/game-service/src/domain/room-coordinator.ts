@@ -92,24 +92,16 @@ function activeSeatIndex(engine: GameEngine): number | null {
     : null;
 }
 
-function automationSeatIndex(engine: GameEngine): number | null {
-  const activeSeat = activeSeatIndex(engine);
-  if (activeSeat != null) return activeSeat;
-  if (
-    engine.state.phase !== "hand_result" &&
-    engine.state.phase !== "match_complete"
-  ) {
-    return null;
-  }
-  if (
-    engine.state.seats.some((seat) => seat.type === "human" && !seat.autopilot)
-  ) {
-    return null;
-  }
-  const automaticSeat = engine.state.seats.find(
-    (seat) => seat.type === "bot" || Boolean(seat.autopilot),
+function isResultPhase(engine: GameEngine): boolean {
+  return (
+    engine.state.phase === "hand_result" ||
+    engine.state.phase === "match_complete"
   );
-  return automaticSeat?.index ?? null;
+}
+
+function automationSeatIndex(engine: GameEngine): number | null {
+  if (isResultPhase(engine)) return null;
+  return activeSeatIndex(engine);
 }
 
 function phaseTimeoutMs(engine: GameEngine): number {
@@ -685,15 +677,11 @@ export class RoomCoordinator {
       }
 
       const engine = await this.recoverLockedRoom(transaction, room);
+      if (isResultPhase(engine)) return "stale";
       const activeSeat = activeSeatIndex(engine);
-      const isHandResultAcknowledgement =
-        (engine.state.phase === "hand_result" ||
-          engine.state.phase === "match_complete") &&
-        activeSeat == null;
       if (
         job.kind !== "DISCONNECT_GRACE" &&
-        activeSeat !== job.targetSeatIndex &&
-        !isHandResultAcknowledgement
+        activeSeat !== job.targetSeatIndex
       ) {
         return "stale";
       }
@@ -794,17 +782,6 @@ export class RoomCoordinator {
       await this.presence.touch(room.id, session.playerId);
       if (storedSeat.connectionStatus === "online") {
         await this.store.markSeatOnline(transaction, room.id, session.playerId);
-        return;
-      }
-
-      if (
-        storedSeat.connectionStatus === "autopilot" &&
-        (await this.store.hasAutopilotActionSinceLatestEnable(
-          transaction,
-          room.id,
-          viewerSeatIndex,
-        ))
-      ) {
         return;
       }
 
@@ -957,7 +934,7 @@ export class RoomCoordinator {
     await this.store.cancelAutomationForRoom(transaction, room.id, [
       "DISCONNECT_GRACE",
     ]);
-    if (room.status === "in_hand" || room.status === "hand_result") {
+    if (room.status === "in_hand") {
       await this.scheduleDisconnectGraceJobs(transaction, room);
     }
     const targetSeatIndex = automationSeatIndex(engine);

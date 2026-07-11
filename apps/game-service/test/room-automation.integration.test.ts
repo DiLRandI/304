@@ -387,7 +387,7 @@ describeIntegration("durable room automation", () => {
     expect(pendingBotJob.rows).toEqual([{ state: "cancelled" }]);
   });
 
-  it("keeps autopilot enabled when the automated action has already committed", async () => {
+  it("returns control when the automated action has already committed", async () => {
     const game = coordinator();
     const { created, players, started } = await createStartedClassicRoom(
       game,
@@ -444,81 +444,66 @@ describeIntegration("durable room automation", () => {
       created.roomId,
       started.eventVersion,
     );
-    expect(
-      events.filter((event) => event.eventType === "AUTOPILOT_CANCELLED"),
-    ).toEqual([]);
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ eventType: "AUTOPILOT_ACTION" }),
+        expect.objectContaining({ eventType: "AUTOPILOT_CANCELLED" }),
+      ]),
+    );
     await expect(
       database.query<{ connection_status: string }>(
         "SELECT connection_status FROM room_seats WHERE room_id = $1 AND seat_index = $2",
         [created.roomId, timeoutJob.targetSeatIndex],
       ),
-    ).resolves.toEqual({ rows: [{ connection_status: "autopilot" }] });
+    ).resolves.toEqual({ rows: [{ connection_status: "online" }] });
+    const reconnected = await game.getSnapshot(automatedPlayer, created.roomId);
+    const state = reconnected.view as {
+      publicState: { seats: Array<{ autopilot: boolean }> };
+    };
+    expect(state.publicState.seats[timeoutJob.targetSeatIndex]?.autopilot).toBe(
+      false,
+    );
   });
 
-  it("uses timeout automation to acknowledge a completed hand", async () => {
+  it("does not allow a stale bot job to acknowledge a completed hand", async () => {
     const game = coordinator();
-    const { created, players, started } = await createStartedClassicRoom(
-      game,
-      "Milan",
-      ["Nethmi", "Oshada", "Pavani"],
-    );
+    const { created, started } = await createStartedClassicRoom(game, "Milan", [
+      "Nethmi",
+      "Oshada",
+      "Pavani",
+    ]);
+    const completed = completeClassicHandSnapshot();
+    const seats = completed.seats as Array<Record<string, unknown>>;
+    const firstSeat = seats[0];
+    if (!firstSeat) throw new Error("Expected the first completed-hand seat");
+    seats[0] = {
+      ...firstSeat,
+      autopilot: true,
+      connectionStatus: "autopilot",
+    };
     await database.query(
       "UPDATE rooms SET status = 'hand_result' WHERE id = $1",
       [created.roomId],
     );
     await database.query(
       "UPDATE game_snapshots SET state = $3::jsonb WHERE room_id = $1 AND event_version = $2",
-      [
-        created.roomId,
-        started.eventVersion,
-        JSON.stringify(completeClassicHandSnapshot()),
-      ],
+      [created.roomId, started.eventVersion, JSON.stringify(completed)],
     );
-    const disconnectedPlayer = players[1];
-    if (!disconnectedPlayer) throw new Error("Expected a non-host player");
-    await connection(game).markRealtimeDisconnected(
-      disconnectedPlayer,
-      created.roomId,
-    );
-
-    const scheduled = await database.query<{
-      due_at: Date;
-      target_seat_index: number;
-    }>(
-      "SELECT due_at, target_seat_index FROM room_automation_jobs WHERE room_id = $1 AND kind = 'TURN_TIMEOUT' AND state = 'pending'",
-      [created.roomId],
-    );
-    expect(scheduled.rows).toEqual([
-      expect.objectContaining({ target_seat_index: 0 }),
-    ]);
-    expect(scheduled.rows[0]?.due_at.getTime()).toBeGreaterThan(
-      Date.now() + 18_000,
-    );
-
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'TURN_TIMEOUT' AND state = 'pending'",
+      "UPDATE room_seats SET connection_status = 'autopilot' WHERE room_id = $1 AND seat_index = 0",
       [created.roomId],
     );
-    const timeoutOwner = randomUUID();
-    const timeoutJob = (
-      await store.claimDueAutomationJobs(
-        timeoutOwner,
-        new Date(),
-        1_000,
-        created.roomId,
-      )
-    ).find(
-      (candidate) =>
-        candidate.roomId === created.roomId &&
-        candidate.kind === "TURN_TIMEOUT",
-    );
-    if (!timeoutJob) throw new Error("Expected a hand-result timeout job");
-    await automation(game).runAutomation(timeoutJob);
-    await store.completeAutomationJob(timeoutJob.id, timeoutOwner);
 
-    await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
-      [created.roomId],
+    const staleJobId = randomUUID();
+    await store.transaction((transaction) =>
+      store.scheduleAutomation(transaction, {
+        id: staleJobId,
+        roomId: created.roomId,
+        expectedEventVersion: started.eventVersion,
+        kind: "BOT_ACTION",
+        targetSeatIndex: 0,
+        dueAt: new Date(),
+      }),
     );
     const botOwner = randomUUID();
     const botJob = (
@@ -530,29 +515,20 @@ describeIntegration("durable room automation", () => {
       )
     ).find(
       (candidate) =>
-        candidate.roomId === created.roomId && candidate.kind === "BOT_ACTION",
+        candidate.id === staleJobId && candidate.kind === "BOT_ACTION",
     );
-    if (!botJob) throw new Error("Expected an acknowledgment bot job");
-    await automation(game).runAutomation(botJob);
+    if (!botJob) throw new Error("Expected a stale terminal bot job");
+    await expect(automation(game).runAutomation(botJob)).resolves.toBe("stale");
     await store.completeAutomationJob(botJob.id, botOwner);
 
     const room = await store.loadRoom(created.roomId);
-    expect(room).toMatchObject({ status: "in_hand" });
-    const events = await store.loadEventsAfter(
-      created.roomId,
-      started.eventVersion,
-    );
-    expect(events).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ eventType: "AUTOPILOT_ENABLED" }),
-        expect.objectContaining({
-          eventType: "AUTOPILOT_ACTION",
-          payload: expect.objectContaining({
-            action: expect.objectContaining({ type: "ACK_RESULT" }),
-          }),
-        }),
-      ]),
-    );
+    expect(room).toMatchObject({
+      eventVersion: started.eventVersion,
+      status: "hand_result",
+    });
+    expect(
+      await store.loadEventsAfter(created.roomId, started.eventVersion),
+    ).toEqual([]);
   });
 
   it("persists a disconnect grace job and cancels it on timely reconnect", async () => {

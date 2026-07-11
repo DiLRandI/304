@@ -926,18 +926,6 @@ export class PostgresRoomStore {
     );
   }
 
-  async hasAutopilotActionSinceLatestEnable(
-    transaction: Queryable,
-    roomId: string,
-    seatIndex: number,
-  ): Promise<boolean> {
-    const result = await transaction.query<{ has_action: boolean }>(
-      "WITH latest_enable AS (SELECT event_version FROM game_events WHERE room_id = $1 AND event_type = 'AUTOPILOT_ENABLED' AND payload->>'seatIndex' = $2 ORDER BY event_version DESC LIMIT 1) SELECT EXISTS (SELECT 1 FROM game_events AS event JOIN latest_enable ON event.event_version > latest_enable.event_version WHERE event.room_id = $1 AND event.event_type = 'AUTOPILOT_ACTION' AND event.payload->>'seatIndex' = $2) AS has_action",
-      [roomId, String(seatIndex)],
-    );
-    return result.rows[0]?.has_action ?? false;
-  }
-
   async markSeatOnline(
     transaction: Queryable,
     roomId: string,
