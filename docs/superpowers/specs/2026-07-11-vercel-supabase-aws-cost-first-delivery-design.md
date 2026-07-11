@@ -1,7 +1,7 @@
 # Vercel, Supabase, and Cost-First AWS Delivery Design
 
-**Date:** 2026-07-11  
-**Status:** Approved for implementation  
+**Date:** 2026-07-11
+**Status:** Approved for implementation
 **Decision:** Deploy the Next.js player client on Vercel, retain PostgreSQL on
 Supabase in Mumbai (`ap-south-1`), and run the existing Fastify API, durable
 automation worker, and Redis on one small AWS Mumbai EC2 host for the initial
