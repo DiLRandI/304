@@ -46,7 +46,7 @@ export class GameEngine {
     viewerSeatIndex: number,
     seatIndex?: number,
   ): Record<string, unknown> | null;
-  getPrompt(): string;
+  getPrompt(viewerSeatIndex?: number | null): string;
   getLegalActions(seatIndex: number): Array<Record<string, unknown>>;
   getBotAction(seatIndex: number): Record<string, unknown> | null;
   applyAutomationAction(

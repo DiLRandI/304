@@ -62,8 +62,8 @@ plus a two-person private room, private-hand separation, socket recovery, a
 transient initial room-load retry, WebSocket-constructor recovery, a six-seat
 mobile layout, keyboard actions, 320px lobby containment, the active-hand exit
 boundary, invite-copy fallback feedback, one-based player-facing seat prompts,
-changed-winner second-bidding integrity, and display preferences. It does not
-inspect PostgreSQL to advance a game.
+viewer-correct turn prompts, changed-winner second-bidding integrity, and
+display preferences. It does not inspect PostgreSQL to advance a game.
 
 The bounded load smoke creates at most six temporary Classic lobbies with two
 guests each. It performs only guest creation, room creation, invite join, and

@@ -63,6 +63,25 @@ test("keeps seat indexes zero-based while displaying one-based seat numbers", ()
   );
 });
 
+test("personalizes trick prompts only for the active viewer", () => {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  engine.state.phase = "trick_play";
+  engine.state.activeSeat = 0;
+  engine.state.currentTrick = { leaderSeat: 0, plays: [], trickIndex: 0 };
+
+  assert.equal(engine.getPrompt(0), "Your turn. You lead the trick.");
+  assert.equal(engine.getPrompt(1), "Seat 1 leads the trick.");
+  assert.equal(engine.getPrompt(), "Seat 1 leads the trick.");
+
+  engine.state.activeSeat = 1;
+  engine.state.currentTrick.plays.push({ seatIndex: 0 });
+  assert.equal(engine.getPrompt(1), "Your turn. Play a legal card.");
+  assert.equal(engine.getPrompt(0), "Seat 2 to play.");
+});
+
 test("formats seat references in public game messages as one-based", () => {
   const engine = new GameEngine({
     humanCount: 4,
