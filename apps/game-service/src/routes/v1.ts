@@ -154,7 +154,11 @@ export async function registerV1Routes(
         60,
       );
       const input = LeaveRoomRequestSchema.parse(request.body);
-      return runtime.coordinator.leaveRoom(session, request.params.roomId, input);
+      return runtime.coordinator.leaveRoom(
+        session,
+        request.params.roomId,
+        input,
+      );
     },
   );
 

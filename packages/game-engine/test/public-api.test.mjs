@@ -32,7 +32,9 @@ test("projects a scored hand result without internal shuffle material", () => {
   for (const seat of engine.state.seats) seat.wonCards = [];
   engine.state.seats[0].wonCards = [{ points: 200 }];
   engine.state.seats[1].wonCards = [{ points: 104 }];
-  engine.state.completedTricks = Array.from({ length: 8 }, () => ({ plays: [] }));
+  engine.state.completedTricks = Array.from({ length: 8 }, () => ({
+    plays: [],
+  }));
 
   engine._finishHand();
 
@@ -50,9 +52,18 @@ test("projects a scored hand result without internal shuffle material", () => {
     trickCount: 8,
     winningTeam: "A",
   });
-  assert.equal(JSON.stringify(publicState).includes("private-shuffle-seed"), false);
-  assert.equal(JSON.stringify(publicState).includes("private-seed-commit"), false);
-  assert.equal(JSON.stringify(publicState).includes("private-deck-version"), false);
+  assert.equal(
+    JSON.stringify(publicState).includes("private-shuffle-seed"),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(publicState).includes("private-seed-commit"),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(publicState).includes("private-deck-version"),
+    false,
+  );
 });
 
 test("projects an all-pass result with only its no-score fields", () => {

@@ -805,10 +805,7 @@ export class GameEngine {
   }
 
   getBotAction(seatIndex) {
-    if (
-      !this.state.seats[seatIndex] ||
-      this.state.phase === PHASE.SETUP
-    ) {
+    if (!this.state.seats[seatIndex] || this.state.phase === PHASE.SETUP) {
       return null;
     }
     if (
