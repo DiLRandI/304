@@ -235,6 +235,58 @@ test("a guest retries a transient initial room-load failure without reloading", 
   await expect(page).toHaveURL(/\/play$/);
 });
 
+test("a transient WebSocket constructor failure reconnects without reloading", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const NativeWebSocket = window.WebSocket;
+    const probe = globalThis as typeof globalThis & {
+      __g304SocketAttempts?: number;
+    };
+    probe.__g304SocketAttempts = 0;
+    class FlakyWebSocket extends NativeWebSocket {
+      constructor(url: string | URL, protocols?: string | string[]) {
+        probe.__g304SocketAttempts = (probe.__g304SocketAttempts ?? 0) + 1;
+        if (probe.__g304SocketAttempts === 1) {
+          throw new DOMException(
+            "Synthetic constructor failure",
+            "NetworkError",
+          );
+        }
+        if (protocols === undefined) super(url);
+        else super(url, protocols);
+      }
+    }
+    window.WebSocket = FlakyWebSocket;
+  });
+  await page.goto("/play");
+  await dismissConsent(page);
+  await page.getByLabel("Display name").fill(uniqueName("Socket retry guest"));
+  await page.getByRole("button", { name: "Create private room" }).click();
+  await expect(page).toHaveURL(/\/room\//);
+  await expect(
+    page.getByText("The live table could not connect. Retrying shortly."),
+  ).toBeVisible();
+
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            globalThis as typeof globalThis & {
+              __g304SocketAttempts?: number;
+            }
+          ).__g304SocketAttempts ?? 0,
+      ),
+    )
+    .toBeGreaterThanOrEqual(2);
+  await expect(
+    page.getByText("The live table could not connect. Retrying shortly."),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Leave table" }).click();
+  await expect(page).toHaveURL(/\/play$/);
+});
+
 test("a private-room guest gets manual-copy guidance without the Clipboard API", async ({
   page,
 }) => {
