@@ -51,6 +51,14 @@ non-production `NEXT_PUBLIC_GAME_SERVICE_URL` that points to a reachable shared
 development API; a Vercel browser deployment cannot reach a developer's
 localhost Compose network.
 
+The random `*.vercel.app` preview domain is useful for UI/build review but is
+not an authenticated game-table origin. The API uses exact allowlisted origins
+and same-site session cookies. A full shared development game must instead use
+a stable Vercel alias below an operator-owned development domain (for example,
+`preview.dev.example.com`) together with `api.dev.example.com`; both origins
+are added exactly to the development API's `CORS_ORIGINS` list. Do not add a
+wildcard Vercel suffix to the API allowlist.
+
 A separate Supabase development project in Mumbai contains only development
 data. Its database URL belongs exclusively in the development API/worker
 environment. The browser receives only the public API origin; it never receives
