@@ -7,9 +7,15 @@ const RELEASE_LEASE_SCRIPT =
 const FIXED_WINDOW_INCREMENT_SCRIPT =
   "local count = redis.call('INCR', KEYS[1]); if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end return count";
 const AUTOMATION_OUTCOME_METRICS_KEY = "g304:metrics:automation-outcomes";
+const MAINTENANCE_METRICS_KEY = "g304:metrics:maintenance";
 const WORKER_HEARTBEAT_METRICS_KEY = "g304:metrics:worker-heartbeat";
 
 export type AutomationOutcomeMetric = "completed" | "stale" | "failed";
+export interface MaintenanceTelemetrySnapshot {
+  closedRooms: number;
+  purgedRooms: number;
+  revokedSessions: number;
+}
 
 function redisKeyPart(value: string): string {
   return encodeURIComponent(value);
@@ -134,6 +140,45 @@ export class AutomationTelemetry {
       completed: parse("completed"),
       stale: parse("stale"),
       failed: parse("failed"),
+    };
+  }
+}
+
+function requireMaintenanceMetricValue(value: number): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError(
+      "Maintenance metric values must be non-negative integers",
+    );
+  }
+}
+
+export class MaintenanceTelemetry {
+  constructor(
+    private readonly redis: RedisClientType,
+    private readonly key = MAINTENANCE_METRICS_KEY,
+  ) {}
+
+  async record(result: MaintenanceTelemetrySnapshot): Promise<void> {
+    requireMaintenanceMetricValue(result.revokedSessions);
+    requireMaintenanceMetricValue(result.closedRooms);
+    requireMaintenanceMetricValue(result.purgedRooms);
+    const transaction = this.redis.multi();
+    transaction.hIncrBy(this.key, "revoked_sessions", result.revokedSessions);
+    transaction.hIncrBy(this.key, "closed_rooms", result.closedRooms);
+    transaction.hIncrBy(this.key, "purged_rooms", result.purgedRooms);
+    await transaction.exec();
+  }
+
+  async snapshot(): Promise<MaintenanceTelemetrySnapshot> {
+    const values = await this.redis.hGetAll(this.key);
+    const parse = (field: string): number => {
+      const value = Number(values[field] ?? 0);
+      return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+    };
+    return {
+      closedRooms: parse("closed_rooms"),
+      purgedRooms: parse("purged_rooms"),
+      revokedSessions: parse("revoked_sessions"),
     };
   }
 }

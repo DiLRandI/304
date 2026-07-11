@@ -3,8 +3,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { RoomCoordinator } from "../src/domain/room-coordinator.js";
+import type { RoomMaintenance } from "../src/domain/room-maintenance.js";
 import type { ClaimedAutomationJob } from "../src/domain/room-store.js";
 import { AutomationWorker } from "../src/worker/automation-worker.js";
+import { RoomMaintenanceWorker } from "../src/worker/room-maintenance-worker.js";
 
 function claimedJob(id: string, roomId: string): ClaimedAutomationJob {
   return {
@@ -215,5 +217,55 @@ describe("automation worker", () => {
       "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
     );
     expect(reported).toHaveBeenCalledWith("completed");
+  });
+});
+
+describe("room maintenance worker", () => {
+  it("runs immediately, does not overlap a pass, reports aggregate results, and stops its timer", async () => {
+    const interval = { unref: vi.fn() } as unknown as NodeJS.Timeout;
+    const setIntervalSpy = vi
+      .spyOn(global, "setInterval")
+      .mockReturnValue(interval);
+    const clearIntervalSpy = vi.spyOn(global, "clearInterval");
+    const firstRun = deferred<{
+      closedRooms: number;
+      purgedRooms: number;
+      revokedSessions: number;
+    }>();
+    const maintenance = {
+      runOnce: vi.fn().mockReturnValue(firstRun.promise),
+    } as unknown as RoomMaintenance;
+    const reported = vi.fn().mockResolvedValue(undefined);
+    const worker = new RoomMaintenanceWorker({
+      maintenance,
+      onRun: reported,
+      pollIntervalMs: 60_000,
+    });
+
+    try {
+      const started = worker.start();
+      await nextTick();
+      await worker.runOnce();
+      expect(maintenance.runOnce).toHaveBeenCalledOnce();
+
+      firstRun.resolve({
+        closedRooms: 2,
+        purgedRooms: 1,
+        revokedSessions: 3,
+      });
+      await started;
+
+      expect(reported).toHaveBeenCalledWith({
+        closedRooms: 2,
+        purgedRooms: 1,
+        revokedSessions: 3,
+      });
+      expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60_000);
+      await worker.stop();
+      expect(clearIntervalSpy).toHaveBeenCalledWith(interval);
+    } finally {
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
+    }
   });
 });

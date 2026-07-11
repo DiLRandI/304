@@ -1127,6 +1127,15 @@ export class RoomCoordinator {
           });
           continue;
         }
+        if (event.eventType === "ROOM_CLOSED") {
+          const payload = event.payload as Record<string, unknown>;
+          if (
+            payload.reason === "LOBBY_IDLE" ||
+            payload.reason === "TERMINAL_RETENTION"
+          ) {
+            continue;
+          }
+        }
         if (
           event.eventType === "PLAYER_LEFT" ||
           event.eventType === "ROOM_CLOSED"

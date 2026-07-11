@@ -56,6 +56,35 @@ describe("game service configuration", () => {
     expect(config.OUTBOX_POLL_INTERVAL_MS).toBeGreaterThanOrEqual(100);
     expect(config.AUTOMATION_POLL_INTERVAL_MS).toBeGreaterThanOrEqual(100);
   });
+
+  it("uses bounded room-maintenance defaults and rejects invalid retention values", () => {
+    expect(config).toMatchObject({
+      EXPIRED_SESSION_REVOKE_HOURS: 24,
+      MAINTENANCE_BATCH_SIZE: 100,
+      MAINTENANCE_POLL_INTERVAL_MS: 300_000,
+      ROOM_CLOSED_RETENTION_DAYS: 30,
+      ROOM_LOBBY_IDLE_HOURS: 24,
+      ROOM_TERMINAL_RETENTION_DAYS: 14,
+    });
+    expect(() =>
+      loadConfig({ ...baseConfig, MAINTENANCE_POLL_INTERVAL_MS: "59999" }),
+    ).toThrow("Invalid service configuration: MAINTENANCE_POLL_INTERVAL_MS");
+    expect(() =>
+      loadConfig({ ...baseConfig, MAINTENANCE_BATCH_SIZE: "501" }),
+    ).toThrow("Invalid service configuration: MAINTENANCE_BATCH_SIZE");
+    expect(() =>
+      loadConfig({ ...baseConfig, ROOM_LOBBY_IDLE_HOURS: "0" }),
+    ).toThrow("Invalid service configuration: ROOM_LOBBY_IDLE_HOURS");
+    expect(() =>
+      loadConfig({ ...baseConfig, ROOM_TERMINAL_RETENTION_DAYS: "91" }),
+    ).toThrow("Invalid service configuration: ROOM_TERMINAL_RETENTION_DAYS");
+    expect(() =>
+      loadConfig({ ...baseConfig, ROOM_CLOSED_RETENTION_DAYS: "366" }),
+    ).toThrow("Invalid service configuration: ROOM_CLOSED_RETENTION_DAYS");
+    expect(() =>
+      loadConfig({ ...baseConfig, EXPIRED_SESSION_REVOKE_HOURS: "169" }),
+    ).toThrow("Invalid service configuration: EXPIRED_SESSION_REVOKE_HOURS");
+  });
 });
 
 describe("game service bootstrap", () => {
@@ -143,6 +172,15 @@ describe("game service health surface", () => {
     );
     expect(metrics.payload).toContain(
       "three_zero_four_worker_heartbeat_age_seconds",
+    );
+    expect(metrics.payload).toContain(
+      "three_zero_four_maintenance_sessions_revoked_total",
+    );
+    expect(metrics.payload).toContain(
+      "three_zero_four_maintenance_rooms_closed_total",
+    );
+    expect(metrics.payload).toContain(
+      "three_zero_four_maintenance_rooms_purged_total",
     );
     expect(refreshMetrics).toHaveBeenCalledOnce();
     await app.close();

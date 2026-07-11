@@ -30,6 +30,7 @@ export interface StoredRoom {
   ruleProfileId: RuleProfileId;
   settings: RoomSettings;
   recoveryError: string | null;
+  updatedAt: Date;
 }
 
 export interface StoredSeat {
@@ -124,6 +125,7 @@ interface RoomRow extends QueryResultRow {
   rule_profile_id: string;
   settings: unknown;
   recovery_error: string | null;
+  updated_at: Date;
 }
 
 interface SeatRow extends QueryResultRow {
@@ -251,6 +253,7 @@ function mapRoom(row: RoomRow): StoredRoom {
     ruleProfileId: row.rule_profile_id as RuleProfileId,
     settings: parseSettings(row.settings),
     recoveryError: row.recovery_error,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -447,6 +450,7 @@ export class PostgresRoomStore {
         ruleProfileId: input.ruleProfileId,
         settings: input.settings,
         recoveryError: null,
+        updatedAt: new Date(),
       };
     });
   }
@@ -456,7 +460,7 @@ export class PostgresRoomStore {
     transaction: Queryable = this.database,
   ): Promise<StoredRoom | null> {
     const result = await transaction.query<RoomRow>(
-      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error FROM rooms WHERE id = $1",
+      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error, updated_at FROM rooms WHERE id = $1",
       [roomId],
     );
     return result.rows[0] ? mapRoom(result.rows[0]) : null;
@@ -464,7 +468,7 @@ export class PostgresRoomStore {
 
   async loadRoomByReference(roomReference: string): Promise<StoredRoom | null> {
     const result = await this.database.query<RoomRow>(
-      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error FROM rooms WHERE id::text = $1 OR invite_code = $1",
+      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error, updated_at FROM rooms WHERE id::text = $1 OR invite_code = $1",
       [roomReference],
     );
     return result.rows[0] ? mapRoom(result.rows[0]) : null;
@@ -475,7 +479,7 @@ export class PostgresRoomStore {
     roomId: string,
   ): Promise<StoredRoom | null> {
     const result = await transaction.query<RoomRow>(
-      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error FROM rooms WHERE id = $1 FOR UPDATE",
+      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error, updated_at FROM rooms WHERE id = $1 FOR UPDATE",
       [roomId],
     );
     return result.rows[0] ? mapRoom(result.rows[0]) : null;
@@ -976,5 +980,37 @@ export class PostgresRoomStore {
       "UPDATE rooms SET status = 'recovery_failed', recovery_error = $2, updated_at = now() WHERE id = $1",
       [roomId, recoveryError.slice(0, 500)],
     );
+  }
+
+  async revokeExpiredSessions(
+    cutoff: Date,
+    revokedAt: Date,
+    limit: number,
+  ): Promise<number> {
+    const result = await this.database.query<{ id: string }>(
+      "WITH candidates AS (SELECT id FROM sessions WHERE expires_at <= $1 AND revoked_at IS NULL ORDER BY expires_at, id FOR UPDATE SKIP LOCKED LIMIT $3) UPDATE sessions AS session SET revoked_at = $2 FROM candidates WHERE session.id = candidates.id RETURNING session.id",
+      [cutoff, revokedAt, limit],
+    );
+    return result.rows.length;
+  }
+
+  async findStaleRoomIds(
+    lobbyCutoff: Date,
+    terminalCutoff: Date,
+    limit: number,
+  ): Promise<string[]> {
+    const result = await this.database.query<{ id: string }>(
+      "SELECT id FROM rooms WHERE (status = 'lobby' AND updated_at <= $1) OR (status = 'hand_result' AND updated_at <= $2) ORDER BY updated_at, id LIMIT $3",
+      [lobbyCutoff, terminalCutoff, limit],
+    );
+    return result.rows.map((row) => row.id);
+  }
+
+  async purgeClosedRooms(cutoff: Date, limit: number): Promise<number> {
+    const result = await this.database.query<{ id: string }>(
+      "WITH candidates AS (SELECT id FROM rooms WHERE status = 'closed' AND updated_at <= $1 ORDER BY updated_at, id FOR UPDATE SKIP LOCKED LIMIT $2) DELETE FROM rooms USING candidates WHERE rooms.id = candidates.id RETURNING rooms.id",
+      [cutoff, limit],
+    );
+    return result.rows.length;
   }
 }

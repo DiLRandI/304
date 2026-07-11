@@ -50,6 +50,32 @@ const EnvironmentSchema = z.object({
     .min(250)
     .max(10_000)
     .default(900),
+  MAINTENANCE_POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(3_600_000)
+    .default(300_000),
+  MAINTENANCE_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(100),
+  ROOM_LOBBY_IDLE_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+  ROOM_TERMINAL_RETENTION_DAYS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(90)
+    .default(14),
+  ROOM_CLOSED_RETENTION_DAYS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .default(30),
+  EXPIRED_SESSION_REVOKE_HOURS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(168)
+    .default(24),
 });
 
 export type ServiceConfig = z.infer<typeof EnvironmentSchema> & {

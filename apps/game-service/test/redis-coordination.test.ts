@@ -3,6 +3,7 @@ import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   AutomationTelemetry,
+  MaintenanceTelemetry,
   Presence,
   RateLimiter,
   RoomLease,
@@ -105,6 +106,38 @@ describeIntegration("Redis game coordination", () => {
     await telemetry.recordHeartbeat(1_700_000_000_000);
     await expect(telemetry.ageSeconds(1_700_000_005_000)).resolves.toBe(5);
     await expect(telemetry.ageSeconds(1_699_999_999_000)).resolves.toBe(0);
+
+    await redis.del(key);
+  });
+
+  it("stores only bounded aggregate maintenance totals", async () => {
+    const key = `g304:test:maintenance:${randomUUID()}`;
+    const telemetry = new MaintenanceTelemetry(redis, key);
+
+    await expect(telemetry.snapshot()).resolves.toEqual({
+      closedRooms: 0,
+      purgedRooms: 0,
+      revokedSessions: 0,
+    });
+    await telemetry.record({
+      closedRooms: 2,
+      purgedRooms: 1,
+      revokedSessions: 3,
+    });
+    await expect(telemetry.snapshot()).resolves.toEqual({
+      closedRooms: 2,
+      purgedRooms: 1,
+      revokedSessions: 3,
+    });
+    await expect(
+      telemetry.record({
+        closedRooms: -1,
+        purgedRooms: 0,
+        revokedSessions: 0,
+      }),
+    ).rejects.toThrow(
+      "Maintenance metric values must be non-negative integers",
+    );
 
     await redis.del(key);
   });
