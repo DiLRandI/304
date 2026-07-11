@@ -116,7 +116,19 @@ test("delivery workflow keeps local and external-Postgres AWS contracts visible"
   assert.match(awsCompose, /services:[\s\S]*worker:/);
   assert.match(awsCompose, /services:[\s\S]*redis:/);
   assert.doesNotMatch(awsCompose, /^ {2}postgres:/m);
+  assert.doesNotMatch(awsCompose, /postgres-data/);
+  const redis =
+    awsCompose.match(
+      /^ {2}redis:\n([\s\S]*?)(?=^ {2}[a-z-]+:|^volumes:)/m,
+    )?.[0] ?? "";
+  const gameService =
+    awsCompose.match(
+      /^ {2}game-service:\n([\s\S]*?)(?=^ {2}[a-z-]+:|^volumes:)/m,
+    )?.[0] ?? "";
+  assert.doesNotMatch(redis, /ports:/);
+  assert.match(gameService, /127\.0\.0\.1:4100:4100/);
   assert.match(awsEnv, /DATABASE_URL=/);
+  assert.match(awsEnv, /TRUSTED_PROXY_IPS=172\.31\.240\.1/);
   assert.match(vercelGuide, /NEXT_PUBLIC_GAME_SERVICE_URL/);
   assert.match(awsGuide, /ap-south-1/);
   assert.match(awsGuide, /DataTransfer/);
@@ -124,12 +136,23 @@ test("delivery workflow keeps local and external-Postgres AWS contracts visible"
 
 test("AWS Make targets migrate before readiness and retain Redis data on shutdown", () => {
   const makefile = read("Makefile");
+  const awsConfig = makefile.match(/^aws-config:\n(?:\t.*\n)*/m)?.[0] ?? "";
+  const awsMigrate = makefile.match(/^aws-migrate:\n(?:\t.*\n)*/m)?.[0] ?? "";
   const awsDown = makefile.match(/^aws-down:\n(?:\t.*\n)*/m)?.[0] ?? "";
 
   assert.match(makefile, /^aws-up: aws-migrate$/m);
+  assert.match(awsConfig, /\$\(AWS_COMPOSE\) config --quiet/);
+  assert.match(
+    awsMigrate,
+    /\$\(AWS_COMPOSE\) --profile migration build migrate game-service worker/,
+  );
+  assert.match(
+    awsMigrate,
+    /\$\(AWS_COMPOSE\) --profile migration run --rm --no-deps migrate/,
+  );
   assert.match(
     makefile,
-    /\$\(AWS_COMPOSE\) up --build --detach --wait redis game-service worker/,
+    /\$\(AWS_COMPOSE\) up --detach --wait redis game-service worker/,
   );
   assert.match(awsDown, /\$\(AWS_COMPOSE\) down --remove-orphans/);
   assert.doesNotMatch(awsDown, /--volumes/);

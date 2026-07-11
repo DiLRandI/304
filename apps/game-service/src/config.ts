@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { z } from "zod";
 
 const EnvironmentSchema = z.object({
@@ -9,6 +10,7 @@ const EnvironmentSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   CORS_ORIGINS: z.string().min(1),
+  TRUSTED_PROXY_IPS: z.string().optional(),
   SESSION_COOKIE_NAME: z.string().regex(/^[a-z][a-z0-9_]{2,63}$/),
   SESSION_SECRET_PEPPER: z.string().min(32),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
@@ -80,6 +82,7 @@ const EnvironmentSchema = z.object({
 
 export type ServiceConfig = z.infer<typeof EnvironmentSchema> & {
   corsOrigins: ReadonlySet<string>;
+  trustedProxyIps: readonly string[];
 };
 
 function parseCorsOrigins(rawOrigins: string): ReadonlySet<string> {
@@ -112,6 +115,26 @@ function parseCorsOrigins(rawOrigins: string): ReadonlySet<string> {
   return origins;
 }
 
+function parseTrustedProxyIps(rawProxyIps?: string): readonly string[] {
+  if (!rawProxyIps) {
+    return [];
+  }
+
+  const proxyIps = rawProxyIps
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (
+    proxyIps.length === 0 ||
+    proxyIps.some((address) => isIP(address) === 0)
+  ) {
+    throw new Error("Invalid trusted proxy IP");
+  }
+
+  return proxyIps;
+}
+
 export function loadConfig(
   source: Record<string, string | undefined> = process.env,
 ): ServiceConfig {
@@ -132,5 +155,6 @@ export function loadConfig(
   return {
     ...parsed.data,
     corsOrigins: parseCorsOrigins(parsed.data.CORS_ORIGINS),
+    trustedProxyIps: parseTrustedProxyIps(parsed.data.TRUSTED_PROXY_IPS),
   };
 }

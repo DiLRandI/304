@@ -81,6 +81,7 @@ Set at least these values in `infra/compose/.env.aws`:
 DATABASE_URL=postgres://...@aws-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
 REDIS_URL=redis://redis:6379
 CORS_ORIGINS=https://app.example.com
+TRUSTED_PROXY_IPS=172.31.240.1
 SESSION_COOKIE_NAME=g304_session
 SESSION_SECRET_PEPPER=<at-least-32-random-characters>
 ```
@@ -94,9 +95,17 @@ make aws-up
 make aws-logs
 ```
 
-`make aws-up` also makes migrations a prerequisite, then waits for Redis, the
-API, and the worker. `make aws-down` stops containers without deleting the
+`make aws-migrate` builds the migration, API, and worker images before running
+the migration. `make aws-up` then starts those same images and waits for Redis,
+the API, and the worker. `make aws-down` stops containers without deleting the
 Redis AOF volume. It is for controlled maintenance, not a data-reset command.
+
+The AWS Compose network reserves `172.31.240.1` as the Docker bridge gateway,
+which is the host-level Caddy source address inside the API container. Keep
+`TRUSTED_PROXY_IPS` set only to that gateway: it allows Fastify to use Caddy's
+`X-Forwarded-For` client IP for rate limiting without trusting headers from any
+other source. Do not expose port 4100 beyond loopback or add another proxy
+without updating and testing this allowlist.
 
 Confirm `/livez` and `/readyz` through the API hostname before promoting the
 matching Vercel web deployment. Caddy—not Docker port publishing—is the public

@@ -34,15 +34,16 @@ images:
 
 aws-config:
 	@test -f $(AWS_ENV) || (echo "Copy infra/compose/.env.aws.example to $(AWS_ENV) first." >&2; exit 1)
-	$(AWS_COMPOSE) config
+	$(AWS_COMPOSE) config --quiet
 
 aws-migrate:
 	@test -f $(AWS_ENV) || (echo "Copy infra/compose/.env.aws.example to $(AWS_ENV) first." >&2; exit 1)
-	$(AWS_COMPOSE) --profile migration run --rm migrate
+	$(AWS_COMPOSE) --profile migration build migrate game-service worker
+	$(AWS_COMPOSE) --profile migration run --rm --no-deps migrate
 
 aws-up: aws-migrate
 	@test -f $(AWS_ENV) || (echo "Copy infra/compose/.env.aws.example to $(AWS_ENV) first." >&2; exit 1)
-	$(AWS_COMPOSE) up --build --detach --wait redis game-service worker
+	$(AWS_COMPOSE) up --detach --wait redis game-service worker
 
 aws-down:
 	@test -f $(AWS_ENV) || (echo "Copy infra/compose/.env.aws.example to $(AWS_ENV) first." >&2; exit 1)

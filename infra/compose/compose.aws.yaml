@@ -9,6 +9,7 @@ services:
       retries: 12
       start_period: 5s
     volumes: ["redis-data:/data"]
+    networks: [backend]
     restart: unless-stopped
 
   migrate:
@@ -19,6 +20,7 @@ services:
     command: ["node", "dist/scripts/migrate.js"]
     environment:
       DATABASE_URL: ${DATABASE_URL}
+    networks: [backend]
     restart: "no"
 
   game-service:
@@ -31,6 +33,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
       SESSION_SECRET_PEPPER: ${SESSION_SECRET_PEPPER}
     ports: ["127.0.0.1:4100:4100"]
@@ -50,6 +53,7 @@ services:
       redis:
         condition: service_healthy
         restart: true
+    networks: [backend]
     restart: unless-stopped
 
   worker:
@@ -87,7 +91,15 @@ services:
       redis:
         condition: service_healthy
         restart: true
+    networks: [backend]
     restart: unless-stopped
 
 volumes:
   redis-data:
+
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: 172.31.240.0/24
+          gateway: 172.31.240.1

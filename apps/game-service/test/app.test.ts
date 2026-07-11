@@ -85,6 +85,12 @@ describe("game service configuration", () => {
       loadConfig({ ...baseConfig, EXPIRED_SESSION_REVOKE_HOURS: "169" }),
     ).toThrow("Invalid service configuration: EXPIRED_SESSION_REVOKE_HOURS");
   });
+
+  it("accepts only concrete IP addresses as trusted proxy sources", () => {
+    expect(() =>
+      loadConfig({ ...baseConfig, TRUSTED_PROXY_IPS: "not-an-address" }),
+    ).toThrow("Invalid trusted proxy IP");
+  });
 });
 
 describe("game service bootstrap", () => {
@@ -122,6 +128,32 @@ describe("game service bootstrap", () => {
 });
 
 describe("game service health surface", () => {
+  it("uses forwarded client IPs only from the configured Caddy gateway", async () => {
+    const app = await buildApp({
+      config: loadConfig({
+        ...baseConfig,
+        TRUSTED_PROXY_IPS: "172.31.240.1",
+      }),
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/client-ip", async (request) => ({ ip: request.ip }));
+
+    const trusted = await app.inject({
+      url: "/client-ip",
+      remoteAddress: "172.31.240.1",
+      headers: { "x-forwarded-for": "198.51.100.8" },
+    });
+    const untrusted = await app.inject({
+      url: "/client-ip",
+      remoteAddress: "192.0.2.10",
+      headers: { "x-forwarded-for": "198.51.100.8" },
+    });
+
+    expect(trusted.json()).toEqual({ ip: "198.51.100.8" });
+    expect(untrusted.json()).toEqual({ ip: "192.0.2.10" });
+    await app.close();
+  });
+
   it("reports live while a dependency is unavailable and becomes ready only when all are ready", async () => {
     const app = await buildApp({
       config,
