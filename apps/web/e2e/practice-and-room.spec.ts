@@ -13,9 +13,101 @@ async function openPractice(page: Page, displayName: string): Promise<void> {
   await page.goto("/play");
   await dismissConsent(page);
   await page.getByLabel("Display name").fill(displayName);
+  await page.getByLabel("Rule profile").selectOption("classic_304_4p");
   await page.getByRole("button", { name: "Start practice" }).click();
   await expect(page).toHaveURL(/\/room\//);
   await expect(page.locator('[aria-label="304 game table"]')).toBeVisible();
+}
+
+async function openPracticeWithProfile(
+  page: Page,
+  displayName: string,
+  profile: "classic_304_4p" | "six_304_36",
+): Promise<void> {
+  await page.goto("/play");
+  await dismissConsent(page);
+  await page.getByLabel("Display name").fill(displayName);
+  await page.getByLabel("Rule profile").selectOption(profile);
+  await page.getByRole("button", { name: "Start practice" }).click();
+  await expect(page).toHaveURL(/\/room\//);
+  await expect(page.locator('[aria-label="304 game table"]')).toBeVisible();
+}
+
+function isCommandResponse(responseUrl: string, method: string): boolean {
+  return (
+    method === "POST" &&
+    /\/v1\/rooms\/[^/]+\/commands$/.test(new URL(responseUrl).pathname)
+  );
+}
+
+async function nextVisibleAction(page: Page) {
+  const controls = page.locator(
+    '[aria-label="Legal actions"] button:not([disabled]), [aria-label="Your hand"] button:not([disabled])',
+  );
+  const count = await controls.count();
+  for (let index = 0; index < count; index += 1) {
+    const control = controls.nth(index);
+    if (await control.isVisible()) return control;
+  }
+  return null;
+}
+
+async function submitVisibleAction(page: Page): Promise<boolean> {
+  const action = await nextVisibleAction(page);
+  if (!action) return false;
+  const commandResponse = page.waitForResponse(
+    (response) =>
+      isCommandResponse(response.url(), response.request().method()),
+    { timeout: 15_000 },
+  );
+  await action.click();
+  expect((await commandResponse).status()).toBe(200);
+  return true;
+}
+
+async function playVisibleActionsToResult(page: Page): Promise<void> {
+  const result = page.getByRole("region", { name: "Hand result" });
+  const deadline = Date.now() + 110_000;
+  let submittedActions = 0;
+  while (Date.now() < deadline && submittedActions < 160) {
+    if (await result.isVisible()) return;
+    if (await submitVisibleAction(page)) {
+      submittedActions += 1;
+    } else {
+      await page.waitForTimeout(200);
+    }
+  }
+  const prompt = await page
+    .locator(".turn-prompt")
+    .innerText()
+    .catch(() => "");
+  throw new Error(
+    `Timed out before a visible hand result after ${submittedActions} submitted actions. Current prompt: ${prompt}`,
+  );
+}
+
+async function playVisibleActionsUntil(
+  pages: readonly Page[],
+  complete: () => Promise<boolean>,
+  description: string,
+): Promise<void> {
+  const deadline = Date.now() + 110_000;
+  let submittedActions = 0;
+  while (Date.now() < deadline && submittedActions < 80) {
+    if (await complete()) return;
+    let submitted = false;
+    for (const page of pages) {
+      if (await submitVisibleAction(page)) {
+        submitted = true;
+        submittedActions += 1;
+        break;
+      }
+    }
+    if (!submitted) await pages[0]?.waitForTimeout(200);
+  }
+  throw new Error(
+    `Timed out while waiting for ${description} after ${submittedActions} submitted actions.`,
+  );
 }
 
 test("a guest starts Classic practice and submits its first legal action", async ({
@@ -35,6 +127,36 @@ test("a guest starts Classic practice and submits its first legal action", async
   expect((await commandResponse).status()).toBe(200);
   await expect(page.locator('[aria-label="304 game table"]')).toBeVisible();
 });
+
+for (const [profile, label] of [
+  ["classic_304_4p", "Classic"] as const,
+  ["six_304_36", "six-seat"] as const,
+]) {
+  test(`a guest completes a ${label} practice hand through visible controls`, async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await openPracticeWithProfile(
+      page,
+      uniqueName(`${label} full hand`),
+      profile,
+    );
+
+    await playVisibleActionsToResult(page);
+    const result = page.getByRole("region", { name: "Hand result" });
+    await expect(result).toBeVisible();
+    await expect(result).toContainText(/Winning team [AB]|No score movement/);
+    await expect(page.getByRole("button", { name: "Next hand" })).toBeVisible();
+
+    const nextHand = page.waitForResponse((response) =>
+      isCommandResponse(response.url(), response.request().method()),
+    );
+    await page.getByRole("button", { name: "Next hand" }).click();
+    expect((await nextHand).status()).toBe(200);
+    await expect(result).toBeHidden();
+    await expect(page.locator(".table-metrics dd").first()).toHaveText("2");
+  });
+}
 
 test("two private-table guests keep separate hands and recover after a socket reconnect", async ({
   browser,
@@ -128,5 +250,70 @@ test("two private-table guests keep separate hands and recover after a socket re
   } finally {
     await hostContext.close();
     await guestContext.close();
+  }
+});
+
+test("five browser guests start a six-seat private room with one bot and six cards each", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const contexts = await Promise.all(
+    Array.from({ length: 5 }, () => browser.newContext()),
+  );
+  const pages = await Promise.all(contexts.map((context) => context.newPage()));
+  const [host, ...guests] = pages;
+  if (!host) throw new Error("Host page was not created");
+
+  try {
+    await host.goto("/play");
+    await dismissConsent(host);
+    await host.getByLabel("Display name").fill(uniqueName("Six-seat host"));
+    await host.getByLabel("Rule profile").selectOption("six_304_36");
+    await host.getByRole("button", { name: "Create private room" }).click();
+    await expect(host).toHaveURL(/\/room\//);
+    const inviteCode = await host.locator(".invite-panel code").innerText();
+
+    for (const [index, guest] of guests.entries()) {
+      await guest.goto("/play");
+      await dismissConsent(guest);
+      await guest
+        .getByLabel("Display name")
+        .fill(uniqueName(`Six-seat guest ${index + 1}`));
+      await guest.getByLabel("Invite code").fill(inviteCode);
+      await guest.getByRole("button", { name: "Join private room" }).click();
+      await expect(guest).toHaveURL(/\/room\//);
+    }
+    await expect(
+      host.locator('.lobby-seats article[data-seat-type="human"]'),
+    ).toHaveCount(5);
+
+    const started = host.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        /\/v1\/rooms\/[^/]+\/start$/.test(new URL(response.url()).pathname),
+    );
+    await host.getByRole("button", { name: "Start game" }).click();
+    expect((await started).status()).toBe(200);
+    for (const page of pages) {
+      await expect(page.locator('[aria-label="304 game table"]')).toBeVisible();
+    }
+
+    await playVisibleActionsUntil(
+      pages,
+      async () =>
+        (await host.locator('.seat-panel[data-hand-size="6"]').count()) === 6,
+      "all six seats to receive six cards",
+    );
+    await expect(
+      host.locator('.seat-panel[data-seat-type="human"]'),
+    ).toHaveCount(5);
+    await expect(host.locator('.seat-panel[data-seat-type="bot"]')).toHaveCount(
+      1,
+    );
+    await expect(host.locator('.seat-panel[data-hand-size="6"]')).toHaveCount(
+      6,
+    );
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()));
   }
 });

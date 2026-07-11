@@ -49,10 +49,12 @@ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down 
 ```
 
 The Playwright suite uses separate browser contexts and only public browser
-routes and API commands. It covers practice, a two-person private room,
-private-hand separation, socket recovery, a six-seat mobile layout, keyboard
-actions, and display preferences. It does not inspect PostgreSQL to advance a
-game.
+routes and API commands. It covers a complete Classic practice hand, a complete
+six-seat practice hand, server-projected result/rematch rendering, a
+five-human/six-seat private start with exactly one bot and six cards per seat,
+plus a two-person private room, private-hand separation, socket recovery, a
+six-seat mobile layout, keyboard actions, and display preferences. It does not
+inspect PostgreSQL to advance a game.
 
 The bounded load smoke creates at most six temporary Classic lobbies with two
 guests each. It performs only guest creation, room creation, invite join, and
