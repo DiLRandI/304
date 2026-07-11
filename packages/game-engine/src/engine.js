@@ -21,6 +21,8 @@ const PHASE = {
   MATCH_COMPLETE: "match_complete",
 };
 
+const SEAT_DISPLAY_VERSION = 1;
+
 function inviteCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "304-";
@@ -32,6 +34,21 @@ function inviteCode() {
 
 function nextSeat(seatCount, index) {
   return (index + 1) % seatCount;
+}
+
+function formatSeat(index, capitalized = true) {
+  if (!Number.isInteger(index) || index < 0) {
+    return capitalized ? "Unknown seat" : "unknown seat";
+  }
+  return `${capitalized ? "Seat" : "seat"} ${index + 1}`;
+}
+
+function migrateZeroBasedSeatCopy(value) {
+  if (typeof value !== "string") return value;
+  return value.replace(
+    /\b(Seat|seat) (\d+)\b/g,
+    (_match, prefix, index) => `${prefix} ${Number(index) + 1}`,
+  );
 }
 
 function teamOf(index) {
@@ -126,6 +143,7 @@ export class GameEngine {
     const profile = getProfile(ruleProfile);
     const seatCount = chooseTableSeatCount(humanCount, tableMode, profile.id);
     this.state = {
+      seatDisplayVersion: SEAT_DISPLAY_VERSION,
       profile,
       profileId: profile.id,
       settings: {
@@ -229,7 +247,7 @@ export class GameEngine {
       }
       const seat = {
         index: i,
-        seatLabel: `Seat ${i}`,
+        seatLabel: formatSeat(i),
         team: teamOf(i),
         type: seatType,
         connectionStatus:
@@ -338,7 +356,7 @@ export class GameEngine {
       seat.wonCards = [];
       seat.trickPoints = 0;
     }
-    this.state.gameMessage = `Hand ${this.state.handNumber}. Dealer is seat ${this.state.dealerSeat}.`;
+    this.state.gameMessage = `Hand ${this.state.handNumber}. Dealer is ${formatSeat(this.state.dealerSeat, false)}.`;
     this._dealCards(this.state.profile.cardBatch[0], true);
     this._startFourCardBidding();
   }
@@ -560,7 +578,7 @@ export class GameEngine {
       case PHASE.FOUR_BIDDING:
         return `Phase: Four-card bidding. Current bid ${state.bidding.currentBid || 0}.`;
       case PHASE.TRUMP_SELECTION:
-        return `Trump maker: seat ${state.trump.maker}. Select a trump indicator card.`;
+        return `Trump maker: ${formatSeat(state.trump.maker, false)}. Select a trump indicator card.`;
       case PHASE.SECOND_BIDDING:
         return `Second bidding. Current bid ${state.bidding.currentBid}.`;
       case PHASE.TRUMP_CHOICE:
@@ -569,7 +587,7 @@ export class GameEngine {
         if (state.currentTrick == null) return "Preparing first trick.";
         return state.currentTrick.leaderSeat === state.activeSeat
           ? "Your turn. You lead the trick."
-          : `Seat ${state.currentTrick.leaderSeat === state.activeSeat ? "you" : state.activeSeat} to play.`;
+          : `${formatSeat(state.activeSeat)} to play.`;
       case PHASE.HAND_RESULT:
         return "Hand complete. Continue to next hand.";
       case PHASE.MATCH_COMPLETE:
@@ -1023,7 +1041,7 @@ export class GameEngine {
     this.state.bidding.actedInRound[seatIndex] = true;
     if (this.state.bidding.phase === "four") {
       this.state.bidding.passesAfterBid = 0;
-      this.state.gameMessage = `Seat ${seatIndex} bids ${amount}.`;
+      this.state.gameMessage = `${formatSeat(seatIndex)} bids ${amount}.`;
       this._appendLog("BID", { seat: seatIndex, amount, phase: "four" });
       this._advanceBidTurn();
       return { ok: true };
@@ -1039,7 +1057,7 @@ export class GameEngine {
         this.state.bidding.secondRound.anyBid = true;
       }
       this.state.bidding.secondRound.actionsTaken += 1;
-      this.state.gameMessage = `Seat ${seatIndex} bids ${amount} in second round.`;
+      this.state.gameMessage = `${formatSeat(seatIndex)} bids ${amount} in second round.`;
       this._appendLog("BID", { seat: seatIndex, amount, phase: "second" });
       return this._advanceSecondBiddingTurn();
     }
@@ -1061,7 +1079,7 @@ export class GameEngine {
           this.state.bidding.initialMakerSeat = winnerSeat;
           this.state.phase = PHASE.TRUMP_SELECTION;
           this.state.activeSeat = winnerSeat;
-          this.state.gameMessage = `Four-card bidding done. Winner is seat ${winnerSeat}. Select trump indicator.`;
+          this.state.gameMessage = `Four-card bidding done. Winner is ${formatSeat(winnerSeat, false)}. Select trump indicator.`;
           return { ok: true };
         }
       } else {
@@ -1127,7 +1145,7 @@ export class GameEngine {
     };
     this.state.trumpSuit = chosen.suit;
     this.state.trumpCard = this.state.trump.card;
-    this.state.gameMessage = `Seat ${seatIndex} selected indicator ${formatCard(chosen)}.`;
+    this.state.gameMessage = `${formatSeat(seatIndex)} selected indicator ${formatCard(chosen)}.`;
     this._appendLog("TRUMP_SELECTED", { seat: seatIndex, cardId, source });
 
     if (source === "first") {
@@ -1198,7 +1216,7 @@ export class GameEngine {
         ) {
           this.state.phase = PHASE.TRUMP_SELECTION;
           this.state.activeSeat = this.state.trump.maker;
-          this.state.gameMessage = `Seat ${this.state.trump.maker} won second bidding. Re-select indicator from full hand.`;
+          this.state.gameMessage = `${formatSeat(this.state.trump.maker)} won second bidding. Re-select indicator from full hand.`;
           return { ok: true };
         }
       }
@@ -1317,7 +1335,7 @@ export class GameEngine {
       return { ok: true };
     }
     this.state.activeSeat = this._getLegalTurnSeat();
-    this.state.gameMessage = `Seat ${this.state.activeSeat} to play.`;
+    this.state.gameMessage = `${formatSeat(this.state.activeSeat)} to play.`;
     return { ok: true };
   }
 
@@ -1410,7 +1428,7 @@ export class GameEngine {
     };
     this.state.currentLedSuit = null;
     this.state.activeSeat = expectedLeader;
-    this.state.gameMessage = `Trick ${trick.trickIndex + 1} done. Next trick led by seat ${expectedLeader}.`;
+    this.state.gameMessage = `Trick ${trick.trickIndex + 1} done. Next trick led by ${formatSeat(expectedLeader, false)}.`;
   }
 
   _resolveTrickWinner(plays, ledSuit, trumpOpen) {
@@ -1513,7 +1531,30 @@ export class GameEngine {
 
   static hydrate(snapshot) {
     const engine = Object.create(GameEngine.prototype);
-    engine.state = snapshot;
+    if (!snapshot || typeof snapshot !== "object") {
+      throw new TypeError("Invalid engine snapshot.");
+    }
+    const hasSeatDisplayVersion = Object.hasOwn(snapshot, "seatDisplayVersion");
+    if (hasSeatDisplayVersion) {
+      if (snapshot.seatDisplayVersion !== SEAT_DISPLAY_VERSION) {
+        throw new Error(
+          `Unsupported seat display version: ${String(snapshot.seatDisplayVersion)}.`,
+        );
+      }
+      engine.state = snapshot;
+      return engine;
+    }
+    engine.state = {
+      ...snapshot,
+      seatDisplayVersion: SEAT_DISPLAY_VERSION,
+      seats: Array.isArray(snapshot?.seats)
+        ? snapshot.seats.map((seat) => ({
+            ...seat,
+            seatLabel: formatSeat(seat?.index),
+          }))
+        : [],
+      gameMessage: migrateZeroBasedSeatCopy(snapshot?.gameMessage),
+    };
     return engine;
   }
 

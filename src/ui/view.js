@@ -6,6 +6,12 @@ export function clearGameUiElements(elements) {
   }
 }
 
+export function formatSeatLabel(index) {
+  return Number.isInteger(index) && index >= 0
+    ? `Seat ${index + 1}`
+    : "Unknown seat";
+}
+
 export function formatLobbySeatAvailability(seats) {
   const entries = Array.isArray(seats) ? seats : [];
   const disconnectedSeats = entries.filter((seat) => seat.connectionStatus === "disconnected").length;
