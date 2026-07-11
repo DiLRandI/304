@@ -2,6 +2,12 @@
 
 This file lists the complete feature surface for **304 Online**. Features are grouped by product area and labeled by priority.
 
+## Release status and authority
+
+This is the prioritized product catalog, not a claim that every row is already
+implemented in the current release. The public-casual acceptance boundary is
+defined by [the dated production match lifecycle design](../superpowers/specs/2026-07-11-production-match-lifecycle-and-acceptance-design.md): guest sessions, private Classic and six-seat tables, bot fill, reconnect, durable progression, and operations. Rows outside that boundary remain planned work even when they are P0; they need their own contract, migration, and acceptance design before shipping.
+
 Priority labels:
 
 - **P0:** Required for MVP

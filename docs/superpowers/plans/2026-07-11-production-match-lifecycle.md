@@ -14,7 +14,7 @@
 - Do not add accounts, rankings, public matchmaking, chat, payments, wagering, social features, custom rules, spectator access, or client-side game authority.
 - Never expose a shuffle seed, raw engine snapshot, another player's hand, closed trump card, private legal actions, player ID, invite code, or room ID through metrics labels, logs, result UI, or leave responses.
 - All mutations use a UUID idempotency key and expected room event version; a duplicate leave returns its original safe `RoomExitResponse`.
-- Only a human room host can submit `ACK_RESULT`; fully automated tables retain worker-driven advancement.
+- Only a human room host can submit `ACK_RESULT`; workers never advance a terminal hand or match result.
 - A human may leave only in `lobby` or `hand_result`; an `in_hand` departure continues through the existing disconnect/grace/autopilot flow.
 - The worker may close only stale `lobby` and `hand_result` rooms. It must never close or alter an `in_hand` room.
 - Use append-only PostgreSQL migrations. Do not edit `0001_foundation.sql`, `0002_durable_rooms.sql`, or `0003_realtime_automation.sql`.

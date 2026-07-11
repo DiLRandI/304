@@ -39,8 +39,10 @@ browser.
 
 Only the room host may advance a completed hand or match. This prevents a
 non-host from unexpectedly advancing a private table while people are reading
-the result. The durable automation worker may still advance a fully automated
-table when there are no connected humans responsible for that action.
+the result. The worker may progress legal automation only during an active
+hand. It never acknowledges `hand_result` or `match_complete`; those terminal
+states pause for a reconnecting human host and are later bounded by
+terminal-room retention.
 
 ### Leaving a table
 
