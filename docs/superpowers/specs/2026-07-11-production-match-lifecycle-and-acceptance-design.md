@@ -108,7 +108,8 @@ The release gate must add direct evidence for these flows:
    result and next-hand UI.
 5. Five independent browser sessions join a six-seat room, the host starts it,
    and the private table contains five humans plus exactly one bot with six
-   cards per seat.
+   cards allocated per seat; a closed trump maker's normal hand shows five
+   cards while the sixth remains in the face-down indicator zone.
 
 All unit, integration, browser, load, security, image, migration, and
 backup/restore gates continue to run. External legal approval, alert delivery,
