@@ -304,7 +304,7 @@ git -C /home/deleema/learning/304-game status --short
 Expected: feature worktree is clean and the root worktree has no unrelated
 changes to overwrite.
 
-- [ ] **Step 3: Merge locally without pushing**
+- [x] **Step 3: Merge locally without pushing**
 
 ```bash
 git -C /home/deleema/learning/304-game merge --no-ff feature/vercel-supabase-aws-launch-docs -m "merge: add cloud delivery workflows"
