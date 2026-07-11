@@ -45,7 +45,8 @@ export async function buildApp({
     },
     requestIdHeader: "x-request-id",
     bodyLimit: 32 * 1024,
-    trustProxy: false,
+    trustProxy:
+      config.trustedProxyIps.length === 0 ? false : [...config.trustedProxyIps],
     logController: new LogController({
       disableRequestLogging: (request) =>
         request.url === "/livez" ||

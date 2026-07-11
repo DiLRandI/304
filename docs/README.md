@@ -48,6 +48,14 @@ Use this folder as the first page before development starts.
 - `docs/planning/13_TODO_IMPLEMENTATION_ROADMAP.md`
 - `docs/planning/14_RELEASE_PLAN_AND_ANALYTICS.md`
 
+## Deployment guides
+
+- `docs/deployment/vercel-supabase-development.md` — local workflow, Supabase
+  development database, Vercel preview and promotion release process
+- `docs/deployment/aws-mumbai-production-cost-first.md` — initial AWS Mumbai
+  API/worker/Redis deployment, external-traffic cost controls, and scaling
+  triggers
+
 ## Resources
 
 - `docs/resources/card_list.csv` — CSV view of deck IDs, suits, ranks, and points

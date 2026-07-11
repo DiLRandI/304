@@ -1,0 +1,105 @@
+services:
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    volumes: ["redis-data:/data"]
+    networks: [backend]
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/game-service/Dockerfile
+    profiles: ["migration"]
+    command: ["node", "dist/scripts/migrate.js"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    networks: [backend]
+    restart: "no"
+
+  game-service:
+    build:
+      context: ../..
+      dockerfile: apps/game-service/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 4100
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
+      SESSION_SECRET_PEPPER: ${SESSION_SECRET_PEPPER}
+    ports: ["127.0.0.1:4100:4100"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4100/readyz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      redis:
+        condition: service_healthy
+        restart: true
+    networks: [backend]
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: apps/game-service/Dockerfile
+    command: ["node", "dist/src/worker.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
+      SESSION_SECRET_PEPPER: ${SESSION_SECRET_PEPPER}
+      AUTOMATION_POLL_INTERVAL_MS: ${AUTOMATION_POLL_INTERVAL_MS}
+      MAINTENANCE_POLL_INTERVAL_MS: ${MAINTENANCE_POLL_INTERVAL_MS}
+      MAINTENANCE_BATCH_SIZE: ${MAINTENANCE_BATCH_SIZE}
+      ROOM_LOBBY_IDLE_HOURS: ${ROOM_LOBBY_IDLE_HOURS}
+      ROOM_TERMINAL_RETENTION_DAYS: ${ROOM_TERMINAL_RETENTION_DAYS}
+      ROOM_CLOSED_RETENTION_DAYS: ${ROOM_CLOSED_RETENTION_DAYS}
+      EXPIRED_SESSION_REVOKE_HOURS: ${EXPIRED_SESSION_REVOKE_HOURS}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const fs=require('node:fs');const maxAge=Number(process.env.AUTOMATION_POLL_INTERVAL_MS)*3+1000;try{process.exit(Date.now()-fs.statSync('/tmp/g304-worker-heartbeat').mtimeMs<=maxAge?0:1)}catch{process.exit(1)}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      redis:
+        condition: service_healthy
+        restart: true
+    networks: [backend]
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: 172.31.240.0/24
+          gateway: 172.31.240.1

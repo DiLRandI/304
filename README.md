@@ -32,6 +32,21 @@ pnpm start
 
 It listens on `http://127.0.0.1:4173` by default.
 
+## Local and cloud delivery
+
+Run the production-like local stack with the Make targets:
+
+```bash
+cp infra/compose/.env.example infra/compose/.env
+make local-up
+make check
+make local-down
+```
+
+For Vercel previews, Supabase development Postgres, and the cost-first Mumbai
+production topology, follow the [development delivery guide](docs/deployment/vercel-supabase-development.md)
+and [production delivery guide](docs/deployment/aws-mumbai-production-cost-first.md).
+
 ## Production-like local topology
 
 ```bash
@@ -46,8 +61,7 @@ The web shell is available at `http://127.0.0.1:3000`. The game service is avail
 Run the durable service integration rehearsal against the Compose PostgreSQL and Redis services with:
 
 ```bash
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration build integration
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+make integration
 ```
 
 ## Security and release checks
