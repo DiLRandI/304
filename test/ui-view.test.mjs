@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clearGameUiElements, formatLobbySeatAvailability } from "../src/ui/view.js";
+import {
+  clearGameUiElements,
+  formatLobbySeatAvailability,
+  formatSeatLabel,
+} from "../src/ui/view.js";
+
+test("formats internal seat indexes as one-based player labels", () => {
+  assert.equal(formatSeatLabel(0), "Seat 1");
+  assert.equal(formatSeatLabel(5), "Seat 6");
+  assert.equal(formatSeatLabel(null), "Unknown seat");
+});
 
 test("clearing the game view also clears its live announcement", () => {
   const elements = Object.fromEntries(

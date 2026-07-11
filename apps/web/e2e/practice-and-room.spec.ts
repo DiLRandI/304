@@ -41,6 +41,11 @@ function isCommandResponse(responseUrl: string, method: string): boolean {
   );
 }
 
+function projectedPrompt(projection: RoomProjection): string {
+  const prompt = (projection.view as { prompt?: unknown } | undefined)?.prompt;
+  return typeof prompt === "string" ? prompt : "";
+}
+
 async function nextVisibleAction(page: Page) {
   const controls = page.locator(
     '[aria-label="Legal actions"] button:not([disabled]), [aria-label="Your hand"] button:not([disabled])',
@@ -57,6 +62,7 @@ async function nextVisibleAction(page: Page) {
 }
 
 async function submitVisibleAction(page: Page): Promise<RoomProjection | null> {
+  await expect(page.locator(".turn-prompt")).not.toContainText(/\bseat 0\b/i);
   const action = await nextVisibleAction(page);
   if (!action) return null;
   const commandResponse = page.waitForResponse(
@@ -67,7 +73,9 @@ async function submitVisibleAction(page: Page): Promise<RoomProjection | null> {
   await action.click();
   const response = await commandResponse;
   expect(response.status()).toBe(200);
-  return (await response.json()) as RoomProjection;
+  const projection = (await response.json()) as RoomProjection;
+  expect(projectedPrompt(projection)).not.toMatch(/\bseat 0\b/i);
+  return projection;
 }
 
 async function playVisibleActionsToResult(page: Page): Promise<void> {

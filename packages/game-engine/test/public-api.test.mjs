@@ -15,6 +15,153 @@ test("exports the established 304 engine through one package boundary", () => {
   assert.equal(engine.getSnapshot().seats[0].hand.length, 4);
 });
 
+test("keeps seat indexes zero-based while displaying one-based seat numbers", () => {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+
+  const publicSeats = engine.getPublicState(0).seats;
+  assert.deepEqual(
+    publicSeats.map(({ index }) => index),
+    [0, 1, 2, 3],
+  );
+  assert.deepEqual(
+    publicSeats.map(({ seatLabel }) => seatLabel),
+    ["Seat 1", "Seat 2", "Seat 3", "Seat 4"],
+  );
+
+  engine.state.phase = "trump_selection";
+  engine.state.trump.maker = 0;
+  assert.equal(
+    engine.getPrompt(),
+    "Trump maker: seat 1. Select a trump indicator card.",
+  );
+
+  engine.state.trump.maker = null;
+  assert.equal(
+    engine.getPrompt(),
+    "Trump maker: unknown seat. Select a trump indicator card.",
+  );
+
+  engine.state.phase = "trick_play";
+  engine.state.activeSeat = 0;
+  engine.state.currentTrick = {
+    leaderSeat: 1,
+    plays: [{ seatIndex: 1 }, { seatIndex: 2 }, { seatIndex: 3 }],
+    trickIndex: 0,
+  };
+  assert.equal(engine.getPrompt(), "Seat 1 to play.");
+
+  const sixSeatEngine = new GameEngine({
+    humanCount: 6,
+    ruleProfile: "six_304_36",
+  });
+  assert.deepEqual(
+    sixSeatEngine.getPublicState(0).seats.map(({ seatLabel }) => seatLabel),
+    ["Seat 1", "Seat 2", "Seat 3", "Seat 4", "Seat 5", "Seat 6"],
+  );
+});
+
+test("formats seat references in public game messages as one-based", () => {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  engine.startMatch();
+
+  engine.state.phase = "four_bidding";
+  engine.state.activeSeat = 0;
+  engine.state.bidding.phase = "four";
+  engine.state.bidding.currentBid = 0;
+  engine.state.bidding.currentBidSeat = null;
+  engine.state.bidding.order = [0, 1, 2, 3];
+  engine.state.bidding.activeOrderIndex = 0;
+  engine.state.bidding.actedInRound = [];
+  assert.deepEqual(engine._handleBid(0, 160), { ok: true });
+  assert.equal(engine.getPublicState(0).gameMessage, "Seat 1 bids 160.");
+
+  engine.state.phase = "four_bidding";
+  engine.state.activeSeat = 1;
+  engine.state.bidding.currentBid = 160;
+  engine.state.bidding.currentBidSeat = 0;
+  engine.state.bidding.passesAfterBid = 2;
+  engine.state.bidding.actedInRound = [];
+  assert.deepEqual(engine._handlePass(1), { ok: true });
+  assert.equal(
+    engine.getPublicState(0).gameMessage,
+    "Four-card bidding done. Winner is seat 1. Select trump indicator.",
+  );
+
+  engine.state.phase = "second_bidding";
+  engine.state.activeSeat = 3;
+  engine.state.bidding.phase = "second";
+  engine.state.bidding.currentBid = 240;
+  engine.state.bidding.currentBidSeat = 0;
+  engine.state.bidding.actedInRound = [];
+  engine.state.bidding.secondRound.order = [3, 0, 1, 2];
+  engine.state.bidding.secondRound.activeOrderIndex = 0;
+  engine.state.bidding.secondRound.actionsTaken = 0;
+  engine.state.bidding.secondRound.anyBid = false;
+  engine.state.bidding.secondRound.previousBid = 240;
+  assert.deepEqual(engine._handleBid(3, 250), { ok: true });
+  assert.equal(
+    engine.getPublicState(0).gameMessage,
+    "Seat 4 bids 250 in second round.",
+  );
+});
+
+test("normalizes legacy zero-based seat copy while hydrating durable state", () => {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  engine.state.seats.forEach((seat, index) => {
+    seat.seatLabel = `Seat ${index}`;
+  });
+  delete engine.state.seatDisplayVersion;
+  engine.state.gameMessage = "Trick 3 done. Next trick led by seat 0.";
+
+  const hydrated = GameEngine.hydrate(engine.getSnapshot());
+  const publicState = hydrated.getPublicState(0);
+
+  assert.deepEqual(
+    publicState.seats.map(({ index }) => index),
+    [0, 1, 2, 3],
+  );
+  assert.deepEqual(
+    publicState.seats.map(({ seatLabel }) => seatLabel),
+    ["Seat 1", "Seat 2", "Seat 3", "Seat 4"],
+  );
+  assert.equal(
+    publicState.gameMessage,
+    "Trick 3 done. Next trick led by seat 1.",
+  );
+
+  const rehydrated = GameEngine.hydrate(hydrated.getSnapshot());
+  assert.equal(
+    rehydrated.getPublicState(0).gameMessage,
+    "Trick 3 done. Next trick led by seat 1.",
+  );
+});
+
+test("rejects unsupported seat display versions during hydration", () => {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  const snapshot = engine.getSnapshot();
+
+  assert.throws(
+    () => GameEngine.hydrate({ ...snapshot, seatDisplayVersion: 2 }),
+    /Unsupported seat display version/,
+  );
+  assert.throws(
+    () => GameEngine.hydrate({ ...snapshot, seatDisplayVersion: "1" }),
+    /Unsupported seat display version/,
+  );
+});
+
 test("projects a scored hand result without internal shuffle material", () => {
   const engine = new GameEngine({
     humanCount: 4,

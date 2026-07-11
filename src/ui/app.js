@@ -1,4 +1,8 @@
-import { clearGameUiElements, formatLobbySeatAvailability } from "./view.js";
+import {
+  clearGameUiElements,
+  formatLobbySeatAvailability,
+  formatSeatLabel,
+} from "./view.js";
 
 const setupForm = document.getElementById("setup-form");
 const setupPanel = document.getElementById("setup-panel");
@@ -343,10 +347,10 @@ function updatePhaseHelp(state) {
     detail.push(`Current trump: ${trumpSuit} (${state.trump.isOpen ? "open" : "closed"}).`);
   }
   if (Number.isFinite(state?.trump?.maker)) {
-    detail.push(`Trump maker: Seat ${state.trump.maker}.`);
+    detail.push(`Trump maker: ${formatSeatLabel(state.trump.maker)}.`);
   }
   if (state.activeSeat != null) {
-    detail.push(`Turn: Seat ${state.activeSeat}.`);
+    detail.push(`Turn: ${formatSeatLabel(state.activeSeat)}.`);
   }
   if (state.phase === "trick_play" && state.currentTrick) {
     detail.push(`Cards played this trick: ${state.currentTrick.plays?.length || 0}.`);
@@ -621,7 +625,7 @@ function renderSeatTile(seat, activeSeat) {
   card.appendChild(header);
 
   const seatLine = document.createElement("p");
-  seatLine.textContent = `${seat.type.toUpperCase()} • ${seat.team} • Seat ${seat.index}`;
+  seatLine.textContent = `${seat.type.toUpperCase()} • ${seat.team} • ${formatSeatLabel(seat.index)}`;
   card.appendChild(seatLine);
 
   const handLine = document.createElement("p");
@@ -712,7 +716,7 @@ function renderPromptLine(state) {
     } else if (viewerSeat === activeSeat) {
       messages.push("Your turn to play.");
     } else {
-      messages.push(`Seat ${activeSeat} to play.`);
+      messages.push(`${formatSeatLabel(activeSeat)} to play.`);
     }
   }
 
@@ -762,7 +766,7 @@ function renderTrick(state) {
   for (const play of state.trick.plays) {
     const li = document.createElement("li");
     const cardLabel = play.faceDown ? "Card Back" : play.card?.cardId || "Card Back";
-    li.textContent = `Seat ${play.seatIndex}: ${cardLabel} ${play.fromIndicator ? "(indicator)" : ""}`;
+    li.textContent = `${formatSeatLabel(play.seatIndex)}: ${cardLabel} ${play.fromIndicator ? "(indicator)" : ""}`;
     list.appendChild(li);
   }
   trickArea.appendChild(list);
@@ -783,7 +787,7 @@ function renderHandSummary(state) {
   );
 
   const header = document.createElement("p");
-  header.textContent = `Hand #${state.handNumber} | Dealer: Seat ${state.dealerSeat}`;
+  header.textContent = `Hand #${state.handNumber} | Dealer: ${formatSeatLabel(state.dealerSeat)}`;
   const tokenLine = document.createElement("p");
   tokenLine.textContent = `Team A tokens: ${state.tokens?.[0] ?? 0} | Team B tokens: ${state.tokens?.[1] ?? 0}`;
   const pointLine = document.createElement("p");
@@ -802,7 +806,7 @@ function renderTrumpState(state) {
 
   const lines = [];
   if (state.trump?.maker != null) {
-    lines.push(`Trump maker seat: Seat ${state.trump.maker}`);
+    lines.push(`Trump maker seat: ${formatSeatLabel(state.trump.maker)}`);
   }
   lines.push(`Bid: ${state.bidding?.currentBid || 0}`);
 
@@ -839,9 +843,9 @@ function renderBidHistory(state) {
   for (const item of state.bidHistory) {
     const li = document.createElement("li");
     if (item.type === "pass") {
-      li.textContent = `Seat ${item.seatIndex}: Pass`;
+      li.textContent = `${formatSeatLabel(item.seatIndex)}: Pass`;
     } else {
-      li.textContent = `Seat ${item.seatIndex}: ${item.amount}`;
+      li.textContent = `${formatSeatLabel(item.seatIndex)}: ${item.amount}`;
     }
     list.appendChild(li);
   }
@@ -869,13 +873,13 @@ function renderPreviousTrick(state) {
   for (const play of state.latestTrick.plays) {
     const li = document.createElement("li");
     const card = play.faceDown ? "Card Back" : play.card?.cardId || "Card Back";
-    li.textContent = `Seat ${play.seatIndex}: ${card}`;
+    li.textContent = `${formatSeatLabel(play.seatIndex)}: ${card}`;
     list.appendChild(li);
   }
   previousTrickArea.appendChild(list);
 
   const winner = document.createElement("p");
-  winner.textContent = `Winner: Seat ${state.latestTrick.winnerSeat}`;
+  winner.textContent = `Winner: ${formatSeatLabel(state.latestTrick.winnerSeat)}`;
   previousTrickArea.appendChild(winner);
 }
 
@@ -1279,8 +1283,8 @@ async function joinRoom(code, playerName) {
 function formatUnreadySeatLabel(seat) {
   if (!seat) return "";
   const displayName = getDisplayNameForSeat(seat);
-  if (seat.connectionStatus === "disconnected") return `Seat ${seat.index} (${displayName} - disconnected)`;
-  return `Seat ${seat.index} (${displayName} - not ready)`;
+  if (seat.connectionStatus === "disconnected") return `${formatSeatLabel(seat.index)} (${displayName} - disconnected)`;
+  return `${formatSeatLabel(seat.index)} (${displayName} - not ready)`;
 }
 
 function hasReadyConflictError(error, forceMode) {
