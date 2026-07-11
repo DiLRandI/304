@@ -73,6 +73,7 @@ export function useRoomController(
   const leftRoomRef = useRef(false);
   const socketRef = useRef<RoomSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bootstrapRef = useRef<(() => Promise<void>) | null>(null);
   const createSocket = options.createSocket ?? browserSocket;
 
   const commitProjection = useCallback((next: RoomProjection): boolean => {
@@ -120,6 +121,7 @@ export function useRoomController(
     }
 
     let disposed = false;
+    let bootstrapInFlight = false;
     leftRoomRef.current = false;
     let reconnectAttempt = 0;
     const socketFactory = createSocket;
@@ -202,6 +204,8 @@ export function useRoomController(
     };
 
     const bootstrap = async () => {
+      if (bootstrapInFlight || disposed || leftRoomRef.current) return;
+      bootstrapInFlight = true;
       setLoading(true);
       setError(null);
       try {
@@ -224,6 +228,7 @@ export function useRoomController(
           setError(safeErrorMessage(caught));
         }
       } finally {
+        bootstrapInFlight = false;
         if (!disposed) setLoading(false);
       }
     };
@@ -235,10 +240,12 @@ export function useRoomController(
     const visibilityChange = () => ping();
     const pingTimer = setInterval(ping, PING_INTERVAL_MS);
     document.addEventListener("visibilitychange", visibilityChange);
+    bootstrapRef.current = bootstrap;
     void bootstrap();
 
     return () => {
       disposed = true;
+      if (bootstrapRef.current === bootstrap) bootstrapRef.current = null;
       clearReconnectTimer();
       clearInterval(pingTimer);
       document.removeEventListener("visibilitychange", visibilityChange);
@@ -323,6 +330,11 @@ export function useRoomController(
     if (current) await refreshSnapshot(current.roomId);
   }, [refreshSnapshot]);
 
+  const retry = useCallback(async (): Promise<void> => {
+    if (projectionRef.current) return;
+    await bootstrapRef.current?.();
+  }, []);
+
   return {
     connection,
     error,
@@ -330,6 +342,7 @@ export function useRoomController(
     loading,
     projection,
     refresh,
+    retry,
     start,
     submit,
   };

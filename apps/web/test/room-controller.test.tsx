@@ -25,6 +25,54 @@ function socket() {
 describe("useRoomController", () => {
   afterEach(cleanup);
 
+  it("retries the initial room bootstrap after a transient load failure", async () => {
+    const initial = lobbyProjection();
+    const roomSocket = socket();
+    let resolveRetry: ((projection: typeof initial) => void) | undefined;
+    const retryRequest = new Promise<typeof initial>((resolve) => {
+      resolveRetry = resolve;
+    });
+    const client = {
+      getRoom: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("temporary failure"))
+        .mockReturnValueOnce(retryRequest),
+      getSnapshot: vi.fn(),
+      joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
+      roomSocketUrl: vi
+        .fn()
+        .mockReturnValue("wss://api.example.test/v1/realtime/rooms/room"),
+      startRoom: vi.fn(),
+      submitCommand: vi.fn(),
+    };
+    const createSocket = vi.fn().mockReturnValue(roomSocket);
+    const { result } = renderHook(() =>
+      useRoomController("304-abcdefghijkl", client, { createSocket }),
+    );
+
+    await waitFor(() =>
+      expect(result.current.error).toBe(
+        "The table could not be updated. Please try again.",
+      ),
+    );
+    expect(result.current.projection).toBeNull();
+    expect(client.getRoom).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      const firstRetry = result.current.retry();
+      const duplicateRetry = result.current.retry();
+      expect(client.getRoom).toHaveBeenCalledTimes(2);
+      resolveRetry?.(initial);
+      await Promise.all([firstRetry, duplicateRetry]);
+    });
+
+    await waitFor(() => expect(result.current.projection).toEqual(initial));
+    expect(client.getRoom).toHaveBeenCalledTimes(2);
+    expect(result.current.error).toBeNull();
+    expect(createSocket).toHaveBeenCalledOnce();
+  });
+
   it("submits a legal action at the current server version", async () => {
     const initial = activeProjection(1);
     const updated = activeProjection(2);
