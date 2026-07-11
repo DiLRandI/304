@@ -309,4 +309,143 @@ describeIntegration("durable room HTTP API", () => {
       ]),
     );
   });
+
+  it("lets a guest leave a lobby durably and returns the same safe result to a retry", async () => {
+    runtime = await buildRealApp();
+    const host = await createGuest(runtime.app, "Asha");
+    const guest = await createGuest(runtime.app, "Bimal");
+    const created = await runtime.app.inject({
+      method: "POST",
+      url: "/v1/rooms",
+      headers: { origin, cookie: host.cookie },
+      payload: { commandId: randomUUID(), ruleProfileId: "classic_304_4p" },
+    });
+    expect(created.statusCode).toBe(201);
+    const room = created.json() as DurableProjection;
+    const joined = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.inviteCode}/join`,
+      headers: { origin, cookie: guest.cookie },
+      payload: { commandId: randomUUID(), expectedVersion: room.eventVersion },
+    });
+    expect(joined.statusCode).toBe(200);
+    const leave = {
+      commandId: randomUUID(),
+      expectedVersion: (joined.json() as DurableProjection).eventVersion,
+    };
+
+    const left = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/leave`,
+      headers: { origin, cookie: guest.cookie },
+      payload: leave,
+    });
+    expect(left.statusCode).toBe(200);
+    expect(left.json()).toEqual({
+      eventVersion: leave.expectedVersion + 1,
+      roomId: room.roomId,
+      status: "left",
+    });
+
+    const duplicate = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/leave`,
+      headers: { origin, cookie: guest.cookie },
+      payload: leave,
+    });
+    expect(duplicate.statusCode).toBe(200);
+    expect(duplicate.json()).toEqual(left.json());
+
+    await expect(
+      runtime.database.query<{
+        occupant_type: string;
+        player_id: string | null;
+      }>(
+        "SELECT occupant_type, player_id FROM room_seats WHERE room_id = $1 AND seat_index = 1",
+        [room.roomId],
+      ),
+    ).resolves.toEqual({
+      rows: [{ occupant_type: "empty", player_id: null }],
+    });
+    await expect(
+      runtime.database.query<{ event_type: string }>(
+        "SELECT event_type FROM game_events WHERE room_id = $1 ORDER BY event_version DESC LIMIT 1",
+        [room.roomId],
+      ),
+    ).resolves.toEqual({ rows: [{ event_type: "PLAYER_LEFT" }] });
+    const departedSnapshot = await runtime.app.inject({
+      method: "GET",
+      url: `/v1/rooms/${room.roomId}/snapshot`,
+      headers: { cookie: guest.cookie },
+    });
+    expect(departedSnapshot.statusCode).toBe(403);
+  });
+
+  it("transfers a lobby host and closes a room when its final human leaves", async () => {
+    runtime = await buildRealApp();
+    const host = await createGuest(runtime.app, "Chitra");
+    const guest = await createGuest(runtime.app, "Dilan");
+    const created = await runtime.app.inject({
+      method: "POST",
+      url: "/v1/rooms",
+      headers: { origin, cookie: host.cookie },
+      payload: { commandId: randomUUID(), ruleProfileId: "classic_304_4p" },
+    });
+    expect(created.statusCode).toBe(201);
+    const room = created.json() as DurableProjection;
+    const joined = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.inviteCode}/join`,
+      headers: { origin, cookie: guest.cookie },
+      payload: { commandId: randomUUID(), expectedVersion: room.eventVersion },
+    });
+    expect(joined.statusCode).toBe(200);
+
+    const hostLeft = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/leave`,
+      headers: { origin, cookie: host.cookie },
+      payload: {
+        commandId: randomUUID(),
+        expectedVersion: (joined.json() as DurableProjection).eventVersion,
+      },
+    });
+    expect(hostLeft.statusCode).toBe(200);
+    expect(hostLeft.json()).toMatchObject({ status: "left" });
+    await expect(
+      runtime.database.query<{ host_player_id: string }>(
+        "SELECT host_player_id FROM rooms WHERE id = $1",
+        [room.roomId],
+      ),
+    ).resolves.toEqual({ rows: [{ host_player_id: guest.playerId }] });
+
+    const guestProjection = await getSnapshot(
+      runtime.app,
+      guest.cookie,
+      room.roomId,
+    );
+    const finalLeave = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/leave`,
+      headers: { origin, cookie: guest.cookie },
+      payload: {
+        commandId: randomUUID(),
+        expectedVersion: guestProjection.eventVersion,
+      },
+    });
+    expect(finalLeave.statusCode).toBe(200);
+    expect(finalLeave.json()).toMatchObject({ status: "closed" });
+    await expect(
+      runtime.database.query<{ status: string }>(
+        "SELECT status FROM rooms WHERE id = $1",
+        [room.roomId],
+      ),
+    ).resolves.toEqual({ rows: [{ status: "closed" }] });
+    await expect(
+      runtime.database.query<{ event_type: string }>(
+        "SELECT event_type FROM game_events WHERE room_id = $1 ORDER BY event_version DESC LIMIT 1",
+        [room.roomId],
+      ),
+    ).resolves.toEqual({ rows: [{ event_type: "ROOM_CLOSED" }] });
+  });
 });

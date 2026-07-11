@@ -1,8 +1,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { RoomExitResponseSchema } from "@three-zero-four/contracts";
 import type {
   CreateRoomRequest,
   GameCommand,
   JoinRoomRequest,
+  LeaveRoomRequest,
+  RoomExitResponse,
   RoomProjection,
   RuleProfileId,
   StartRoomRequest,
@@ -187,11 +190,11 @@ function roomNotFound(): DomainError {
   return new DomainError("ROOM_NOT_FOUND", 404, "Room was not found");
 }
 
-function ensureAvailable(room: StoredRoom): void {
+function ensureAvailable(room: StoredRoom, allowClosed = false): void {
   if (room.status === "recovery_failed") {
     throw new DomainError("ROOM_RECOVERY_FAILED", 503, "Room is unavailable");
   }
-  if (room.status === "closed") {
+  if (room.status === "closed" && !allowClosed) {
     throw new DomainError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
   }
 }
@@ -520,6 +523,104 @@ export class RoomCoordinator {
     return projection;
   }
 
+  async leaveRoom(
+    session: AuthenticatedSession,
+    roomId: string,
+    request: LeaveRoomRequest,
+  ): Promise<RoomExitResponse> {
+    const exit = await this.withRoomLease(
+      roomId,
+      async (transaction, room) => {
+        const duplicate = await this.store.findDuplicate(
+          room.id,
+          request.commandId,
+          session.playerId,
+          transaction,
+        );
+        if (duplicate) {
+          const parsed = RoomExitResponseSchema.safeParse(duplicate.response);
+          if (!parsed.success) {
+            throw new DomainError(
+              "ROOM_DATA_INVALID",
+              500,
+              "Invalid room leave response",
+            );
+          }
+          return parsed.data;
+        }
+        if (room.status === "closed") {
+          throw new DomainError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
+        }
+        if (room.status !== "lobby") {
+          throw new DomainError(
+            "ROOM_LEAVE_NOT_ALLOWED",
+            409,
+            "You can leave only before or after a hand",
+          );
+        }
+        if (room.eventVersion !== request.expectedVersion) {
+          throw new DomainError(
+            "VERSION_CONFLICT",
+            409,
+            "Room state changed; refresh and retry",
+          );
+        }
+        const viewerSeatIndex = await this.store.requireHumanSeat(
+          transaction,
+          room.id,
+          session.playerId,
+        );
+        const engine = await this.recoverLockedRoom(transaction, room);
+        const clearedSeat = await this.store.clearHumanSeat(
+          transaction,
+          room.id,
+          viewerSeatIndex,
+        );
+        applyLobbySeat(engine, clearedSeat);
+        const nextHostPlayerId = await this.store.findLowestHumanPlayerId(
+          transaction,
+          room.id,
+        );
+        if (room.hostPlayerId === session.playerId && nextHostPlayerId) {
+          await this.store.transferHost(transaction, room.id, nextHostPlayerId);
+        }
+        await this.store.cancelAutomationForRoom(transaction, room.id, [
+          "BOT_ACTION",
+          "TURN_TIMEOUT",
+          "DISCONNECT_GRACE",
+        ]);
+        const status = nextHostPlayerId ? "lobby" : "closed";
+        const exit: RoomExitResponse = {
+          roomId: room.id,
+          eventVersion: room.eventVersion + 1,
+          status: nextHostPlayerId ? "left" : "closed",
+        };
+        await this.store.appendEventAndSnapshot(transaction, {
+          roomId: room.id,
+          expectedVersion: room.eventVersion,
+          commandId: request.commandId,
+          actorPlayerId: session.playerId,
+          eventType: nextHostPlayerId ? "PLAYER_LEFT" : "ROOM_CLOSED",
+          payload: nextHostPlayerId
+            ? {
+                hostPlayerId: nextHostPlayerId,
+                replacement: "empty",
+                seatIndex: viewerSeatIndex,
+              }
+            : { reason: "LAST_HUMAN_LEFT", seatIndex: viewerSeatIndex },
+          snapshot: engine.getSnapshot(),
+          status,
+          ruleProfileId: room.ruleProfileId,
+          deduplicationResponse: exit,
+        });
+        return exit;
+      },
+      { allowClosed: true },
+    );
+    await this.presence.remove(roomId, session.playerId);
+    return exit;
+  }
+
   async runAutomation(
     job: ClaimedAutomationJob,
   ): Promise<"completed" | "stale"> {
@@ -764,13 +865,14 @@ export class RoomCoordinator {
   private async withRoomLease<T>(
     roomId: string,
     work: (transaction: Queryable, room: StoredRoom) => Promise<T>,
+    options: { allowClosed?: boolean } = {},
   ): Promise<T> {
     try {
       return await this.lease.withLease(roomId, () =>
         this.store.transaction(async (transaction) => {
           const room = await this.store.loadRoomForUpdate(transaction, roomId);
           if (!room) throw roomNotFound();
-          ensureAvailable(room);
+          ensureAvailable(room, options.allowClosed);
           return work(transaction, room);
         }),
       );

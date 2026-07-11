@@ -62,6 +62,7 @@ export interface StoredEvent {
 export interface CommandDuplicate {
   eventVersion: number;
   eventType: string;
+  response: unknown;
 }
 
 export interface SessionCommandDuplicate {
@@ -88,8 +89,12 @@ export interface AppendEventInput {
   eventType: string;
   payload: unknown;
   snapshot: unknown;
-  status: Extract<RoomStatus, "lobby" | "in_hand" | "hand_result">;
+  status: Extract<
+    RoomStatus,
+    "lobby" | "in_hand" | "hand_result" | "closed"
+  >;
   ruleProfileId: RuleProfileId;
+  deduplicationResponse?: unknown;
 }
 
 export interface PendingRoomNotification {
@@ -155,6 +160,7 @@ interface DuplicateRow extends QueryResultRow {
   event_version: string | number;
   event_type: string;
   actor_player_id: string | null;
+  response: unknown;
 }
 
 interface SessionDuplicateRow extends QueryResultRow {
@@ -558,6 +564,51 @@ export class PostgresRoomStore {
     );
   }
 
+  async clearHumanSeat(
+    transaction: Queryable,
+    roomId: string,
+    seatIndex: number,
+  ): Promise<StoredSeat> {
+    const updated = await transaction.query<{ seat_index: number }>(
+      "UPDATE room_seats SET player_id = NULL, occupant_type = 'empty', bot_difficulty = NULL, joined_at = NULL, connection_status = 'disconnected', last_presence_at = NULL, disconnected_at = NULL, autopilot_started_at = NULL WHERE room_id = $1 AND seat_index = $2 AND occupant_type = 'human' RETURNING seat_index",
+      [roomId, seatIndex],
+    );
+    if (updated.rows.length !== 1) {
+      throw new DomainError("SEAT_REQUIRED", 403, "You are not seated in this room");
+    }
+    const seats = await this.loadSeats(roomId, transaction);
+    const seat = seats.find((candidate) => candidate.seatIndex === seatIndex);
+    if (!seat) {
+      throw new DomainError("ROOM_DATA_INVALID", 500, "Cleared room seat is missing");
+    }
+    return seat;
+  }
+
+  async findLowestHumanPlayerId(
+    transaction: Queryable,
+    roomId: string,
+  ): Promise<string | null> {
+    const result = await transaction.query<{ player_id: string }>(
+      "SELECT player_id FROM room_seats WHERE room_id = $1 AND occupant_type = 'human' ORDER BY seat_index LIMIT 1",
+      [roomId],
+    );
+    return result.rows[0]?.player_id ?? null;
+  }
+
+  async transferHost(
+    transaction: Queryable,
+    roomId: string,
+    playerId: string,
+  ): Promise<void> {
+    const updated = await transaction.query<{ id: string }>(
+      "UPDATE rooms SET host_player_id = $2 WHERE id = $1 AND EXISTS (SELECT 1 FROM room_seats WHERE room_id = $1 AND player_id = $2 AND occupant_type = 'human') RETURNING id",
+      [roomId, playerId],
+    );
+    if (updated.rows.length !== 1) {
+      throw new DomainError("ROOM_DATA_INVALID", 500, "New room host is not seated");
+    }
+  }
+
   async loadSnapshot(
     roomId: string,
     transaction: Queryable = this.database,
@@ -600,7 +651,7 @@ export class PostgresRoomStore {
     transaction: Queryable = this.database,
   ): Promise<CommandDuplicate | null> {
     const result = await transaction.query<DuplicateRow>(
-      "SELECT game_events.event_version, game_events.event_type, command_deduplications.actor_player_id FROM command_deduplications JOIN game_events ON game_events.room_id = command_deduplications.room_id AND game_events.command_id = command_deduplications.command_id WHERE command_deduplications.room_id = $1 AND command_deduplications.command_id = $2",
+      "SELECT game_events.event_version, game_events.event_type, command_deduplications.actor_player_id, command_deduplications.response FROM command_deduplications JOIN game_events ON game_events.room_id = command_deduplications.room_id AND game_events.command_id = command_deduplications.command_id WHERE command_deduplications.room_id = $1 AND command_deduplications.command_id = $2",
       [roomId, commandId],
     );
     const row = result.rows[0];
@@ -615,6 +666,7 @@ export class PostgresRoomStore {
     return {
       eventVersion: toSafeNumber(row.event_version, "duplicate event version"),
       eventType: row.event_type,
+      response: row.response,
     };
   }
 
@@ -697,7 +749,9 @@ export class PostgresRoomStore {
         input.roomId,
         input.commandId,
         input.actorPlayerId,
-        JSON.stringify({ eventVersion: nextVersion }),
+        JSON.stringify(
+          input.deduplicationResponse ?? { eventVersion: nextVersion },
+        ),
       ],
     );
     return nextVersion;
