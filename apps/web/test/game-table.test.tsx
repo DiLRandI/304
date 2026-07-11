@@ -35,6 +35,12 @@ describe("GameTable", () => {
 
     expect(playable.disabled).toBe(false);
     expect(illegal.disabled).toBe(true);
+    expect(illegal.getAttribute("aria-describedby")).toBe("card-legality-note");
+    expect(
+      screen.getByText("This card is not legal for this turn.", {
+        exact: false,
+      }),
+    ).toBeTruthy();
     await user.click(playable);
     expect(submit).toHaveBeenCalledWith({
       cardId: jackOfSpades.cardId,
@@ -75,6 +81,8 @@ describe("GameTable", () => {
     const result = screen.getByRole("region", { name: "Hand result" });
     expect(result.textContent).toContain("Winning team A");
     expect(result.textContent).toContain("Bid160");
+    expect(result.textContent).toContain("Bid met");
+    expect(result.textContent).toContain("TrumpHidden");
     expect(screen.getByRole("button", { name: "Next hand" })).toBeTruthy();
     expect(screen.getByLabelText("Seat 1").getAttribute("data-seat-type")).toBe(
       "human",
@@ -141,5 +149,40 @@ describe("GameTable", () => {
     expect(result.textContent).toContain("No score movement");
     expect(result.textContent).toContain("All players passed");
     expect(result.textContent).not.toContain("Winning team");
+  });
+
+  it("opens profile-appropriate rule help without creating a game action", async () => {
+    const user = userEvent.setup();
+    const projection = activeProjection();
+    const publicState = projection.view.publicState as Record<string, unknown>;
+    publicState.profileId = "six_304_36";
+    const submit = vi.fn();
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={submit}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Rules and card values" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "How bidding works" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Trump and cutting" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Scoring tokens" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Six-seat 304-36" }),
+    ).toBeTruthy();
+    expect(submit).not.toHaveBeenCalled();
   });
 });

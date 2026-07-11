@@ -41,10 +41,12 @@ export function CardButton({
   action,
   card,
   onSelect,
+  unavailableReason,
 }: {
   action: GameAction | null;
   card: ProjectedCard;
   onSelect(action: GameAction): void;
+  unavailableReason?: string;
 }) {
   const label = cardLabel(card);
   const isHidden = card.hidden || !card.rank || !card.suit;
@@ -52,6 +54,9 @@ export function CardButton({
 
   return (
     <button
+      aria-describedby={
+        action || !unavailableReason ? undefined : "card-legality-note"
+      }
       aria-label={isHidden ? label : `${actionVerb} ${label}`}
       className="card-button"
       data-hidden={isHidden || undefined}

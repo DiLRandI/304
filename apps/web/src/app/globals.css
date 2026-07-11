@@ -766,7 +766,7 @@ dd[data-state="missing"] {
 
 .table-metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   border: 1px solid rgb(219 237 217 / 16%);
   border-radius: 0.75rem;
   overflow: hidden;
@@ -837,7 +837,7 @@ dd[data-state="missing"] {
 
 .hand-result dl {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
   border: 1px solid rgb(255 244 207 / 18%);
   border-radius: 0.7rem;
   overflow: hidden;
@@ -880,6 +880,14 @@ dd[data-state="missing"] {
   overscroll-behavior-inline: contain;
   padding: 0.5rem 0.2rem 0.85rem;
   scrollbar-color: rgb(243 199 95 / 42%) transparent;
+}
+
+.card-legality-note {
+  margin: -0.35rem 0 0;
+  color: #c0d0c2;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .card-button {
@@ -1027,6 +1035,12 @@ dd[data-state="missing"] {
   font-size: 1.08rem;
 }
 
+.rules-popover h3 {
+  margin: 0;
+  color: #f7efd7;
+  font-size: 0.9rem;
+}
+
 .public-page p,
 .rules-popover p,
 .card-values {
@@ -1072,6 +1086,15 @@ dd[data-state="missing"] {
   border-radius: 0.9rem;
   background: #092d20;
   box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 40%);
+}
+
+.rules-popover section {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.rules-popover section p {
+  margin: 0;
 }
 
 .site-footer {
@@ -1282,7 +1305,8 @@ html[data-contrast="high"] .card-button[data-suit="diamonds"] {
   }
 
   :where(.hand-result) dl > div:nth-child(3),
-  :where(.hand-result) dl > div:nth-child(5) {
+  :where(.hand-result) dl > div:nth-child(5),
+  :where(.hand-result) dl > div:nth-child(7) {
     border-inline-start: 0;
     border-block-start: 1px solid rgb(255 244 207 / 18%);
   }
@@ -1351,7 +1375,8 @@ html[data-contrast="high"] .card-button[data-suit="diamonds"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .table-metrics > div:nth-child(3) {
+  .table-metrics > div:nth-child(3),
+  .table-metrics > div:nth-child(5) {
     border-inline-start: 0;
     border-block-start: 1px solid rgb(219 237 217 / 16%);
   }

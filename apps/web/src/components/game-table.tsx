@@ -2,6 +2,7 @@
 
 import type { GameAction, RoomProjection } from "@three-zero-four/contracts";
 import {
+  type GameRoomView,
   type ProjectedCard,
   type ProjectedHandResult,
   readActiveRoomView,
@@ -72,6 +73,15 @@ function suitSymbol(suit: string | null): string {
   return "?";
 }
 
+function teamTrickPoints(
+  seats: GameRoomView["publicState"]["seats"],
+  team: "A" | "B",
+): number {
+  return seats
+    .filter((seat) => seat.team === team)
+    .reduce((total, seat) => total + seat.trickPoints, 0);
+}
+
 export function GameTable({
   connection,
   leave,
@@ -96,6 +106,12 @@ export function GameTable({
     (action) => action.type !== "PLAY_CARD" && action.type !== "SELECT_TRUMP",
   );
   const isPlayersTurn = publicState.activeSeat === view.privateSeat.index;
+  const cardLegalityNote = isPlayersTurn
+    ? "This card is not legal for this turn. Use the highlighted legal cards or action buttons."
+    : "Wait for your turn. The table will highlight legal cards when you can act.";
+  const trumpLabel = publicState.trump.suit
+    ? `${suitSymbol(publicState.trump.suit)} ${publicState.trump.suit}`
+    : "Hidden";
   const trumpAnnouncement = publicState.trump.suit
     ? `Trump ${publicState.trump.isOpen ? "open" : "set"} to ${publicState.trump.suit}.`
     : "Trump hidden.";
@@ -177,16 +193,19 @@ export function GameTable({
             </div>
             <div>
               <dt>Trump</dt>
-              <dd>
-                {publicState.trump.suit
-                  ? `${suitSymbol(publicState.trump.suit)} ${publicState.trump.suit}`
-                  : "Hidden"}
-              </dd>
+              <dd>{trumpLabel}</dd>
             </div>
             <div>
               <dt>Tokens</dt>
               <dd>
                 A {publicState.tokens[0]} · B {publicState.tokens[1]}
+              </dd>
+            </div>
+            <div>
+              <dt>Trick points</dt>
+              <dd>
+                A {teamTrickPoints(publicState.seats, "A")} · B{" "}
+                {teamTrickPoints(publicState.seats, "B")}
               </dd>
             </div>
           </dl>
@@ -236,6 +255,16 @@ export function GameTable({
                   <dd>{publicState.handResult.bidderTeamPoints}</dd>
                 </div>
                 <div>
+                  <dt>Bid outcome</dt>
+                  <dd>
+                    {publicState.handResult.success ? "Bid met" : "Bid missed"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Trump</dt>
+                  <dd>{trumpLabel}</dd>
+                </div>
+                <div>
                   <dt>Other team points</dt>
                   <dd>{publicState.handResult.otherTeamPoints}</dd>
                 </div>
@@ -277,10 +306,14 @@ export function GameTable({
             card={card}
             key={card.cardId}
             onSelect={submit}
+            unavailableReason={cardLegalityNote}
           />
         ))}
       </section>
-      <RulesDrawer />
+      <p className="card-legality-note" id="card-legality-note">
+        {cardLegalityNote}
+      </p>
+      <RulesDrawer profileId={publicState.profileId} />
       <div className="table-exit">
         <button className="leave-table" onClick={leave} type="button">
           Leave table
