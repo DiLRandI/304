@@ -115,7 +115,7 @@ test("delivery workflow keeps local and external-Postgres AWS contracts visible"
   assert.match(awsCompose, /services:[\s\S]*game-service:/);
   assert.match(awsCompose, /services:[\s\S]*worker:/);
   assert.match(awsCompose, /services:[\s\S]*redis:/);
-  assert.doesNotMatch(awsCompose, /^  postgres:/m);
+  assert.doesNotMatch(awsCompose, /^ {2}postgres:/m);
   assert.match(awsEnv, /DATABASE_URL=/);
   assert.match(vercelGuide, /NEXT_PUBLIC_GAME_SERVICE_URL/);
   assert.match(awsGuide, /ap-south-1/);

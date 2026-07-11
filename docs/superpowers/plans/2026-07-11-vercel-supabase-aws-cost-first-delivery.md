@@ -30,7 +30,7 @@
 - Consumes: root `read(relative)` test helper.
 - Produces: a static release-contract assertion for the Makefile, AWS Compose overlay, and deployment guides.
 
-- [ ] **Step 1: Write the failing regression test**
+- [x] **Step 1: Write the failing regression test**
 
 Add a third test that reads `Makefile`, `infra/compose/compose.aws.yaml`,
 `infra/compose/.env.aws.example`, and both new guide paths. Require these
@@ -51,7 +51,7 @@ assert.match(awsGuide, /ap-south-1/);
 assert.match(awsGuide, /DataTransfer/);
 ```
 
-- [ ] **Step 2: Run the regression test to verify RED**
+- [x] **Step 2: Run the regression test to verify RED**
 
 Run:
 
@@ -62,7 +62,7 @@ node --test test/production-foundation-ci.test.mjs
 Expected: FAIL with `ENOENT` for `Makefile` because the workflow artifacts do
 not exist yet.
 
-- [ ] **Step 3: Keep the assertion focused**
+- [x] **Step 3: Keep the assertion focused**
 
 Do not assert a price, a real hostname, or a cloud credential. The test guards
 the repo-owned delivery boundary, while cloud resources remain operator-owned.
@@ -79,7 +79,7 @@ the repo-owned delivery boundary, while cloud resources remain operator-owned.
 - Consumes: existing `infra/compose/compose.yaml`, `apps/game-service/Dockerfile`, `apps/web/Dockerfile`, and ignored `infra/compose/.env` behavior.
 - Produces: `make local-up`, `make local-down`, `make check`, `make e2e`, `make integration`, `make images`, `make aws-config`, `make aws-migrate`, `make aws-up`, `make aws-down`, and `make aws-logs`.
 
-- [ ] **Step 1: Implement a transparent root Makefile**
+- [x] **Step 1: Implement a transparent root Makefile**
 
 Define these variables and phony targets:
 
@@ -105,7 +105,7 @@ Postgres/Redis, migrate, build, test, and cleanup sequence. `aws-*` targets
 must require the ignored `infra/compose/.env.aws`; `aws-migrate` must run the
 profiled migration service before `aws-up` starts the API and worker.
 
-- [ ] **Step 2: Create the AWS Compose overlay**
+- [x] **Step 2: Create the AWS Compose overlay**
 
 Create a standalone `compose.aws.yaml` with these services:
 
@@ -131,7 +131,7 @@ All application services use the existing game-service Dockerfile, external
 and maintenance settings. `game-service` and `worker` depend only on healthy
 Redis. Do not declare Postgres, a Postgres volume, or a public Redis port.
 
-- [ ] **Step 3: Create a safe AWS environment example**
+- [x] **Step 3: Create a safe AWS environment example**
 
 Create `.env.aws.example` with syntactically valid placeholders, including:
 
@@ -146,7 +146,7 @@ SESSION_SECRET_PEPPER=replace-with-at-least-32-random-characters-before-producti
 Include the current safe worker/maintenance defaults. Do not include Vercel,
 Supabase, AWS, or real secret values.
 
-- [ ] **Step 4: Verify the Compose contracts**
+- [x] **Step 4: Verify the Compose contracts**
 
 Run:
 
@@ -159,7 +159,7 @@ node --test test/production-foundation-ci.test.mjs
 Expected: rendered Compose configuration exits zero, dry-runs expose only the
 documented commands, and the new regression test passes.
 
-- [ ] **Step 5: Commit the workflow**
+- [x] **Step 5: Commit the workflow**
 
 ```bash
 git add Makefile infra/compose/compose.aws.yaml infra/compose/.env.aws.example test/production-foundation-ci.test.mjs
@@ -178,7 +178,7 @@ git commit -m "build: add local and aws compose workflows"
 - Consumes: Make targets from Task 2, `apps/web` as the Vercel root, and the exact CORS behavior in `apps/game-service/src/config.ts`.
 - Produces: safe local setup, Vercel preview/release steps, development Supabase posture, environment-variable map, and browser/API verification sequence.
 
-- [ ] **Step 1: Write the guide with separate local and hosted paths**
+- [x] **Step 1: Write the guide with separate local and hosted paths**
 
 Document these non-negotiable sections:
 
@@ -195,13 +195,13 @@ Document these non-negotiable sections:
    `vercel deploy --prebuilt`, and `vercel promote` with token values stored
    only in Vercel or CI secrets.
 
-- [ ] **Step 2: Link the guide from maintained entrypoints**
+- [x] **Step 2: Link the guide from maintained entrypoints**
 
 Add a short `Local and cloud delivery` section to `README.md` and a
 `Deployment guides` section to `docs/README.md`. Both links must distinguish
 local Compose from operator-owned cloud deployment.
 
-- [ ] **Step 3: Verify documentation contract**
+- [x] **Step 3: Verify documentation contract**
 
 Run:
 
@@ -212,7 +212,7 @@ git diff --check
 
 Expected: PASS with no whitespace errors.
 
-- [ ] **Step 4: Commit the development guide**
+- [x] **Step 4: Commit the development guide**
 
 ```bash
 git add README.md docs/README.md docs/deployment/vercel-supabase-development.md
@@ -229,14 +229,14 @@ git commit -m "docs: add vercel and supabase development guide"
 - Consumes: Task 2 AWS Compose commands, production environment example, and Vercel release process from Task 3.
 - Produces: an operator-only, reversible AWS/Supabase/Vercel release runbook with cost attribution and scaling triggers.
 
-- [ ] **Step 1: Describe the launch topology and security boundary**
+- [x] **Step 1: Describe the launch topology and security boundary**
 
 Document Mumbai `ap-south-1`, one ARM EC2 host, EBS-backed Redis AOF, Caddy on
 80/443, loopback API port, no public Redis, Elastic IP, TLS to Supabase, exact
 `CORS_ORIGINS`, security groups, and AWS Systems Manager access. State that
 this is a cost-first single-host topology, not high availability.
 
-- [ ] **Step 2: Make cross-provider cost accounting actionable**
+- [x] **Step 2: Make cross-provider cost accounting actionable**
 
 Add this formula and operational checks:
 
@@ -253,7 +253,7 @@ checks for `DataTransfer` usage types and Supabase Billing checks for Database
 or Shared Pooler Egress. Require budgets/anomaly alerts and 50/80/100 percent
 notifications before enabling public traffic.
 
-- [ ] **Step 3: Document deploy, test, rollback, and upgrade triggers**
+- [x] **Step 3: Document deploy, test, rollback, and upgrade triggers**
 
 Show exact use of `make aws-config`, `make aws-migrate`, `make aws-up`,
 `make aws-logs`, and `make aws-down`; then configure the Vercel production
@@ -263,7 +263,7 @@ review. Require forward-only migration rollback. Define the 70 percent
 resource/15 minute, SLO, single-host-risk, and egress-budget triggers from the
 design as mandatory architecture-review conditions.
 
-- [ ] **Step 4: Verify and commit the production guide**
+- [x] **Step 4: Verify and commit the production guide**
 
 Run:
 
