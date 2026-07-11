@@ -81,7 +81,8 @@ The release rehearsal exercises real Chromium browser flows, a disposable
 backup/restore, and a bounded non-destructive API smoke against the local
 Compose topology. Chromium proves a full Classic practice hand, a full
 six-seat practice hand, server-projected result and next-hand rendering, and a
-five-human six-seat private start with one bot:
+five-human six-seat private start with one bot and a complete six-card
+allocation per seat:
 
 ```bash
 cp infra/compose/.env.example infra/compose/.env

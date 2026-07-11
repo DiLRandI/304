@@ -117,15 +117,26 @@ async function playVisibleActionsUntil(
   );
 }
 
-function hasSixCardsPerSeat(projection: RoomProjection | null): boolean {
+function hasCompleteSixSeatDeal(projection: RoomProjection | null): boolean {
   const publicState = (
     projection?.view as
-      | { publicState?: { seats?: Array<{ handSize?: number }> } }
+      | {
+          publicState?: {
+            seats?: Array<{ index?: number; handSize?: number }>;
+            trump?: { isOpen?: boolean; maker?: number | null };
+          };
+        }
       | undefined
   )?.publicState;
+  const seats = publicState?.seats;
+  if (seats?.length !== 6) return false;
+  if (seats.every((seat) => seat.handSize === 6)) return true;
+
+  const maker = publicState.trump?.maker;
   return (
-    publicState?.seats?.length === 6 &&
-    publicState.seats.every((seat) => seat.handSize === 6)
+    publicState.trump?.isOpen === false &&
+    typeof maker === "number" &&
+    seats.every((seat) => seat.handSize === (seat.index === maker ? 5 : 6))
   );
 }
 
@@ -281,7 +292,7 @@ test("two private-table guests keep separate hands and recover after a socket re
   }
 });
 
-test("five browser guests start a six-seat private room with one bot and six cards each", async ({
+test("five browser guests start a six-seat private room with one bot and six allocated cards per seat", async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -328,10 +339,8 @@ test("five browser guests start a six-seat private room with one bot and six car
 
     await playVisibleActionsUntil(
       pages,
-      async (projection) =>
-        hasSixCardsPerSeat(projection) ||
-        (await host.locator('.seat-panel[data-hand-size="6"]').count()) === 6,
-      "all six seats to receive six cards",
+      async (projection) => hasCompleteSixSeatDeal(projection),
+      "a complete six-seat deal",
     );
     await expect(
       host.locator('.seat-panel[data-seat-type="human"]'),
@@ -339,9 +348,16 @@ test("five browser guests start a six-seat private room with one bot and six car
     await expect(host.locator('.seat-panel[data-seat-type="bot"]')).toHaveCount(
       1,
     );
-    await expect(host.locator('.seat-panel[data-hand-size="6"]')).toHaveCount(
-      6,
-    );
+    await expect
+      .poll(async () => {
+        const handSizes = await host
+          .locator(".seat-panel")
+          .evaluateAll((panels) =>
+            panels.map((panel) => Number(panel.getAttribute("data-hand-size"))),
+          );
+        return handSizes.sort((left, right) => left - right).join(",");
+      })
+      .toMatch(/^(5,6,6,6,6,6|6,6,6,6,6,6)$/);
   } finally {
     await Promise.all(contexts.map((context) => context.close()));
   }

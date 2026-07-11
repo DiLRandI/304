@@ -55,7 +55,9 @@ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down 
 The Playwright suite uses separate browser contexts and only public browser
 routes and API commands. It covers a complete Classic practice hand, a complete
 six-seat practice hand, server-projected result/rematch rendering, a
-five-human/six-seat private start with exactly one bot and six cards per seat,
+five-human/six-seat private start with exactly one bot and six cards allocated
+per seat (a closed trump maker shows five normal-hand cards plus the reserved
+face-down indicator),
 plus a two-person private room, private-hand separation, socket recovery, a
 six-seat mobile layout, keyboard actions, and display preferences. It does not
 inspect PostgreSQL to advance a game.
