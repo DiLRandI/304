@@ -47,7 +47,10 @@ async function nextVisibleAction(page: Page) {
   const count = await controls.count();
   for (let index = 0; index < count; index += 1) {
     const control = controls.nth(index);
-    if (await control.isVisible()) return control;
+    if (!(await control.isVisible())) continue;
+    const label = (await control.textContent())?.trim();
+    if (label === "Next hand" || label === "Play another match") continue;
+    return control;
   }
   return null;
 }
