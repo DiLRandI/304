@@ -4,9 +4,12 @@ import {
   GameCommandSchema,
   GuestSessionRequestSchema,
   JoinRoomRequestSchema,
+  LeaveRoomRequestSchema,
   type RealtimeServerMessage,
   RealtimeServerMessageSchema,
   type RoomProjection,
+  type RoomExitResponse,
+  RoomExitResponseSchema,
   RoomProjectionSchema,
   type RuleProfileId,
   ServiceErrorResponseSchema,
@@ -161,6 +164,22 @@ export class GameClient {
       "POST",
       input,
       RoomProjectionSchema.parse,
+    );
+  }
+
+  async leaveRoom(
+    roomId: string,
+    expectedVersion: number,
+  ): Promise<RoomExitResponse> {
+    const input = LeaveRoomRequestSchema.parse({
+      commandId: crypto.randomUUID(),
+      expectedVersion,
+    });
+    return this.request(
+      `/v1/rooms/${encodeURIComponent(roomId)}/leave`,
+      "POST",
+      input,
+      RoomExitResponseSchema.parse,
     );
   }
 

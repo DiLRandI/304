@@ -107,6 +107,51 @@ describe("GameClient", () => {
     });
   });
 
+  it("leaves a room with a versioned command and accepts only its safe exit response", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          eventVersion: 2,
+          roomId: roomProjection.roomId,
+          status: "left",
+        }),
+        { status: 200 },
+      ),
+    );
+    const client = new GameClient("https://api.example.test", fetcher);
+
+    await expect(client.leaveRoom(roomProjection.roomId, 1)).resolves.toEqual({
+      eventVersion: 2,
+      roomId: roomProjection.roomId,
+      status: "left",
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      `https://api.example.test/v1/rooms/${roomProjection.roomId}/leave`,
+      expect.objectContaining({ credentials: "include", method: "POST" }),
+    );
+    expect(JSON.parse(fetcher.mock.calls[0]?.[1]?.body as string)).toEqual({
+      commandId: expect.any(String),
+      expectedVersion: 1,
+    });
+  });
+
+  it("rejects an overbroad successful leave response", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          eventVersion: 2,
+          roomId: roomProjection.roomId,
+          status: "left",
+          view: {},
+        }),
+        { status: 200 },
+      ),
+    );
+    const client = new GameClient("https://api.example.test", fetcher);
+
+    await expect(client.leaveRoom(roomProjection.roomId, 1)).rejects.toThrow();
+  });
+
   it("refuses malformed successful payloads before they can enter client state", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ roomId: "not-a-uuid" }), {
