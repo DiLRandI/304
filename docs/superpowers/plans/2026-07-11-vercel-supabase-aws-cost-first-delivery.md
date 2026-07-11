@@ -282,7 +282,7 @@ git commit -m "docs: add aws mumbai cost-first launch guide"
 - Verify: `docs/deployment/vercel-supabase-development.md`
 - Verify: `docs/deployment/aws-mumbai-production-cost-first.md`
 
-- [ ] **Step 1: Run all repository checks**
+- [x] **Step 1: Run all repository checks**
 
 ```bash
 pnpm check
@@ -294,7 +294,7 @@ git diff --check master...HEAD
 Expected: all commands exit zero. The host Node patch-level warning is not a
 product failure because the Dockerfiles pin Node 24.18.0; report it accurately.
 
-- [ ] **Step 2: Confirm merge safety**
+- [x] **Step 2: Confirm merge safety**
 
 ```bash
 git status --short
