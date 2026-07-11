@@ -82,6 +82,18 @@ export const JoinRoomRequestSchema = z
 
 export const StartRoomRequestSchema = JoinRoomRequestSchema;
 
+export const LeaveRoomRequestSchema = z
+  .object({ commandId: Uuid, expectedVersion: EventVersion })
+  .strict();
+
+export const RoomExitResponseSchema = z
+  .object({
+    roomId: Uuid,
+    eventVersion: EventVersion,
+    status: z.enum(["left", "closed"]),
+  })
+  .strict();
+
 export const RoomProjectionSchema = z
   .object({
     roomId: Uuid,
@@ -123,9 +135,11 @@ export type GameAction = z.infer<typeof GameActionSchema>;
 export type GameCommand = z.infer<typeof GameCommandSchema>;
 export type GuestSessionRequest = z.infer<typeof GuestSessionRequestSchema>;
 export type JoinRoomRequest = z.infer<typeof JoinRoomRequestSchema>;
+export type LeaveRoomRequest = z.infer<typeof LeaveRoomRequestSchema>;
 export type RealtimeClientMessage = z.infer<typeof RealtimeClientMessageSchema>;
 export type RealtimeServerMessage = z.infer<typeof RealtimeServerMessageSchema>;
 export type RuleProfileId = z.infer<typeof RuleProfileIdSchema>;
+export type RoomExitResponse = z.infer<typeof RoomExitResponseSchema>;
 export type RoomProjection = z.infer<typeof RoomProjectionSchema>;
 export type ServiceErrorResponse = z.infer<typeof ServiceErrorResponseSchema>;
 export type SessionResponse = z.infer<typeof SessionResponseSchema>;

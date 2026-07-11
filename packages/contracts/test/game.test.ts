@@ -3,8 +3,10 @@ import {
   CreateRoomRequestSchema,
   GameCommandSchema,
   JoinRoomRequestSchema,
+  LeaveRoomRequestSchema,
   RealtimeClientMessageSchema,
   RealtimeServerMessageSchema,
+  RoomExitResponseSchema,
   RoomProjectionSchema,
   RuleProfileIdSchema,
   ServiceErrorResponseSchema,
@@ -77,6 +79,44 @@ describe("durable room request contracts", () => {
     ).toThrow();
     expect(() =>
       RoomProjectionSchema.parse({ roomId: "bad", eventVersion: -1 }),
+    ).toThrow();
+  });
+
+  it("accepts only versioned room-leave requests and safe exit responses", () => {
+    expect(
+      LeaveRoomRequestSchema.parse({
+        commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+        expectedVersion: 7,
+      }),
+    ).toEqual({
+      commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+      expectedVersion: 7,
+    });
+    expect(() =>
+      LeaveRoomRequestSchema.parse({
+        actorPlayerId: "b4203a72-1ddb-421f-81af-e52ca7b7003c",
+        commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+        expectedVersion: 7,
+      }),
+    ).toThrow();
+    expect(
+      RoomExitResponseSchema.parse({
+        eventVersion: 8,
+        roomId: "b4203a72-1ddb-421f-81af-e52ca7b7003c",
+        status: "left",
+      }),
+    ).toEqual({
+      eventVersion: 8,
+      roomId: "b4203a72-1ddb-421f-81af-e52ca7b7003c",
+      status: "left",
+    });
+    expect(() =>
+      RoomExitResponseSchema.parse({
+        eventVersion: 8,
+        roomId: "b4203a72-1ddb-421f-81af-e52ca7b7003c",
+        status: "left",
+        view: {},
+      }),
     ).toThrow();
   });
 

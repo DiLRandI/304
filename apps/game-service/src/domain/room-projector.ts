@@ -59,6 +59,10 @@ export function projectLobbyForViewer(
   seats: readonly StoredSeat[],
   viewerSeatIndex: number | null,
 ): RoomProjection {
+  const isHost =
+    viewerSeatIndex !== null &&
+    seats.find((seat) => seat.seatIndex === viewerSeatIndex)?.playerId ===
+      room.hostPlayerId;
   return {
     roomId: room.id,
     inviteCode: room.inviteCode,
@@ -66,6 +70,7 @@ export function projectLobbyForViewer(
     status: projectableStatus(room.status),
     viewerSeatIndex,
     view: {
+      isHost,
       lobby: {
         ruleProfileId: room.ruleProfileId,
         seats: seats.map((seat) => ({
@@ -92,6 +97,12 @@ export function projectRoomForPlayer(
       "You are not seated in this room",
     );
   }
+  const isHost =
+    engine.state.seats[viewerSeatIndex]?.userId === room.hostPlayerId;
+  const legalActions = engine
+    .getLegalActions(viewerSeatIndex)
+    .filter((action) => action.type !== "ACK_RESULT" || isHost)
+    .map(toWireAction);
   return {
     roomId: room.id,
     inviteCode: room.inviteCode,
@@ -99,9 +110,10 @@ export function projectRoomForPlayer(
     status: projectableStatus(room.status),
     viewerSeatIndex,
     view: {
+      isHost,
       publicState: engine.getPublicState(viewerSeatIndex),
       privateSeat,
-      legalActions: engine.getLegalActions(viewerSeatIndex).map(toWireAction),
+      legalActions,
       prompt: engine.getPrompt(),
     },
   };

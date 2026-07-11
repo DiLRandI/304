@@ -3,10 +3,13 @@ import type {
   CreateRoomRequest,
   GameCommand,
   JoinRoomRequest,
+  LeaveRoomRequest,
+  RoomExitResponse,
   RoomProjection,
   RuleProfileId,
   StartRoomRequest,
 } from "@three-zero-four/contracts";
+import { RoomExitResponseSchema } from "@three-zero-four/contracts";
 import {
   type EngineSeat,
   type EngineState,
@@ -89,21 +92,28 @@ function activeSeatIndex(engine: GameEngine): number | null {
     : null;
 }
 
+function isResultPhase(engine: GameEngine): boolean {
+  return (
+    engine.state.phase === "hand_result" ||
+    engine.state.phase === "match_complete"
+  );
+}
+
 function automationSeatIndex(engine: GameEngine): number | null {
-  const activeSeat = activeSeatIndex(engine);
-  if (activeSeat != null) return activeSeat;
-  if (engine.state.phase !== "hand_result") return null;
-  const automaticSeat =
-    engine.state.seats.find(
-      (seat) => seat.type === "bot" || Boolean(seat.autopilot),
-    ) ?? engine.state.seats.find((seat) => seat.type === "human");
-  return automaticSeat?.index ?? null;
+  if (isResultPhase(engine)) return null;
+  return activeSeatIndex(engine);
 }
 
 function phaseTimeoutMs(engine: GameEngine): number {
   if (engine.state.phase === "trump_choice") return 15_000;
   if (engine.state.phase === "hand_result") return 20_000;
   return DEFAULT_AUTOMATION.turnTimeoutMs;
+}
+
+function isBotDifficulty(
+  value: unknown,
+): value is RoomSettings["botDifficulty"] {
+  return value === "easy" || value === "normal" || value === "strong";
 }
 
 function engineSeat(seat: StoredSeat): EngineSeat {
@@ -160,7 +170,8 @@ function applyLobbySeat(engine: GameEngine, seat: StoredSeat): void {
   const target = engine.state.seats[seat.seatIndex];
   if (!target) throw new RecoveryError("unknown");
   target.type = seat.occupantType;
-  target.displayName = seat.displayName ?? "Guest";
+  target.displayName =
+    seat.displayName ?? (seat.occupantType === "bot" ? "Bot" : "Open seat");
   if (seat.playerId) target.userId = seat.playerId;
   else delete target.userId;
   if (seat.botDifficulty) target.difficulty = seat.botDifficulty;
@@ -187,11 +198,11 @@ function roomNotFound(): DomainError {
   return new DomainError("ROOM_NOT_FOUND", 404, "Room was not found");
 }
 
-function ensureAvailable(room: StoredRoom): void {
+function ensureAvailable(room: StoredRoom, allowClosed = false): void {
   if (room.status === "recovery_failed") {
     throw new DomainError("ROOM_RECOVERY_FAILED", 503, "Room is unavailable");
   }
-  if (room.status === "closed") {
+  if (room.status === "closed" && !allowClosed) {
     throw new DomainError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
   }
 }
@@ -484,6 +495,16 @@ export class RoomCoordinator {
         if (room.status !== "in_hand" && room.status !== "hand_result") {
           throw new DomainError("ROOM_NOT_ACTIVE", 409, "Room is not active");
         }
+        if (
+          command.action.type === "ACK_RESULT" &&
+          room.hostPlayerId !== session.playerId
+        ) {
+          throw new DomainError(
+            "HOST_REQUIRED",
+            403,
+            "Only the host can continue",
+          );
+        }
         const engine = await this.recoverLockedRoom(transaction, room);
         const result = engine.applyAction({
           ...command.action,
@@ -520,6 +541,132 @@ export class RoomCoordinator {
     return projection;
   }
 
+  async leaveRoom(
+    session: AuthenticatedSession,
+    roomId: string,
+    request: LeaveRoomRequest,
+  ): Promise<RoomExitResponse> {
+    const exit = await this.withRoomLease(
+      roomId,
+      async (transaction, room) => {
+        const duplicate = await this.store.findDuplicate(
+          room.id,
+          request.commandId,
+          session.playerId,
+          transaction,
+        );
+        if (duplicate) {
+          const parsed = RoomExitResponseSchema.safeParse(duplicate.response);
+          if (!parsed.success) {
+            throw new DomainError(
+              "ROOM_DATA_INVALID",
+              500,
+              "Invalid room leave response",
+            );
+          }
+          return parsed.data;
+        }
+        if (room.status === "closed") {
+          throw new DomainError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
+        }
+        if (room.status !== "lobby" && room.status !== "hand_result") {
+          throw new DomainError(
+            "ROOM_LEAVE_NOT_ALLOWED",
+            409,
+            "You can leave only before or after a hand",
+          );
+        }
+        if (room.eventVersion !== request.expectedVersion) {
+          throw new DomainError(
+            "VERSION_CONFLICT",
+            409,
+            "Room state changed; refresh and retry",
+          );
+        }
+        const viewerSeatIndex = await this.store.requireHumanSeat(
+          transaction,
+          room.id,
+          session.playerId,
+        );
+        const seats = await this.store.loadSeats(room.id, transaction);
+        const isLastHuman =
+          seats.filter((seat) => seat.occupantType === "human").length === 1;
+        const engine = await this.recoverLockedRoom(transaction, room);
+        const replacement =
+          room.status === "hand_result" && !isLastHuman ? "bot" : "empty";
+        const departedSeat =
+          replacement === "bot"
+            ? await this.store.replaceHumanSeatWithBot(
+                transaction,
+                room.id,
+                viewerSeatIndex,
+                room.settings.botDifficulty,
+              )
+            : await this.store.clearHumanSeat(
+                transaction,
+                room.id,
+                viewerSeatIndex,
+              );
+        applyLobbySeat(engine, departedSeat);
+        const nextHostPlayerId = await this.store.findLowestHumanPlayerId(
+          transaction,
+          room.id,
+        );
+        if (room.hostPlayerId === session.playerId && nextHostPlayerId) {
+          await this.store.transferHost(transaction, room.id, nextHostPlayerId);
+        }
+        await this.store.cancelAutomationForRoom(transaction, room.id, [
+          "BOT_ACTION",
+          "TURN_TIMEOUT",
+          "DISCONNECT_GRACE",
+        ]);
+        const status = nextHostPlayerId ? room.status : "closed";
+        const hostPlayerId =
+          room.hostPlayerId === session.playerId && nextHostPlayerId
+            ? nextHostPlayerId
+            : room.hostPlayerId;
+        const exit: RoomExitResponse = {
+          roomId: room.id,
+          eventVersion: room.eventVersion + 1,
+          status: nextHostPlayerId ? "left" : "closed",
+        };
+        const eventVersion = await this.store.appendEventAndSnapshot(
+          transaction,
+          {
+            roomId: room.id,
+            expectedVersion: room.eventVersion,
+            commandId: request.commandId,
+            actorPlayerId: session.playerId,
+            eventType: nextHostPlayerId ? "PLAYER_LEFT" : "ROOM_CLOSED",
+            payload: {
+              botDifficulty:
+                replacement === "bot" ? room.settings.botDifficulty : null,
+              hostPlayerId: nextHostPlayerId ? hostPlayerId : null,
+              reason: nextHostPlayerId ? null : "LAST_HUMAN_LEFT",
+              replacement,
+              seatIndex: viewerSeatIndex,
+            },
+            snapshot: engine.getSnapshot(),
+            status,
+            ruleProfileId: room.ruleProfileId,
+            deduplicationResponse: exit,
+          },
+        );
+        if (status !== "closed") {
+          await this.scheduleNextAutomation(
+            transaction,
+            { ...room, eventVersion, hostPlayerId, status },
+            engine,
+          );
+        }
+        return exit;
+      },
+      { allowClosed: true },
+    );
+    await this.presence.remove(roomId, session.playerId);
+    return exit;
+  }
+
   async runAutomation(
     job: ClaimedAutomationJob,
   ): Promise<"completed" | "stale"> {
@@ -530,13 +677,11 @@ export class RoomCoordinator {
       }
 
       const engine = await this.recoverLockedRoom(transaction, room);
+      if (isResultPhase(engine)) return "stale";
       const activeSeat = activeSeatIndex(engine);
-      const isHandResultAcknowledgement =
-        engine.state.phase === "hand_result" && activeSeat == null;
       if (
         job.kind !== "DISCONNECT_GRACE" &&
-        activeSeat !== job.targetSeatIndex &&
-        !isHandResultAcknowledgement
+        activeSeat !== job.targetSeatIndex
       ) {
         return "stale";
       }
@@ -637,17 +782,6 @@ export class RoomCoordinator {
       await this.presence.touch(room.id, session.playerId);
       if (storedSeat.connectionStatus === "online") {
         await this.store.markSeatOnline(transaction, room.id, session.playerId);
-        return;
-      }
-
-      if (
-        storedSeat.connectionStatus === "autopilot" &&
-        (await this.store.hasAutopilotActionSinceLatestEnable(
-          transaction,
-          room.id,
-          viewerSeatIndex,
-        ))
-      ) {
         return;
       }
 
@@ -764,13 +898,14 @@ export class RoomCoordinator {
   private async withRoomLease<T>(
     roomId: string,
     work: (transaction: Queryable, room: StoredRoom) => Promise<T>,
+    options: { allowClosed?: boolean } = {},
   ): Promise<T> {
     try {
       return await this.lease.withLease(roomId, () =>
         this.store.transaction(async (transaction) => {
           const room = await this.store.loadRoomForUpdate(transaction, roomId);
           if (!room) throw roomNotFound();
-          ensureAvailable(room);
+          ensureAvailable(room, options.allowClosed);
           return work(transaction, room);
         }),
       );
@@ -799,10 +934,7 @@ export class RoomCoordinator {
     await this.store.cancelAutomationForRoom(transaction, room.id, [
       "DISCONNECT_GRACE",
     ]);
-    if (
-      room.status === "in_hand" ||
-      (room.status === "hand_result" && engine.state.phase !== "match_complete")
-    ) {
+    if (room.status === "in_hand") {
       await this.scheduleDisconnectGraceJobs(transaction, room);
     }
     const targetSeatIndex = automationSeatIndex(engine);
@@ -969,6 +1101,45 @@ export class RoomCoordinator {
             occupantType: "human",
             botDifficulty: null,
             displayName,
+          });
+          continue;
+        }
+        if (event.eventType === "ROOM_CLOSED") {
+          const payload = event.payload as Record<string, unknown>;
+          if (
+            payload.reason === "LOBBY_IDLE" ||
+            payload.reason === "TERMINAL_RETENTION"
+          ) {
+            continue;
+          }
+        }
+        if (
+          event.eventType === "PLAYER_LEFT" ||
+          event.eventType === "ROOM_CLOSED"
+        ) {
+          const payload = event.payload as Record<string, unknown>;
+          const seatIndex = payload.seatIndex;
+          const replacement =
+            payload.replacement ??
+            (event.eventType === "ROOM_CLOSED" ? "empty" : null);
+          const botDifficulty = isBotDifficulty(payload.botDifficulty)
+            ? payload.botDifficulty
+            : null;
+          if (
+            typeof seatIndex !== "number" ||
+            !Number.isInteger(seatIndex) ||
+            (replacement !== "empty" && replacement !== "bot") ||
+            (replacement === "bot" && !botDifficulty)
+          ) {
+            throw new RecoveryError(room.id);
+          }
+          applyLobbySeat(engine, {
+            seatIndex,
+            playerId: null,
+            occupantType: replacement,
+            botDifficulty: replacement === "bot" ? botDifficulty : null,
+            displayName: null,
+            connectionStatus: replacement === "bot" ? "online" : "disconnected",
           });
           continue;
         }

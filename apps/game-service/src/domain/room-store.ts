@@ -30,6 +30,7 @@ export interface StoredRoom {
   ruleProfileId: RuleProfileId;
   settings: RoomSettings;
   recoveryError: string | null;
+  updatedAt: Date;
 }
 
 export interface StoredSeat {
@@ -62,6 +63,7 @@ export interface StoredEvent {
 export interface CommandDuplicate {
   eventVersion: number;
   eventType: string;
+  response: unknown;
 }
 
 export interface SessionCommandDuplicate {
@@ -88,8 +90,9 @@ export interface AppendEventInput {
   eventType: string;
   payload: unknown;
   snapshot: unknown;
-  status: Extract<RoomStatus, "lobby" | "in_hand" | "hand_result">;
+  status: Extract<RoomStatus, "lobby" | "in_hand" | "hand_result" | "closed">;
   ruleProfileId: RuleProfileId;
+  deduplicationResponse?: unknown;
 }
 
 export interface PendingRoomNotification {
@@ -122,6 +125,7 @@ interface RoomRow extends QueryResultRow {
   rule_profile_id: string;
   settings: unknown;
   recovery_error: string | null;
+  updated_at: Date;
 }
 
 interface SeatRow extends QueryResultRow {
@@ -155,6 +159,7 @@ interface DuplicateRow extends QueryResultRow {
   event_version: string | number;
   event_type: string;
   actor_player_id: string | null;
+  response: unknown;
 }
 
 interface SessionDuplicateRow extends QueryResultRow {
@@ -248,6 +253,7 @@ function mapRoom(row: RoomRow): StoredRoom {
     ruleProfileId: row.rule_profile_id as RuleProfileId,
     settings: parseSettings(row.settings),
     recoveryError: row.recovery_error,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -444,6 +450,7 @@ export class PostgresRoomStore {
         ruleProfileId: input.ruleProfileId,
         settings: input.settings,
         recoveryError: null,
+        updatedAt: new Date(),
       };
     });
   }
@@ -453,7 +460,7 @@ export class PostgresRoomStore {
     transaction: Queryable = this.database,
   ): Promise<StoredRoom | null> {
     const result = await transaction.query<RoomRow>(
-      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error FROM rooms WHERE id = $1",
+      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error, updated_at FROM rooms WHERE id = $1",
       [roomId],
     );
     return result.rows[0] ? mapRoom(result.rows[0]) : null;
@@ -461,7 +468,7 @@ export class PostgresRoomStore {
 
   async loadRoomByReference(roomReference: string): Promise<StoredRoom | null> {
     const result = await this.database.query<RoomRow>(
-      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error FROM rooms WHERE id::text = $1 OR invite_code = $1",
+      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error, updated_at FROM rooms WHERE id::text = $1 OR invite_code = $1",
       [roomReference],
     );
     return result.rows[0] ? mapRoom(result.rows[0]) : null;
@@ -472,7 +479,7 @@ export class PostgresRoomStore {
     roomId: string,
   ): Promise<StoredRoom | null> {
     const result = await transaction.query<RoomRow>(
-      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error FROM rooms WHERE id = $1 FOR UPDATE",
+      "SELECT id, invite_code, status, event_version, host_player_id, rule_profile_id, settings, recovery_error, updated_at FROM rooms WHERE id = $1 FOR UPDATE",
       [roomId],
     );
     return result.rows[0] ? mapRoom(result.rows[0]) : null;
@@ -558,6 +565,92 @@ export class PostgresRoomStore {
     );
   }
 
+  async clearHumanSeat(
+    transaction: Queryable,
+    roomId: string,
+    seatIndex: number,
+  ): Promise<StoredSeat> {
+    const updated = await transaction.query<{ seat_index: number }>(
+      "UPDATE room_seats SET player_id = NULL, occupant_type = 'empty', bot_difficulty = NULL, joined_at = NULL, connection_status = 'disconnected', last_presence_at = NULL, disconnected_at = NULL, autopilot_started_at = NULL WHERE room_id = $1 AND seat_index = $2 AND occupant_type = 'human' RETURNING seat_index",
+      [roomId, seatIndex],
+    );
+    if (updated.rows.length !== 1) {
+      throw new DomainError(
+        "SEAT_REQUIRED",
+        403,
+        "You are not seated in this room",
+      );
+    }
+    const seats = await this.loadSeats(roomId, transaction);
+    const seat = seats.find((candidate) => candidate.seatIndex === seatIndex);
+    if (!seat) {
+      throw new DomainError(
+        "ROOM_DATA_INVALID",
+        500,
+        "Cleared room seat is missing",
+      );
+    }
+    return seat;
+  }
+
+  async replaceHumanSeatWithBot(
+    transaction: Queryable,
+    roomId: string,
+    seatIndex: number,
+    botDifficulty: RoomSettings["botDifficulty"],
+  ): Promise<StoredSeat> {
+    const updated = await transaction.query<{ seat_index: number }>(
+      "UPDATE room_seats SET player_id = NULL, occupant_type = 'bot', bot_difficulty = $3, joined_at = NULL, connection_status = 'online', last_presence_at = now(), disconnected_at = NULL, autopilot_started_at = NULL WHERE room_id = $1 AND seat_index = $2 AND occupant_type = 'human' RETURNING seat_index",
+      [roomId, seatIndex, botDifficulty],
+    );
+    if (updated.rows.length !== 1) {
+      throw new DomainError(
+        "SEAT_REQUIRED",
+        403,
+        "You are not seated in this room",
+      );
+    }
+    const seats = await this.loadSeats(roomId, transaction);
+    const seat = seats.find((candidate) => candidate.seatIndex === seatIndex);
+    if (!seat) {
+      throw new DomainError(
+        "ROOM_DATA_INVALID",
+        500,
+        "Replaced room seat is missing",
+      );
+    }
+    return seat;
+  }
+
+  async findLowestHumanPlayerId(
+    transaction: Queryable,
+    roomId: string,
+  ): Promise<string | null> {
+    const result = await transaction.query<{ player_id: string }>(
+      "SELECT player_id FROM room_seats WHERE room_id = $1 AND occupant_type = 'human' ORDER BY seat_index LIMIT 1",
+      [roomId],
+    );
+    return result.rows[0]?.player_id ?? null;
+  }
+
+  async transferHost(
+    transaction: Queryable,
+    roomId: string,
+    playerId: string,
+  ): Promise<void> {
+    const updated = await transaction.query<{ id: string }>(
+      "UPDATE rooms SET host_player_id = $2 WHERE id = $1 AND EXISTS (SELECT 1 FROM room_seats WHERE room_id = $1 AND player_id = $2 AND occupant_type = 'human') RETURNING id",
+      [roomId, playerId],
+    );
+    if (updated.rows.length !== 1) {
+      throw new DomainError(
+        "ROOM_DATA_INVALID",
+        500,
+        "New room host is not seated",
+      );
+    }
+  }
+
   async loadSnapshot(
     roomId: string,
     transaction: Queryable = this.database,
@@ -600,7 +693,7 @@ export class PostgresRoomStore {
     transaction: Queryable = this.database,
   ): Promise<CommandDuplicate | null> {
     const result = await transaction.query<DuplicateRow>(
-      "SELECT game_events.event_version, game_events.event_type, command_deduplications.actor_player_id FROM command_deduplications JOIN game_events ON game_events.room_id = command_deduplications.room_id AND game_events.command_id = command_deduplications.command_id WHERE command_deduplications.room_id = $1 AND command_deduplications.command_id = $2",
+      "SELECT game_events.event_version, game_events.event_type, command_deduplications.actor_player_id, command_deduplications.response FROM command_deduplications JOIN game_events ON game_events.room_id = command_deduplications.room_id AND game_events.command_id = command_deduplications.command_id WHERE command_deduplications.room_id = $1 AND command_deduplications.command_id = $2",
       [roomId, commandId],
     );
     const row = result.rows[0];
@@ -615,6 +708,7 @@ export class PostgresRoomStore {
     return {
       eventVersion: toSafeNumber(row.event_version, "duplicate event version"),
       eventType: row.event_type,
+      response: row.response,
     };
   }
 
@@ -697,7 +791,9 @@ export class PostgresRoomStore {
         input.roomId,
         input.commandId,
         input.actorPlayerId,
-        JSON.stringify({ eventVersion: nextVersion }),
+        JSON.stringify(
+          input.deduplicationResponse ?? { eventVersion: nextVersion },
+        ),
       ],
     );
     return nextVersion;
@@ -830,18 +926,6 @@ export class PostgresRoomStore {
     );
   }
 
-  async hasAutopilotActionSinceLatestEnable(
-    transaction: Queryable,
-    roomId: string,
-    seatIndex: number,
-  ): Promise<boolean> {
-    const result = await transaction.query<{ has_action: boolean }>(
-      "WITH latest_enable AS (SELECT event_version FROM game_events WHERE room_id = $1 AND event_type = 'AUTOPILOT_ENABLED' AND payload->>'seatIndex' = $2 ORDER BY event_version DESC LIMIT 1) SELECT EXISTS (SELECT 1 FROM game_events AS event JOIN latest_enable ON event.event_version > latest_enable.event_version WHERE event.room_id = $1 AND event.event_type = 'AUTOPILOT_ACTION' AND event.payload->>'seatIndex' = $2) AS has_action",
-      [roomId, String(seatIndex)],
-    );
-    return result.rows[0]?.has_action ?? false;
-  }
-
   async markSeatOnline(
     transaction: Queryable,
     roomId: string,
@@ -884,5 +968,37 @@ export class PostgresRoomStore {
       "UPDATE rooms SET status = 'recovery_failed', recovery_error = $2, updated_at = now() WHERE id = $1",
       [roomId, recoveryError.slice(0, 500)],
     );
+  }
+
+  async revokeExpiredSessions(
+    cutoff: Date,
+    revokedAt: Date,
+    limit: number,
+  ): Promise<number> {
+    const result = await this.database.query<{ id: string }>(
+      "WITH candidates AS (SELECT id FROM sessions WHERE expires_at <= $1 AND revoked_at IS NULL ORDER BY expires_at, id FOR UPDATE SKIP LOCKED LIMIT $3) UPDATE sessions AS session SET revoked_at = $2 FROM candidates WHERE session.id = candidates.id RETURNING session.id",
+      [cutoff, revokedAt, limit],
+    );
+    return result.rows.length;
+  }
+
+  async findStaleRoomIds(
+    lobbyCutoff: Date,
+    terminalCutoff: Date,
+    limit: number,
+  ): Promise<string[]> {
+    const result = await this.database.query<{ id: string }>(
+      "SELECT id FROM rooms WHERE (status = 'lobby' AND updated_at <= $1) OR (status = 'hand_result' AND updated_at <= $2) ORDER BY updated_at, id LIMIT $3",
+      [lobbyCutoff, terminalCutoff, limit],
+    );
+    return result.rows.map((row) => row.id);
+  }
+
+  async purgeClosedRooms(cutoff: Date, limit: number): Promise<number> {
+    const result = await this.database.query<{ id: string }>(
+      "WITH candidates AS (SELECT id FROM rooms WHERE status = 'closed' AND updated_at <= $1 ORDER BY updated_at, id FOR UPDATE SKIP LOCKED LIMIT $2) DELETE FROM rooms USING candidates WHERE rooms.id = candidates.id RETURNING rooms.id",
+      [cutoff, limit],
+    );
+    return result.rows.length;
   }
 }

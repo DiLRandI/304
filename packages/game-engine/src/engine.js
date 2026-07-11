@@ -74,6 +74,31 @@ function getTrumpPublicView(state, viewerSeatIndex = null) {
   };
 }
 
+function projectHandResultForPublic(result) {
+  if (!result) return null;
+  if (result.noScore === true) {
+    return {
+      handNumber: result.handNumber,
+      noScore: true,
+      reason: result.reason,
+      tokens: [...result.tokens],
+    };
+  }
+  return {
+    bidderTeam: result.bidderTeam,
+    bidderTeamPoints: result.bidderTeamPoints,
+    bid: result.bid,
+    handNumber: result.handNumber,
+    matchComplete: result.matchComplete,
+    movement: result.movement,
+    otherTeamPoints: result.otherTeamPoints,
+    success: result.success,
+    tokens: [...result.tokens],
+    trickCount: result.trickCount,
+    winningTeam: result.winningTeam,
+  };
+}
+
 function cloneSeatsForBot(state, botSeatIndex) {
   return state.seats.map((seat, seatIndex) => {
     const isBotSeat = Number(seatIndex) === Number(botSeatIndex);
@@ -494,17 +519,8 @@ export class GameEngine {
       completedTricks: projectedCompleted,
       latestTrick,
       bidHistory: this.state.bidding.actions,
-      handAudit:
-        this.state.phase === PHASE.HAND_RESULT ||
-        this.state.phase === PHASE.MATCH_COMPLETE
-          ? {
-              handNumber: this.state.handNumber,
-              seedCommit: this.state.handShuffle.seedCommit,
-              deckVersion: this.state.handShuffle.deckVersion,
-            }
-          : null,
       tokens: this.state.tokens,
-      handResult: this.state.handResult,
+      handResult: projectHandResultForPublic(this.state.handResult),
       gameMessage: this.state.gameMessage,
       version: this.state.version,
     };
@@ -602,6 +618,7 @@ export class GameEngine {
     for (const amount of values) {
       if (amount % step !== 0) continue;
       if (amount < minForRound) continue;
+      if (amount > this.state.profile.maxBid) continue;
       if (this.state.bidding.phase === "four" && actedAlready && amount < 200)
         continue;
       if (
@@ -677,11 +694,20 @@ export class GameEngine {
     if (this.state.phase === PHASE.TRICK_PLAY && isActiveSeat) {
       return this._getLegalCardActions(seatIndex);
     }
-    if (this.state.phase === PHASE.HAND_RESULT) {
+    if (
+      this.state.phase === PHASE.HAND_RESULT ||
+      this.state.phase === PHASE.MATCH_COMPLETE
+    ) {
       legal.push({
         type: "ACK_RESULT",
-        label: "Next hand",
-        ariaLabel: "Continue to next hand",
+        label:
+          this.state.phase === PHASE.MATCH_COMPLETE
+            ? "Play another match"
+            : "Next hand",
+        ariaLabel:
+          this.state.phase === PHASE.MATCH_COMPLETE
+            ? "Play another match"
+            : "Continue to next hand",
       });
       return legal;
     }
@@ -779,11 +805,7 @@ export class GameEngine {
   }
 
   getBotAction(seatIndex) {
-    if (
-      !this.state.seats[seatIndex] ||
-      this.state.phase === PHASE.SETUP ||
-      this.state.phase === PHASE.MATCH_COMPLETE
-    ) {
+    if (!this.state.seats[seatIndex] || this.state.phase === PHASE.SETUP) {
       return null;
     }
     if (
@@ -793,6 +815,7 @@ export class GameEngine {
       return null;
     if (
       this.state.phase !== PHASE.HAND_RESULT &&
+      this.state.phase !== PHASE.MATCH_COMPLETE &&
       this.state.activeSeat !== seatIndex
     ) {
       return null;
@@ -834,7 +857,8 @@ export class GameEngine {
   applyAutomationAction(rawAction, seatIndex) {
     const resolvedSeatIndex = toSeatIndex(seatIndex);
     const isHandResultAcknowledgement =
-      this.state.phase === PHASE.HAND_RESULT &&
+      (this.state.phase === PHASE.HAND_RESULT ||
+        this.state.phase === PHASE.MATCH_COMPLETE) &&
       this.state.activeSeat == null &&
       rawAction?.type === "ACK_RESULT";
     if (
@@ -1450,6 +1474,11 @@ export class GameEngine {
       success,
       movement,
       matchComplete,
+      winningTeam: success
+        ? trumpMakerTeam
+        : trumpMakerTeam === "A"
+          ? "B"
+          : "A",
       tokens: [...this.state.tokens],
       firstSeatCards: this.state.seats.map((seat) => ({
         seat: seat.index,

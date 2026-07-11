@@ -1,4 +1,5 @@
 export const PROFILE_DEFAULTS = {
+  maxBid: 304,
   minFourCardBid: 160,
   fourCardBidStep: 10,
   minEightCardBid: 250,

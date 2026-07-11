@@ -44,21 +44,32 @@ pnpm --filter @three-zero-four/web exec playwright install chromium
 E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter @three-zero-four/web exec playwright test
 G304_RESTORE_REHEARSAL=1 scripts/backup-restore-rehearsal.sh
 LOAD_BASE_URL=http://127.0.0.1:4100 LOAD_ORIGIN=http://127.0.0.1:3000 node infra/load/browser-api-smoke.js
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml up --build --wait postgres redis
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml run --rm --no-deps migrate
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration build integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml down --volumes --remove-orphans
 docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes --remove-orphans
 ```
 
 The Playwright suite uses separate browser contexts and only public browser
-routes and API commands. It covers practice, a two-person private room,
-private-hand separation, socket recovery, a six-seat mobile layout, keyboard
-actions, and display preferences. It does not inspect PostgreSQL to advance a
-game.
+routes and API commands. It covers a complete Classic practice hand, a complete
+six-seat practice hand, server-projected result/rematch rendering, a
+five-human/six-seat private start with exactly one bot and six cards per seat,
+plus a two-person private room, private-hand separation, socket recovery, a
+six-seat mobile layout, keyboard actions, and display preferences. It does not
+inspect PostgreSQL to advance a game.
 
 The bounded load smoke creates at most six temporary Classic lobbies with two
 guests each. It performs only guest creation, room creation, invite join, and
 private snapshot requests—never game commands, raw database operations, or
 destructive mutations. It fails on any non-2xx response, a five-second request
 timeout, or a request exceeding its configured safe latency threshold.
+
+The database/Redis integration runner uses the separate `g304-integration`
+Compose project. It starts only PostgreSQL, Redis, and migrations before the
+test container, so the live automation worker cannot claim a test bot job.
+The project has no host ports and is removed after the test.
 
 ## Restore rehearsal safeguards
 

@@ -4,6 +4,7 @@ import {
   type GameAction,
   RealtimeClientMessageSchema,
   type RealtimeServerMessage,
+  type RoomExitResponse,
   type RoomProjection,
 } from "@three-zero-four/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -36,6 +37,7 @@ export interface RoomClient {
     roomReference: string,
     expectedVersion: number,
   ): Promise<RoomProjection>;
+  leaveRoom(roomId: string, expectedVersion: number): Promise<RoomExitResponse>;
   roomSocketUrl(roomId: string): string;
   startRoom(roomId: string, expectedVersion: number): Promise<RoomProjection>;
   submitCommand(
@@ -68,6 +70,7 @@ export function useRoomController(
   const [loading, setLoading] = useState(Boolean(roomReference));
   const [projection, setProjection] = useState<RoomProjection | null>(null);
   const projectionRef = useRef<RoomProjection | null>(null);
+  const leftRoomRef = useRef(false);
   const socketRef = useRef<RoomSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const createSocket = options.createSocket ?? browserSocket;
@@ -83,10 +86,13 @@ export function useRoomController(
 
   const refreshSnapshot = useCallback(
     async (roomId: string): Promise<void> => {
+      if (leftRoomRef.current) return;
       try {
         const next = await client.getSnapshot(roomId);
+        if (leftRoomRef.current) return;
         commitProjection(next);
       } catch (caught) {
+        if (leftRoomRef.current) return;
         setError(safeErrorMessage(caught));
       }
     },
@@ -107,12 +113,14 @@ export function useRoomController(
 
   useEffect(() => {
     if (!roomReference) {
+      leftRoomRef.current = true;
       setConnection("offline");
       setLoading(false);
       return;
     }
 
     let disposed = false;
+    leftRoomRef.current = false;
     let reconnectAttempt = 0;
     const socketFactory = createSocket;
 
@@ -124,10 +132,12 @@ export function useRoomController(
     };
 
     const requestSnapshot = (roomId: string) => {
+      if (leftRoomRef.current) return;
       void refreshSnapshot(roomId);
     };
 
     const handleRealtimeMessage = (event: MessageEvent<string>) => {
+      if (leftRoomRef.current) return;
       let message: RealtimeServerMessage;
       try {
         message = parseRealtimeServerMessage(JSON.parse(event.data));
@@ -154,7 +164,7 @@ export function useRoomController(
     };
 
     const openSocket = (roomId: string) => {
-      if (disposed) return;
+      if (disposed || leftRoomRef.current) return;
       clearReconnectTimer();
       setConnection(reconnectAttempt === 0 ? "connecting" : "reconnecting");
       let socket: RoomSocket;
@@ -167,6 +177,10 @@ export function useRoomController(
       }
       socketRef.current = socket;
       socket.onopen = () => {
+        if (disposed || leftRoomRef.current) {
+          socket.close();
+          return;
+        }
         reconnectAttempt = 0;
         setConnection("live");
       };
@@ -175,7 +189,7 @@ export function useRoomController(
         setConnection("offline");
       };
       socket.onclose = () => {
-        if (disposed) return;
+        if (disposed || leftRoomRef.current) return;
         if (socketRef.current === socket) socketRef.current = null;
         reconnectAttempt += 1;
         setConnection("reconnecting");
@@ -192,10 +206,10 @@ export function useRoomController(
       setError(null);
       try {
         let initial = await client.getRoom(roomReference);
-        if (disposed) return;
+        if (disposed || leftRoomRef.current) return;
         if (initial.viewerSeatIndex === null && initial.status === "lobby") {
           initial = await client.joinRoom(roomReference, initial.eventVersion);
-          if (disposed) return;
+          if (disposed || leftRoomRef.current) return;
         }
         commitProjection(initial);
         if (initial.viewerSeatIndex === null) {
@@ -278,6 +292,32 @@ export function useRoomController(
     }
   }, [client, commitProjection, refreshSnapshot]);
 
+  const leave = useCallback(async (): Promise<RoomExitResponse | undefined> => {
+    const current = projectionRef.current;
+    if (!current) return undefined;
+    setError(null);
+    try {
+      const exit = await client.leaveRoom(current.roomId, current.eventVersion);
+      leftRoomRef.current = true;
+      if (reconnectTimerRef.current !== null) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      const socket = socketRef.current;
+      socketRef.current = null;
+      socket?.close();
+      projectionRef.current = null;
+      setProjection(null);
+      setConnection("offline");
+      setLoading(false);
+      return exit;
+    } catch (caught) {
+      setError(safeErrorMessage(caught));
+      await refreshSnapshot(current.roomId);
+      return undefined;
+    }
+  }, [client, refreshSnapshot]);
+
   const refresh = useCallback(async (): Promise<void> => {
     const current = projectionRef.current;
     if (current) await refreshSnapshot(current.roomId);
@@ -286,6 +326,7 @@ export function useRoomController(
   return {
     connection,
     error,
+    leave,
     loading,
     projection,
     refresh,

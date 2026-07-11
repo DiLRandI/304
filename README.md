@@ -65,7 +65,9 @@ For startup, readiness, migrations, backup rehearsals, and rollback, follow [the
 
 The release rehearsal exercises real Chromium browser flows, a disposable
 backup/restore, and a bounded non-destructive API smoke against the local
-Compose topology:
+Compose topology. Chromium proves a full Classic practice hand, a full
+six-seat practice hand, server-projected result and next-hand rendering, and a
+five-human six-seat private start with one bot:
 
 ```bash
 cp infra/compose/.env.example infra/compose/.env

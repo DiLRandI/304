@@ -32,6 +32,15 @@ The WebSocket route delivers only fresh, viewer-specific room projections. A dup
 
 The automation worker claims version-bound PostgreSQL jobs for bots, turn timeouts, and disconnected-player autopilot. A stale job is completed without a room state change. Do not manually change job rows or replay an action from a log line; use the worker's durable job and event trail to diagnose the condition.
 
+The same worker process runs a separate, non-overlapping maintenance pass every
+five minutes by default. It revokes long-expired guest sessions, closes only
+stale `lobby` and `hand_result` rooms, and purges retained `closed` rooms in
+bounded batches. It never selects or changes an `in_hand` room. The defaults
+are `MAINTENANCE_BATCH_SIZE=100`, `ROOM_LOBBY_IDLE_HOURS=24`,
+`ROOM_TERMINAL_RETENTION_DAYS=14`, `ROOM_CLOSED_RETENTION_DAYS=30`, and
+`EXPIRED_SESSION_REVOKE_HOURS=24`; change them only through the deployment
+configuration and within the validated bounds.
+
 If a request returns `ROOM_RECOVERY_FAILED`, treat it as an availability incident. Preserve the database, worker/game-service logs, and room id; do not hand-edit `game_events` or `game_snapshots`. Investigate the failing replay against a restored copy, then recover using the approved release or backup process.
 
 ## Metrics and monitoring
@@ -42,6 +51,17 @@ automation queue counts, automation outcomes, and
 `three_zero_four_worker_heartbeat_age_seconds`. The last metric is finite only
 after the independent worker completes a healthy PostgreSQL/Redis poll; an
 absent heartbeat is represented as `+Inf`.
+
+Maintenance exports only these aggregate counters, with no room, player,
+session, invite, card, or event labels:
+
+```bash
+curl --fail --silent http://127.0.0.1:4100/metrics | rg 'three_zero_four_maintenance_(sessions_revoked|rooms_closed|rooms_purged)_total'
+```
+
+A growing closure or purge counter is aggregate evidence only. Investigate it
+through approved database and incident procedures; do not manually edit room
+events, snapshots, or automation jobs.
 
 Start the optional local Prometheus profile only alongside the local Compose
 stack:
@@ -64,14 +84,18 @@ cookies, invite codes, or raw events into alert labels or annotations.
 
 ## Durable room integration rehearsal
 
-With the local topology running, execute the same database/Redis-backed service test used by CI:
+Execute the same database/Redis-backed service test used by CI in a separate,
+disposable Compose project:
 
 ```bash
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration build integration
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml up --build --wait postgres redis
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml run --rm --no-deps migrate
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration build integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml down --volumes --remove-orphans
 ```
 
-The runner executes the full service suite, including `durable-rooms.integration.test.ts`, `realtime.test.ts`, `realtime-multiclient.integration.test.ts`, `room-automation.integration.test.ts`, `room-simulation.test.ts`, and `recovery-fuzz.integration.test.ts`, against disposable PostgreSQL and Redis services. It creates test guests and rooms only; it does not contact external systems or authorize public traffic. Building the profile first ensures the test image matches the checked-out service source; `--no-deps` keeps the already-healthy migration, database, Redis, service, and worker containers intact.
+The runner executes the full service suite, including `durable-rooms.integration.test.ts`, `realtime.test.ts`, `realtime-multiclient.integration.test.ts`, `room-automation.integration.test.ts`, `room-simulation.test.ts`, and `recovery-fuzz.integration.test.ts`, against disposable PostgreSQL and Redis services. It creates test guests and rooms only; it does not contact external systems or authorize public traffic. The isolated project starts no game service or worker, so a live worker cannot claim test jobs; building the profile first ensures the test image matches the checked-out service source.
 
 ## Migrations
 

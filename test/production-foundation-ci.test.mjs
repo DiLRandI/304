@@ -24,11 +24,19 @@ test("production CI and runbook cover immutable install, verification, recovery,
   assert.match(workflow, /127\.0\.0\.1:4100\/readyz/);
   assert.match(
     workflow,
-    /compose\.yaml --profile integration build integration/,
+    /--project-name g304-integration -f infra\/compose\/compose\.yaml up --build --wait postgres redis/,
   );
   assert.match(
     workflow,
-    /compose\.yaml --profile integration run --rm --no-deps integration/,
+    /--project-name g304-integration -f infra\/compose\/compose\.yaml run --rm --no-deps migrate/,
+  );
+  assert.match(
+    workflow,
+    /--project-name g304-integration -f infra\/compose\/compose\.yaml --profile integration build integration/,
+  );
+  assert.match(
+    workflow,
+    /--project-name g304-integration -f infra\/compose\/compose\.yaml --profile integration run --rm --no-deps integration/,
   );
   assert.match(workflow, /if: failure\(\)[\s\S]*compose\.yaml ps/);
   assert.match(compose, /integration:[\s\S]*target: test/);
@@ -45,6 +53,7 @@ test("production CI and runbook cover immutable install, verification, recovery,
     /COPY --from=build --chown=65532:65532 \/app\/infra\/postgres\/migrations \/infra\/postgres\/migrations/,
   );
   assert.match(runbook, /durable-rooms\.integration\.test\.ts/);
+  assert.match(runbook, /--project-name g304-integration/);
   assert.match(runbook, /pg_dump/);
   assert.match(runbook, /pg_restore/);
   assert.match(runbook, /\/readyz/);

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -34,10 +34,13 @@ describeIntegration("foundation migrations", () => {
 
   it("is idempotent when migrations are invoked more than once", async () => {
     await runMigrations(database, migrationsDir);
+    const migrationFiles = (await readdir(migrationsDir)).filter((filename) =>
+      /^\d{4}_.+\.sql$/.test(filename),
+    );
     const result = await database.query<{ count: string }>(
       "SELECT count(*)::text AS count FROM schema_migrations",
     );
-    expect(result.rows).toEqual([{ count: "3" }]);
+    expect(result.rows).toEqual([{ count: String(migrationFiles.length) }]);
   });
 
   it("creates durable identities, rooms, seats, events, snapshots, and command records", async () => {

@@ -291,7 +291,9 @@ Autopilot must:
 ### All humans disconnect
 
 - Pause if possible.
-- If no one reconnects before timeout, abandon room.
+- Do not automatically acknowledge a completed hand or match; preserve its
+  result for a reconnecting human host.
+- If no one reconnects before terminal-room retention, abandon the paused room.
 
 ### Human count changes after bot fill
 

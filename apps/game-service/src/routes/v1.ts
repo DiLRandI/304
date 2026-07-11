@@ -3,6 +3,7 @@ import {
   GameCommandSchema,
   GuestSessionRequestSchema,
   JoinRoomRequestSchema,
+  LeaveRoomRequestSchema,
   StartRoomRequestSchema,
 } from "@three-zero-four/contracts";
 import type { FastifyInstance, FastifyRequest } from "fastify";
@@ -133,6 +134,27 @@ export async function registerV1Routes(
       );
       const input = StartRoomRequestSchema.parse(request.body);
       return runtime.coordinator.startRoom(
+        session,
+        request.params.roomId,
+        input,
+      );
+    },
+  );
+
+  app.post<{ Params: { roomId: string } }>(
+    "/v1/rooms/:roomId/leave",
+    async (request) => {
+      const session = await requireSession(request, config, runtime);
+      await consumeMutationLimit(
+        request,
+        runtime,
+        session,
+        "room-leave",
+        12,
+        60,
+      );
+      const input = LeaveRoomRequestSchema.parse(request.body);
+      return runtime.coordinator.leaveRoom(
         session,
         request.params.roomId,
         input,
