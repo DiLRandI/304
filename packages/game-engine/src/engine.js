@@ -618,6 +618,7 @@ export class GameEngine {
     for (const amount of values) {
       if (amount % step !== 0) continue;
       if (amount < minForRound) continue;
+      if (amount > this.state.profile.maxBid) continue;
       if (this.state.bidding.phase === "four" && actedAlready && amount < 200)
         continue;
       if (

@@ -70,3 +70,20 @@ test("projects an all-pass result with only its no-score fields", () => {
     tokens: [11, 11],
   });
 });
+
+test("never offers a bid above the profile's 304-point deck total", () => {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  engine.startMatch();
+  const activeSeat = engine.state.activeSeat;
+  engine.state.bidding.currentBid = 300;
+  engine.state.bidding.currentBidSeat = (activeSeat + 1) % 4;
+
+  const bids = engine
+    .getLegalActions(activeSeat)
+    .filter((action) => action.type === "BID");
+
+  assert.deepEqual(bids, []);
+});
