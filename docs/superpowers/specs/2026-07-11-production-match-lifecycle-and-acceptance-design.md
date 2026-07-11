@@ -53,10 +53,14 @@ Leaving a lobby clears that human seat. If the host leaves and another human
 remains, ownership transfers to the lowest occupied human seat; if no humans
 remain, the room closes. Leaving a completed table replaces that player with a
 bot at the room's configured difficulty, so a host can start the next hand
-without a stale human seat. If the departing player is the last human, the
-room closes instead. Each lifecycle change appends a durable event, advances
-the room version, cancels obsolete automation jobs, emits an outbox update, and
-returns a private projection with no card data for the departed player.
+without a stale human seat. A departing host transfers ownership to the lowest
+remaining human in either allowed state. If the departing player is the last
+human, the room closes instead. Each lifecycle change appends a durable event, advances
+the room version, cancels obsolete automation jobs, and emits an outbox update.
+The leave endpoint returns only a `RoomExitResponse` (`roomId`, `eventVersion`,
+and `status` of `left` or `closed`); it never returns a room projection after
+the caller has relinquished their seat. The client closes its realtime socket
+and returns to the play lobby.
 
 ### Retention and cleanup
 
@@ -75,7 +79,8 @@ invite data.
 ## Interfaces
 
 - Contracts add `LeaveRoomRequestSchema` and a `RoomLifecycleAction` endpoint
-  shape containing `commandId` and `expectedVersion`.
+  shape containing `commandId` and `expectedVersion`, plus a
+  `RoomExitResponseSchema` with no game or player data.
 - `GameClient.leaveRoom(roomId, expectedVersion)` uses the authenticated,
   cookie-bearing `/v1/rooms/:roomId/leave` boundary.
 - `RoomCoordinator.leaveRoom(session, roomId, request)` owns authorization,
