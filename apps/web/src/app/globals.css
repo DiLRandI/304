@@ -1329,6 +1329,11 @@ html[data-contrast="high"] .card-button[data-suit="diamonds"] {
     flex-direction: column;
     padding-block: 1.2rem;
   }
+
+  .accessibility-preferences fieldset {
+    right: auto;
+    left: 0;
+  }
 }
 
 @media (max-width: 34rem) {
