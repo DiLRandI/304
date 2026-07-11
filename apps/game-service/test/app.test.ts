@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildApp, loadConfig } from "../src/app.js";
+import { buildApp, loadConfig, redactSensitiveRequestUrl } from "../src/app.js";
 import type { RoomSocketHub } from "../src/realtime/room-socket-hub.js";
 import type { GameRuntime } from "../src/routes/v1.js";
 
@@ -94,6 +94,86 @@ describe("game service configuration", () => {
 });
 
 describe("game service bootstrap", () => {
+  it("redacts private invite codes from request logs without suppressing route logs", async () => {
+    const inviteCode = "304-TestInviteCode_1234";
+    const redactedInvite = "[redacted-invite]";
+    const encodedInviteCode = [...inviteCode]
+      .map(
+        (character) =>
+          `%${character.codePointAt(0)?.toString(16).padStart(2, "0")}`,
+      )
+      .join("");
+    const doubleEncodedInviteCode = encodeURIComponent(encodedInviteCode);
+    const embeddedEncodedInviteCode = `prefix${inviteCode.replace(
+      "-",
+      "%2D",
+    )}suffix`;
+    const entries: string[] = [];
+    expect(redactSensitiveRequestUrl(`/malformed/${inviteCode}%2G`)).toBe(
+      `/malformed/${redactedInvite}%2G`,
+    );
+    const app = await buildApp({
+      config: loadConfig({ ...baseConfig, NODE_ENV: "production" }),
+      readiness: { database: async () => true, redis: async () => true },
+      logStream: { write: (entry) => entries.push(entry) },
+    });
+
+    await app.inject(`/v1/rooms/${inviteCode}/join`);
+    await app.inject(`/v1/rooms/${encodedInviteCode}/join`);
+    await app.inject(`/v1/rooms/${doubleEncodedInviteCode}/join`);
+    await app.inject(`/v1/rooms/${embeddedEncodedInviteCode}/join`);
+    await app.inject(
+      `/lookup?primary=${inviteCode}&fallback=${doubleEncodedInviteCode}`,
+    );
+    await app.inject("/v1/rooms/304-too-short");
+    await app.inject("/unknown");
+    await app.close();
+
+    const logs = entries.join("");
+    expect(logs).not.toContain(inviteCode);
+    expect(logs).not.toContain(encodedInviteCode);
+    expect(logs).not.toContain(doubleEncodedInviteCode);
+
+    const records = entries.flatMap((entry) =>
+      entry
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as Record<string, unknown>),
+    );
+    const incoming = records.filter(
+      (record) => record.msg === "incoming request",
+    );
+    const completed = records.filter(
+      (record) => record.msg === "request completed",
+    );
+    expect(incoming).toHaveLength(7);
+    expect(completed).toHaveLength(7);
+
+    const incomingUrls = incoming.map(
+      (record) => (record.req as { url?: string }).url,
+    );
+    expect(incomingUrls).toContain("/v1/rooms/[redacted-invite]/join");
+    expect(incomingUrls).toContain("/v1/rooms/304-too-short");
+    expect(incomingUrls).toContain("/unknown");
+    expect(
+      incomingUrls.filter((url) => url?.includes(redactedInvite)),
+    ).toHaveLength(5);
+
+    const ordinary = incoming.find(
+      (record) => (record.req as { url?: string }).url === "/unknown",
+    );
+    expect(ordinary?.req).toMatchObject({
+      host: "localhost:80",
+      method: "GET",
+      remoteAddress: "127.0.0.1",
+      url: "/unknown",
+    });
+    expect(
+      completed.find((record) => record.reqId === ordinary?.reqId)?.res,
+    ).toEqual({ statusCode: 404 });
+  });
+
   it("does not emit a deprecated Fastify logging warning", async () => {
     const warnings: Error[] = [];
     const onWarning = (warning: Error) => warnings.push(warning);
