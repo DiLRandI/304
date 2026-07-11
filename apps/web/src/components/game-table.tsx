@@ -315,9 +315,15 @@ export function GameTable({
       </p>
       <RulesDrawer profileId={publicState.profileId} />
       <div className="table-exit">
-        <button className="leave-table" onClick={leave} type="button">
-          Leave table
-        </button>
+        {projection.status === "hand_result" ? (
+          <button className="leave-table" onClick={leave} type="button">
+            Leave table
+          </button>
+        ) : (
+          <p className="table-exit-note">
+            You can leave after this hand finishes.
+          </p>
+        )}
       </div>
     </section>
   );
