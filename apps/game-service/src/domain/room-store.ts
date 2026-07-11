@@ -89,10 +89,7 @@ export interface AppendEventInput {
   eventType: string;
   payload: unknown;
   snapshot: unknown;
-  status: Extract<
-    RoomStatus,
-    "lobby" | "in_hand" | "hand_result" | "closed"
-  >;
+  status: Extract<RoomStatus, "lobby" | "in_hand" | "hand_result" | "closed">;
   ruleProfileId: RuleProfileId;
   deduplicationResponse?: unknown;
 }
@@ -574,12 +571,49 @@ export class PostgresRoomStore {
       [roomId, seatIndex],
     );
     if (updated.rows.length !== 1) {
-      throw new DomainError("SEAT_REQUIRED", 403, "You are not seated in this room");
+      throw new DomainError(
+        "SEAT_REQUIRED",
+        403,
+        "You are not seated in this room",
+      );
     }
     const seats = await this.loadSeats(roomId, transaction);
     const seat = seats.find((candidate) => candidate.seatIndex === seatIndex);
     if (!seat) {
-      throw new DomainError("ROOM_DATA_INVALID", 500, "Cleared room seat is missing");
+      throw new DomainError(
+        "ROOM_DATA_INVALID",
+        500,
+        "Cleared room seat is missing",
+      );
+    }
+    return seat;
+  }
+
+  async replaceHumanSeatWithBot(
+    transaction: Queryable,
+    roomId: string,
+    seatIndex: number,
+    botDifficulty: RoomSettings["botDifficulty"],
+  ): Promise<StoredSeat> {
+    const updated = await transaction.query<{ seat_index: number }>(
+      "UPDATE room_seats SET player_id = NULL, occupant_type = 'bot', bot_difficulty = $3, joined_at = NULL, connection_status = 'online', last_presence_at = now(), disconnected_at = NULL, autopilot_started_at = NULL WHERE room_id = $1 AND seat_index = $2 AND occupant_type = 'human' RETURNING seat_index",
+      [roomId, seatIndex, botDifficulty],
+    );
+    if (updated.rows.length !== 1) {
+      throw new DomainError(
+        "SEAT_REQUIRED",
+        403,
+        "You are not seated in this room",
+      );
+    }
+    const seats = await this.loadSeats(roomId, transaction);
+    const seat = seats.find((candidate) => candidate.seatIndex === seatIndex);
+    if (!seat) {
+      throw new DomainError(
+        "ROOM_DATA_INVALID",
+        500,
+        "Replaced room seat is missing",
+      );
     }
     return seat;
   }
@@ -605,7 +639,11 @@ export class PostgresRoomStore {
       [roomId, playerId],
     );
     if (updated.rows.length !== 1) {
-      throw new DomainError("ROOM_DATA_INVALID", 500, "New room host is not seated");
+      throw new DomainError(
+        "ROOM_DATA_INVALID",
+        500,
+        "New room host is not seated",
+      );
     }
   }
 

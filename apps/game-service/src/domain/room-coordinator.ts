@@ -1,5 +1,4 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { RoomExitResponseSchema } from "@three-zero-four/contracts";
 import type {
   CreateRoomRequest,
   GameCommand,
@@ -10,6 +9,7 @@ import type {
   RuleProfileId,
   StartRoomRequest,
 } from "@three-zero-four/contracts";
+import { RoomExitResponseSchema } from "@three-zero-four/contracts";
 import {
   type EngineSeat,
   type EngineState,
@@ -95,11 +95,20 @@ function activeSeatIndex(engine: GameEngine): number | null {
 function automationSeatIndex(engine: GameEngine): number | null {
   const activeSeat = activeSeatIndex(engine);
   if (activeSeat != null) return activeSeat;
-  if (engine.state.phase !== "hand_result") return null;
-  const automaticSeat =
-    engine.state.seats.find(
-      (seat) => seat.type === "bot" || Boolean(seat.autopilot),
-    ) ?? engine.state.seats.find((seat) => seat.type === "human");
+  if (
+    engine.state.phase !== "hand_result" &&
+    engine.state.phase !== "match_complete"
+  ) {
+    return null;
+  }
+  if (
+    engine.state.seats.some((seat) => seat.type === "human" && !seat.autopilot)
+  ) {
+    return null;
+  }
+  const automaticSeat = engine.state.seats.find(
+    (seat) => seat.type === "bot" || Boolean(seat.autopilot),
+  );
   return automaticSeat?.index ?? null;
 }
 
@@ -107,6 +116,12 @@ function phaseTimeoutMs(engine: GameEngine): number {
   if (engine.state.phase === "trump_choice") return 15_000;
   if (engine.state.phase === "hand_result") return 20_000;
   return DEFAULT_AUTOMATION.turnTimeoutMs;
+}
+
+function isBotDifficulty(
+  value: unknown,
+): value is RoomSettings["botDifficulty"] {
+  return value === "easy" || value === "normal" || value === "strong";
 }
 
 function engineSeat(seat: StoredSeat): EngineSeat {
@@ -163,7 +178,8 @@ function applyLobbySeat(engine: GameEngine, seat: StoredSeat): void {
   const target = engine.state.seats[seat.seatIndex];
   if (!target) throw new RecoveryError("unknown");
   target.type = seat.occupantType;
-  target.displayName = seat.displayName ?? "Guest";
+  target.displayName =
+    seat.displayName ?? (seat.occupantType === "bot" ? "Bot" : "Open seat");
   if (seat.playerId) target.userId = seat.playerId;
   else delete target.userId;
   if (seat.botDifficulty) target.difficulty = seat.botDifficulty;
@@ -487,6 +503,16 @@ export class RoomCoordinator {
         if (room.status !== "in_hand" && room.status !== "hand_result") {
           throw new DomainError("ROOM_NOT_ACTIVE", 409, "Room is not active");
         }
+        if (
+          command.action.type === "ACK_RESULT" &&
+          room.hostPlayerId !== session.playerId
+        ) {
+          throw new DomainError(
+            "HOST_REQUIRED",
+            403,
+            "Only the host can continue",
+          );
+        }
         const engine = await this.recoverLockedRoom(transaction, room);
         const result = engine.applyAction({
           ...command.action,
@@ -551,7 +577,7 @@ export class RoomCoordinator {
         if (room.status === "closed") {
           throw new DomainError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
         }
-        if (room.status !== "lobby") {
+        if (room.status !== "lobby" && room.status !== "hand_result") {
           throw new DomainError(
             "ROOM_LEAVE_NOT_ALLOWED",
             409,
@@ -570,13 +596,26 @@ export class RoomCoordinator {
           room.id,
           session.playerId,
         );
+        const seats = await this.store.loadSeats(room.id, transaction);
+        const isLastHuman =
+          seats.filter((seat) => seat.occupantType === "human").length === 1;
         const engine = await this.recoverLockedRoom(transaction, room);
-        const clearedSeat = await this.store.clearHumanSeat(
-          transaction,
-          room.id,
-          viewerSeatIndex,
-        );
-        applyLobbySeat(engine, clearedSeat);
+        const replacement =
+          room.status === "hand_result" && !isLastHuman ? "bot" : "empty";
+        const departedSeat =
+          replacement === "bot"
+            ? await this.store.replaceHumanSeatWithBot(
+                transaction,
+                room.id,
+                viewerSeatIndex,
+                room.settings.botDifficulty,
+              )
+            : await this.store.clearHumanSeat(
+                transaction,
+                room.id,
+                viewerSeatIndex,
+              );
+        applyLobbySeat(engine, departedSeat);
         const nextHostPlayerId = await this.store.findLowestHumanPlayerId(
           transaction,
           room.id,
@@ -589,30 +628,45 @@ export class RoomCoordinator {
           "TURN_TIMEOUT",
           "DISCONNECT_GRACE",
         ]);
-        const status = nextHostPlayerId ? "lobby" : "closed";
+        const status = nextHostPlayerId ? room.status : "closed";
+        const hostPlayerId =
+          room.hostPlayerId === session.playerId && nextHostPlayerId
+            ? nextHostPlayerId
+            : room.hostPlayerId;
         const exit: RoomExitResponse = {
           roomId: room.id,
           eventVersion: room.eventVersion + 1,
           status: nextHostPlayerId ? "left" : "closed",
         };
-        await this.store.appendEventAndSnapshot(transaction, {
-          roomId: room.id,
-          expectedVersion: room.eventVersion,
-          commandId: request.commandId,
-          actorPlayerId: session.playerId,
-          eventType: nextHostPlayerId ? "PLAYER_LEFT" : "ROOM_CLOSED",
-          payload: nextHostPlayerId
-            ? {
-                hostPlayerId: nextHostPlayerId,
-                replacement: "empty",
-                seatIndex: viewerSeatIndex,
-              }
-            : { reason: "LAST_HUMAN_LEFT", seatIndex: viewerSeatIndex },
-          snapshot: engine.getSnapshot(),
-          status,
-          ruleProfileId: room.ruleProfileId,
-          deduplicationResponse: exit,
-        });
+        const eventVersion = await this.store.appendEventAndSnapshot(
+          transaction,
+          {
+            roomId: room.id,
+            expectedVersion: room.eventVersion,
+            commandId: request.commandId,
+            actorPlayerId: session.playerId,
+            eventType: nextHostPlayerId ? "PLAYER_LEFT" : "ROOM_CLOSED",
+            payload: {
+              botDifficulty:
+                replacement === "bot" ? room.settings.botDifficulty : null,
+              hostPlayerId: nextHostPlayerId ? hostPlayerId : null,
+              reason: nextHostPlayerId ? null : "LAST_HUMAN_LEFT",
+              replacement,
+              seatIndex: viewerSeatIndex,
+            },
+            snapshot: engine.getSnapshot(),
+            status,
+            ruleProfileId: room.ruleProfileId,
+            deduplicationResponse: exit,
+          },
+        );
+        if (status !== "closed") {
+          await this.scheduleNextAutomation(
+            transaction,
+            { ...room, eventVersion, hostPlayerId, status },
+            engine,
+          );
+        }
         return exit;
       },
       { allowClosed: true },
@@ -633,7 +687,9 @@ export class RoomCoordinator {
       const engine = await this.recoverLockedRoom(transaction, room);
       const activeSeat = activeSeatIndex(engine);
       const isHandResultAcknowledgement =
-        engine.state.phase === "hand_result" && activeSeat == null;
+        (engine.state.phase === "hand_result" ||
+          engine.state.phase === "match_complete") &&
+        activeSeat == null;
       if (
         job.kind !== "DISCONNECT_GRACE" &&
         activeSeat !== job.targetSeatIndex &&
@@ -901,10 +957,7 @@ export class RoomCoordinator {
     await this.store.cancelAutomationForRoom(transaction, room.id, [
       "DISCONNECT_GRACE",
     ]);
-    if (
-      room.status === "in_hand" ||
-      (room.status === "hand_result" && engine.state.phase !== "match_complete")
-    ) {
+    if (room.status === "in_hand" || room.status === "hand_result") {
       await this.scheduleDisconnectGraceJobs(transaction, room);
     }
     const targetSeatIndex = automationSeatIndex(engine);
@@ -1071,6 +1124,36 @@ export class RoomCoordinator {
             occupantType: "human",
             botDifficulty: null,
             displayName,
+          });
+          continue;
+        }
+        if (
+          event.eventType === "PLAYER_LEFT" ||
+          event.eventType === "ROOM_CLOSED"
+        ) {
+          const payload = event.payload as Record<string, unknown>;
+          const seatIndex = payload.seatIndex;
+          const replacement =
+            payload.replacement ??
+            (event.eventType === "ROOM_CLOSED" ? "empty" : null);
+          const botDifficulty = isBotDifficulty(payload.botDifficulty)
+            ? payload.botDifficulty
+            : null;
+          if (
+            typeof seatIndex !== "number" ||
+            !Number.isInteger(seatIndex) ||
+            (replacement !== "empty" && replacement !== "bot") ||
+            (replacement === "bot" && !botDifficulty)
+          ) {
+            throw new RecoveryError(room.id);
+          }
+          applyLobbySeat(engine, {
+            seatIndex,
+            playerId: null,
+            occupantType: replacement,
+            botDifficulty: replacement === "bot" ? botDifficulty : null,
+            displayName: null,
+            connectionStatus: replacement === "bot" ? "online" : "disconnected",
           });
           continue;
         }

@@ -92,6 +92,12 @@ export function projectRoomForPlayer(
       "You are not seated in this room",
     );
   }
+  const isHost =
+    engine.state.seats[viewerSeatIndex]?.userId === room.hostPlayerId;
+  const legalActions = engine
+    .getLegalActions(viewerSeatIndex)
+    .filter((action) => action.type !== "ACK_RESULT" || isHost)
+    .map(toWireAction);
   return {
     roomId: room.id,
     inviteCode: room.inviteCode,
@@ -101,7 +107,7 @@ export function projectRoomForPlayer(
     view: {
       publicState: engine.getPublicState(viewerSeatIndex),
       privateSeat,
-      legalActions: engine.getLegalActions(viewerSeatIndex).map(toWireAction),
+      legalActions,
       prompt: engine.getPrompt(),
     },
   };

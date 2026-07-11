@@ -31,7 +31,17 @@ interface DurableProjection {
   eventVersion: number;
   viewerSeatIndex: number | null;
   view: {
-    publicState?: { activeSeat: number | null };
+    publicState?: {
+      activeSeat: number | null;
+      dealerSeat?: number;
+      handNumber?: number;
+      phase?: string;
+      seats?: Array<{
+        difficulty: string | null;
+        index: number;
+        type: "bot" | "empty" | "human";
+      }>;
+    };
     privateSeat?: { hand: Array<{ cardId: string }> };
     legalActions?: GameAction[];
   };
@@ -39,8 +49,15 @@ interface DurableProjection {
 
 interface TestRuntime {
   app: Awaited<ReturnType<typeof buildApp>>;
+  coordinator: RoomCoordinator;
   database: Database;
   redis: RedisClientType;
+  store: PostgresRoomStore;
+}
+
+interface TestPlayer {
+  cookie: string;
+  playerId: string;
 }
 
 let runtime: TestRuntime | undefined;
@@ -69,6 +86,7 @@ async function buildRealApp(): Promise<TestRuntime> {
     store,
     lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
     presence: new Presence(redis, config.PRESENCE_TTL_SECONDS),
+    automation: { botActionDelayMs: 0 },
   });
   const app = await buildApp({
     config,
@@ -79,7 +97,7 @@ async function buildRealApp(): Promise<TestRuntime> {
       rateLimiter: new RateLimiter(redis, `g304:test:${randomUUID()}`),
     },
   });
-  return { app, database, redis };
+  return { app, coordinator, database, redis, store };
 }
 
 async function closeRuntime(): Promise<void> {
@@ -125,6 +143,75 @@ async function getSnapshot(
   });
   expect(response.statusCode).toBe(200);
   return response.json() as DurableProjection;
+}
+
+async function advanceToHandResult(
+  currentRuntime: TestRuntime,
+  roomId: string,
+  players: readonly TestPlayer[],
+): Promise<Map<string, DurableProjection>> {
+  const automationOwner = randomUUID();
+  for (let step = 0; step < 240; step += 1) {
+    const projections = new Map<string, DurableProjection>();
+    for (const player of players) {
+      projections.set(
+        player.playerId,
+        await getSnapshot(currentRuntime.app, player.cookie, roomId),
+      );
+    }
+    const firstProjection = projections.values().next().value;
+    if (!firstProjection) throw new Error("Room has no player projection");
+    if (firstProjection.view.publicState?.phase === "hand_result") {
+      return projections;
+    }
+    const activePlayer = players.find((player) => {
+      const projection = projections.get(player.playerId);
+      return (
+        projection?.viewerSeatIndex === projection?.view.publicState?.activeSeat
+      );
+    });
+    if (activePlayer) {
+      const projection = projections.get(activePlayer.playerId);
+      const action = projection?.view.legalActions?.[0];
+      if (!action) throw new Error("Active human has no legal action");
+      const applied = await currentRuntime.app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/commands`,
+        headers: { origin, cookie: activePlayer.cookie },
+        payload: {
+          action,
+          commandId: randomUUID(),
+          expectedVersion: projection?.eventVersion,
+          roomId,
+        },
+      });
+      expect(
+        applied.statusCode,
+        JSON.stringify({
+          action,
+          body: applied.json(),
+          expectedVersion: projection?.eventVersion,
+        }),
+      ).toBe(200);
+      continue;
+    }
+    const jobs = await currentRuntime.store.claimDueAutomationJobs(
+      automationOwner,
+      new Date(),
+      16,
+      roomId,
+    );
+    if (jobs.length === 0) {
+      throw new Error("Expected a due bot action while advancing the hand");
+    }
+    for (const job of jobs) {
+      expect(await currentRuntime.coordinator.runAutomation(job)).toBe(
+        "completed",
+      );
+      await currentRuntime.store.completeAutomationJob(job.id, automationOwner);
+    }
+  }
+  throw new Error("Timed out while advancing the room to hand result");
 }
 
 afterEach(async () => closeRuntime());
@@ -447,5 +534,217 @@ describeIntegration("durable room HTTP API", () => {
         [room.roomId],
       ),
     ).resolves.toEqual({ rows: [{ event_type: "ROOM_CLOSED" }] });
+  });
+
+  it("allows only the host to advance a hand result and rotates the next hand", async () => {
+    runtime = await buildRealApp();
+    const host = await createGuest(runtime.app, "Eranga");
+    const guest = await createGuest(runtime.app, "Farah");
+    const created = await runtime.app.inject({
+      method: "POST",
+      url: "/v1/rooms",
+      headers: { origin, cookie: host.cookie },
+      payload: { commandId: randomUUID(), ruleProfileId: "classic_304_4p" },
+    });
+    expect(created.statusCode).toBe(201);
+    const room = created.json() as DurableProjection;
+    const joined = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.inviteCode}/join`,
+      headers: { origin, cookie: guest.cookie },
+      payload: { commandId: randomUUID(), expectedVersion: room.eventVersion },
+    });
+    expect(joined.statusCode).toBe(200);
+    const started = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/start`,
+      headers: { origin, cookie: host.cookie },
+      payload: {
+        commandId: randomUUID(),
+        expectedVersion: (joined.json() as DurableProjection).eventVersion,
+      },
+    });
+    expect(started.statusCode).toBe(200);
+
+    const results = await advanceToHandResult(runtime, room.roomId, [
+      host,
+      guest,
+    ]);
+    const hostResult = results.get(host.playerId);
+    const guestResult = results.get(guest.playerId);
+    if (!hostResult || !guestResult) throw new Error("Expected hand results");
+    const restarted = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/start`,
+      headers: { origin, cookie: host.cookie },
+      payload: {
+        commandId: randomUUID(),
+        expectedVersion: hostResult.eventVersion,
+      },
+    });
+    expect(restarted.statusCode).toBe(409);
+    expect(guestResult.view.legalActions).not.toContainEqual({
+      type: "ACK_RESULT",
+    });
+    const guestAck = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/commands`,
+      headers: { origin, cookie: guest.cookie },
+      payload: {
+        action: { type: "ACK_RESULT" },
+        commandId: randomUUID(),
+        expectedVersion: guestResult.eventVersion,
+        roomId: room.roomId,
+      },
+    });
+    expect(guestAck.statusCode).toBe(403);
+    expect(guestAck.json()).toEqual({
+      error: { code: "HOST_REQUIRED", message: "Only the host can continue" },
+    });
+
+    const hostAck = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/commands`,
+      headers: { origin, cookie: host.cookie },
+      payload: {
+        action: { type: "ACK_RESULT" },
+        commandId: randomUUID(),
+        expectedVersion: hostResult.eventVersion,
+        roomId: room.roomId,
+      },
+    });
+    expect(hostAck.statusCode).toBe(200);
+    const nextHand = hostAck.json() as DurableProjection;
+    expect(nextHand.view.publicState).toMatchObject({
+      handNumber: (hostResult.view.publicState?.handNumber ?? 0) + 1,
+      phase: "four_bidding",
+    });
+    expect(nextHand.view.publicState?.dealerSeat).not.toBe(
+      hostResult.view.publicState?.dealerSeat,
+    );
+    expect(nextHand.view.privateSeat?.hand).toHaveLength(4);
+  });
+
+  it("replaces a departing result-state human with a configured bot and transfers a departing host", async () => {
+    runtime = await buildRealApp();
+    const host = await createGuest(runtime.app, "Gihan");
+    const guest = await createGuest(runtime.app, "Hasini");
+    const remainingGuest = await createGuest(runtime.app, "Indika");
+    const created = await runtime.app.inject({
+      method: "POST",
+      url: "/v1/rooms",
+      headers: { origin, cookie: host.cookie },
+      payload: {
+        botDifficulty: "strong",
+        commandId: randomUUID(),
+        ruleProfileId: "classic_304_4p",
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const room = created.json() as DurableProjection;
+    const joined = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.inviteCode}/join`,
+      headers: { origin, cookie: guest.cookie },
+      payload: { commandId: randomUUID(), expectedVersion: room.eventVersion },
+    });
+    expect(joined.statusCode).toBe(200);
+    const secondJoined = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.inviteCode}/join`,
+      headers: { origin, cookie: remainingGuest.cookie },
+      payload: {
+        commandId: randomUUID(),
+        expectedVersion: (joined.json() as DurableProjection).eventVersion,
+      },
+    });
+    expect(secondJoined.statusCode).toBe(200);
+    const started = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/start`,
+      headers: { origin, cookie: host.cookie },
+      payload: {
+        commandId: randomUUID(),
+        expectedVersion: (secondJoined.json() as DurableProjection)
+          .eventVersion,
+      },
+    });
+    expect(started.statusCode).toBe(200);
+
+    const results = await advanceToHandResult(runtime, room.roomId, [
+      host,
+      guest,
+      remainingGuest,
+    ]);
+    const guestResult = results.get(guest.playerId);
+    if (!guestResult) throw new Error("Expected guest hand result");
+    const guestLeft = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/leave`,
+      headers: { origin, cookie: guest.cookie },
+      payload: {
+        commandId: randomUUID(),
+        expectedVersion: guestResult.eventVersion,
+      },
+    });
+    expect(guestLeft.statusCode).toBe(200);
+    expect(guestLeft.json()).toMatchObject({ status: "left" });
+    const hostResult = await getSnapshot(runtime.app, host.cookie, room.roomId);
+    expect(hostResult.view.publicState?.seats).toContainEqual(
+      expect.objectContaining({
+        difficulty: "strong",
+        index: guestResult.viewerSeatIndex,
+        type: "bot",
+      }),
+    );
+
+    const leaveEventVersion = (guestLeft.json() as { eventVersion: number })
+      .eventVersion;
+    await runtime.database.query(
+      "DELETE FROM game_snapshots WHERE room_id = $1 AND event_version = $2",
+      [room.roomId, leaveEventVersion],
+    );
+    await closeRuntime();
+    runtime = await buildRealApp();
+    const recoveredHostResult = await getSnapshot(
+      runtime.app,
+      host.cookie,
+      room.roomId,
+    );
+    expect(recoveredHostResult.view.publicState?.seats).toContainEqual(
+      expect.objectContaining({
+        difficulty: "strong",
+        index: guestResult.viewerSeatIndex,
+        type: "bot",
+      }),
+    );
+
+    const hostLeft = await runtime.app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.roomId}/leave`,
+      headers: { origin, cookie: host.cookie },
+      payload: {
+        commandId: randomUUID(),
+        expectedVersion: recoveredHostResult.eventVersion,
+      },
+    });
+    expect(hostLeft.statusCode).toBe(200);
+    expect(hostLeft.json()).toMatchObject({ status: "left" });
+    await expect(
+      runtime.database.query<{ host_player_id: string }>(
+        "SELECT host_player_id FROM rooms WHERE id = $1",
+        [room.roomId],
+      ),
+    ).resolves.toEqual({
+      rows: [{ host_player_id: remainingGuest.playerId }],
+    });
+    const newHostResult = await getSnapshot(
+      runtime.app,
+      remainingGuest.cookie,
+      room.roomId,
+    );
+    expect(newHostResult.view.legalActions).toContainEqual({
+      type: "ACK_RESULT",
+    });
   });
 });
