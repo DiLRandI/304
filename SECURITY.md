@@ -35,8 +35,9 @@ or other players' data in a public issue.
 - Request bodies and WebSocket frames have bounded sizes. Configuration,
   trusted-proxy addresses, allowed origins, timing values, and retention
   windows are validated during startup.
-- Fastify security headers are enabled. Cookie and authorization headers are
-  redacted from structured request logs.
+- Fastify security headers are enabled. Cookie and authorization headers, plus
+  private invite codes embedded in request URLs, are redacted from structured
+  request logs.
 - Private WebSocket updates carry room versions. Clients discard stale data and
   fetch a private snapshot after a version gap or reconnect.
 

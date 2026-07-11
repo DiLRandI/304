@@ -149,12 +149,12 @@ and the [production delivery guide](../deployment/aws-mumbai-production-cost-fir
 ## Operations and verification
 
 The game service exposes `/livez`, `/readyz`, and aggregate metrics. Request
-logging redacts cookie and authorization headers; metrics contain aggregate
-counters rather than player, room, or card payloads. Release policy also
-forbids invite codes, private hands, hidden cards, and raw room snapshots in
-logs or downstream evidence. Worker heartbeat, outbox progress, automation
-backlog, WebSocket health, migrations, backup/restore, and rollback have
-operator runbooks.
+logging redacts cookie and authorization headers plus invite codes embedded in
+request URLs; metrics contain aggregate counters rather than player, room, or
+card payloads. Release policy also forbids invite codes, private hands, hidden
+cards, and raw room snapshots in logs or downstream evidence. Worker heartbeat,
+outbox progress, automation backlog, WebSocket health, migrations,
+backup/restore, and rollback have operator runbooks.
 
 Architecture invariants are executable:
 

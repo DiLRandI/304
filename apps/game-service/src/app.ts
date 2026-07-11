@@ -2,7 +2,12 @@ import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import websocket from "@fastify/websocket";
-import Fastify, { type FastifyInstance, LogController } from "fastify";
+import Fastify, {
+  type FastifyInstance,
+  type FastifyLoggerOptions,
+  type FastifyRequest,
+  LogController,
+} from "fastify";
 import { ZodError } from "zod";
 import type { ServiceConfig } from "./config.js";
 import { DomainError } from "./domain/errors.js";
@@ -23,6 +28,55 @@ export interface RealtimeRuntime {
   stop(): Promise<void>;
 }
 
+const REDACTED_INVITE = "[redacted-invite]";
+const PLAIN_INVITE_CODE = /304-[A-Za-z0-9_-]{12,32}/g;
+const URL_TOKEN = /(?:[A-Za-z0-9_-]|%[0-9A-Fa-f]{2})+/g;
+const MAX_URL_DECODE_PASSES = 3;
+
+interface SerializedRequestLog {
+  [key: string]: unknown;
+  host: string;
+  method: string;
+  remoteAddress: string;
+  remotePort?: number;
+  url: string;
+  version?: string;
+}
+
+export function redactSensitiveRequestUrl(url: string): string {
+  return url.replace(URL_TOKEN, (token) => {
+    let candidate = token;
+    for (let pass = 0; pass <= MAX_URL_DECODE_PASSES; pass += 1) {
+      const redacted = candidate.replace(PLAIN_INVITE_CODE, REDACTED_INVITE);
+      if (redacted !== candidate) return redacted;
+      if (pass === MAX_URL_DECODE_PASSES) return token;
+      try {
+        const decoded = decodeURIComponent(candidate);
+        if (decoded === candidate) return token;
+        candidate = decoded;
+      } catch {
+        return token;
+      }
+    }
+    return token;
+  });
+}
+
+function serializeRequestForLog(request: FastifyRequest): SerializedRequestLog {
+  const acceptVersion = request.headers["accept-version"];
+  const serialized: SerializedRequestLog = {
+    method: request.method,
+    url: redactSensitiveRequestUrl(request.url),
+    host: request.host,
+    remoteAddress: request.ip,
+  };
+  if (typeof acceptVersion === "string") serialized.version = acceptVersion;
+  if (typeof request.socket?.remotePort === "number") {
+    serialized.remotePort = request.socket.remotePort;
+  }
+  return serialized;
+}
+
 export async function buildApp({
   config,
   readiness,
@@ -30,6 +84,7 @@ export async function buildApp({
   realtime,
   metrics: injectedMetrics,
   refreshMetrics,
+  logStream,
 }: {
   config: ServiceConfig;
   readiness: ReadinessChecks;
@@ -37,11 +92,14 @@ export async function buildApp({
   realtime?: RealtimeRuntime;
   metrics?: ServiceMetrics;
   refreshMetrics?: () => Promise<void>;
+  logStream?: NonNullable<FastifyLoggerOptions["stream"]>;
 }): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
       level: config.NODE_ENV === "production" ? "info" : "warn",
       redact: ["req.headers.cookie", "req.headers.authorization"],
+      serializers: { req: serializeRequestForLog },
+      ...(logStream ? { stream: logStream } : {}),
     },
     requestIdHeader: "x-request-id",
     bodyLimit: 32 * 1024,
