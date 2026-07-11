@@ -1,0 +1,35 @@
+groups:
+  - name: three-zero-four-release
+    rules:
+      - alert: ThreeZeroFourGameServiceScrapeMissing
+        expr: up{job="three-zero-four-game-service"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Game service metrics scrape is unavailable.
+          runbook: Inspect the production-foundation worker and readiness runbook.
+      - alert: ThreeZeroFourWorkerHeartbeatStale
+        expr: three_zero_four_worker_heartbeat_age_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: The automation worker has not completed a healthy poll recently.
+          runbook: Inspect worker logs and PostgreSQL/Redis readiness before restarting it.
+      - alert: ThreeZeroFourOutboxBacklogPersistent
+        expr: three_zero_four_room_outbox_pending > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Durable room notification backlog remains elevated.
+          runbook: Inspect room publisher health and Redis delivery without replaying game events.
+      - alert: ThreeZeroFourAutomationBacklogPersistent
+        expr: three_zero_four_automation_jobs_pending > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Durable automation backlog remains elevated.
+          runbook: Inspect automation worker health and queue lag; do not manually edit jobs.

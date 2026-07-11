@@ -138,38 +138,46 @@ function applySecurityHeaders(response) {
   }
 }
 
+const PUBLIC_STATIC_FILES = new Set(["/", "/index.html", "/styles.css"]);
+const PUBLIC_STATIC_PREFIXES = ["/src/ui/", "/assets/"];
+
 function safePath(urlPath) {
   try {
-    const normalized = path.normalize(decodeURIComponent(urlPath));
-    if (normalized.includes("..") || path.isAbsolute(normalized)) return null;
-    if (normalized.startsWith(path.sep)) {
-      return normalized;
-    }
-    return `/${normalized}`;
-  } catch (error) {
+    const decoded = decodeURIComponent(urlPath);
+    if (decoded.includes("\0") || decoded.includes("\\")) return null;
+    const relativeInput = decoded.replace(/^\/+/, "");
+    if (relativeInput.split("/").includes("..")) return null;
+    const normalized = path.posix.normalize(`/${relativeInput}`);
+    const relativePath = normalized.replace(/^\/+/, "");
+    return relativePath ? `/${relativePath}` : "/";
+  } catch {
     return null;
   }
 }
 
+function isPublicStaticPath(cleanPath) {
+  return (
+    PUBLIC_STATIC_FILES.has(cleanPath) ||
+    PUBLIC_STATIC_PREFIXES.some((prefix) => cleanPath.startsWith(prefix))
+  );
+}
+
 function resolveFile(requested) {
   const cleanPath = safePath(requested);
-  if (!cleanPath) return null;
-  if (cleanPath === "/" || cleanPath === "") {
-    return path.join(ROOT_DIR, "index.html");
-  }
-  const candidate = path.join(ROOT_DIR, cleanPath);
-  if (!candidate.startsWith(`${ROOT_DIR}${path.sep}`) && candidate !== ROOT_DIR) {
+  if (!cleanPath || !isPublicStaticPath(cleanPath)) return null;
+  const candidate =
+    cleanPath === "/"
+      ? path.join(ROOT_DIR, "index.html")
+      : path.resolve(ROOT_DIR, `.${cleanPath}`);
+  if (!candidate.startsWith(`${ROOT_DIR}${path.sep}`)) {
     return null;
   }
   try {
     const stat = fs.statSync(candidate);
-    if (stat.isDirectory()) {
-      return null;
-    }
-  } catch (error) {
+    return stat.isDirectory() ? null : candidate;
+  } catch {
     return null;
   }
-  return candidate;
 }
 
 function writeJson(response, statusCode, payload) {
@@ -203,12 +211,17 @@ function writeResponse(filePath, reqMethod, response) {
   const contentType = MIME_TYPES[extension] || "application/octet-stream";
   const data = fs.readFileSync(filePath);
   const isHtml = extension === ".html";
+  const isBrowserCode = extension === ".css" || extension === ".js";
   response.statusCode = 200;
   applySecurityHeaders(response);
   response.setHeader("Content-Type", contentType);
   response.setHeader(
     "Cache-Control",
-    isHtml ? "no-cache, no-store, must-revalidate" : "public, max-age=31536000, immutable",
+    isHtml
+      ? "no-cache, no-store, must-revalidate"
+      : isBrowserCode
+        ? "no-cache"
+        : "public, max-age=31536000, immutable",
   );
   if (reqMethod !== "HEAD") {
     response.end(data);
@@ -1045,16 +1058,17 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     if (!consumeRateLimit(req, token, "join_room")) {
       return writeError(res, 429, "Rate limit exceeded");
     }
-    const payload = await parseJsonBody(req);
-    if (roomRef.status !== "lobby") {
-      return writeError(res, 409, "Room is not accepting joins now");
-    }
-    const preferredSeat = normalizeInt(payload.seatIndex, NaN);
     const existingSeat = roomRef.participants.get(token);
     if (typeof existingSeat === "number") {
       touchSeatPresence(roomRef, existingSeat);
+      rememberSessionRoom(session, roomRef);
       return writeJson(res, 200, sanitizeRoomForSeat(roomRef, existingSeat, session, true));
     }
+    if (roomRef.status !== "lobby") {
+      return writeError(res, 409, "Room is not accepting joins now");
+    }
+    const payload = await parseJsonBody(req);
+    const preferredSeat = normalizeInt(payload.seatIndex, NaN);
 
     const pickSeat = (() => {
       if (Number.isFinite(preferredSeat) && preferredSeat >= 0 && preferredSeat < roomRef.seats.length && seatIsUsableForSeat(roomRef, preferredSeat, session)) {

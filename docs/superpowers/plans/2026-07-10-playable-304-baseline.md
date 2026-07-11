@@ -255,7 +255,74 @@ git add server.js docs/superpowers/specs/2026-07-10-304-game-build-design.md
 git commit -m "fix: serve the 304 game shell safely"
 ```
 
-## Task 3: Characterize the engine's playable contracts
+## Task 3: Define the engine module boundary without warnings
+
+**Files:**
+
+- Create: `src/engine/package.json`
+- Create: `test/engine-module-boundary.test.mjs`
+
+**Interfaces:**
+
+- Consumes: Node's nearest-package module type resolution for `src/engine/*.js`.
+- Produces: ES module parsing for engine files without changing the CommonJS `server.js` entrypoint.
+
+- [ ] **Step 1: Write the failing import-warning regression**
+
+```js
+// test/engine-module-boundary.test.mjs
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import test from "node:test";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const testDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(testDir, "..");
+
+test("engine modules load as ESM without typeless-package warnings", () => {
+  const result = spawnSync(
+    process.execPath,
+    ["--input-type=module", "--eval", "import('./src/engine/engine.js')"],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stderr, /MODULE_TYPELESS_PACKAGE_JSON/);
+});
+```
+
+- [ ] **Step 2: Run the regression and verify RED**
+
+Run: `node --test test/engine-module-boundary.test.mjs`
+
+Expected: the test fails because Node emits `MODULE_TYPELESS_PACKAGE_JSON` while dynamically reparsing `src/engine/engine.js`.
+
+- [ ] **Step 3: Add the scoped ESM package declaration**
+
+```json
+// src/engine/package.json
+{
+  "type": "module"
+}
+```
+
+This nested package boundary leaves root-level `server.js` in CommonJS mode while declaring the files that use `import`/`export` syntax as ESM.
+
+- [ ] **Step 4: Run the regression and engine suite to verify GREEN**
+
+Run: `node --test test/engine-module-boundary.test.mjs test/engine-contract.test.mjs`
+
+Expected: five passing tests and no `MODULE_TYPELESS_PACKAGE_JSON` output.
+
+- [ ] **Step 5: Commit the module-boundary fix**
+
+```bash
+git add src/engine/package.json test/engine-module-boundary.test.mjs
+git commit -m "fix: declare engine modules as esm"
+```
+
+## Task 4: Characterize the engine's playable contracts
 
 **Files:**
 
@@ -344,7 +411,7 @@ git add test/engine-contract.test.mjs
 git commit -m "test: characterize 304 engine contracts"
 ```
 
-## Task 4: Prove the room-to-engine quick-practice path
+## Task 5: Prove the room-to-engine quick-practice path
 
 **Files:**
 
@@ -432,7 +499,7 @@ git add test/room-flow.test.mjs
 git commit -m "test: cover 304 quick practice room flow"
 ```
 
-## Task 5: Run browser acceptance on desktop and mobile
+## Task 6: Run browser acceptance on desktop and mobile
 
 **Files:**
 
@@ -474,6 +541,6 @@ If an observed browser defect is found, stop this acceptance task and create a s
 
 ## Plan self-review
 
-- Spec coverage: Tasks 1-2 cover boot and secure static serving; Task 3 covers deck/deal/projection/bot legality; Task 4 covers room/bot-fill/private hand flow; Task 5 covers the browser acceptance journey and mobile usability.
+- Spec coverage: Tasks 1-2 cover boot and secure static serving; Task 3 removes the engine module-format warning; Task 4 covers deck/deal/projection/bot legality; Task 5 covers room/bot-fill/private hand flow; Task 6 covers the browser acceptance journey and mobile usability.
 - Placeholder scan: no TODO, TBD, placeholder file names, or unspecified commits are present. A browser-discovered defect is deliberately routed to a fresh exact test-first task instead of an unspecified code change.
 - Type consistency: the test helper exports `startServer`; all server tests import that exact name. Room API assertions use the current response names (`roomId`, `seatView`, `publicState`, `legalActions`).

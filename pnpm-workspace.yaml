@@ -1,4 +1,14 @@
+packages:
+  - apps/*
+  - packages/*
+
+overrides:
+  postcss: 8.5.16
+
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 trustPolicy: no-downgrade
 blockExoticSubdeps: true
+allowBuilds:
+  esbuild: true
+  sharp: false

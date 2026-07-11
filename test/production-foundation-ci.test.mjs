@@ -1,0 +1,93 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const read = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
+
+test("production CI and runbook cover immutable install, verification, recovery, and rollback", () => {
+  const workflow = read(".github/workflows/ci.yml");
+  const runbook = read("docs/operations/production-foundation.md");
+  const compose = read("infra/compose/compose.yaml");
+  const gameServiceDockerfile = read("apps/game-service/Dockerfile");
+
+  assert.match(workflow, /uses: actions\/checkout@[0-9a-f]{40}/);
+  assert.match(workflow, /uses: actions\/setup-node@[0-9a-f]{40}/);
+  assert.match(workflow, /pnpm install --frozen-lockfile/);
+  assert.match(workflow, /pnpm check/);
+  assert.match(workflow, /pnpm audit --audit-level=high/);
+  assert.match(workflow, /pnpm audit signatures/);
+  assert.match(workflow, /compose\.yaml up --build --wait/);
+  assert.match(workflow, /127\.0\.0\.1:4100\/livez/);
+  assert.match(workflow, /127\.0\.0\.1:4100\/readyz/);
+  assert.match(
+    workflow,
+    /compose\.yaml --profile integration build integration/,
+  );
+  assert.match(
+    workflow,
+    /compose\.yaml --profile integration run --rm --no-deps integration/,
+  );
+  assert.match(workflow, /if: failure\(\)[\s\S]*compose\.yaml ps/);
+  assert.match(compose, /integration:[\s\S]*target: test/);
+  assert.match(compose, /integration:[\s\S]*profiles: \["integration"\]/);
+  assert.match(compose, /worker:[\s\S]*dist\/src\/worker\.js/);
+  assert.match(compose, /worker:[\s\S]*healthcheck/);
+  assert.match(gameServiceDockerfile, /FROM build AS test/);
+  assert.match(
+    gameServiceDockerfile,
+    /FROM build AS production-deps[\s\S]*pnpm --filter @three-zero-four\/game-service --prod deploy/,
+  );
+  assert.match(
+    gameServiceDockerfile,
+    /COPY --from=build --chown=65532:65532 \/app\/infra\/postgres\/migrations \/infra\/postgres\/migrations/,
+  );
+  assert.match(runbook, /durable-rooms\.integration\.test\.ts/);
+  assert.match(runbook, /pg_dump/);
+  assert.match(runbook, /pg_restore/);
+  assert.match(runbook, /\/readyz/);
+  assert.match(runbook, /WebSocket/);
+  assert.match(runbook, /automation worker/);
+  assert.match(runbook, /ROOM_RECOVERY_FAILED/);
+  assert.match(runbook, /duplicate socket snapshot/);
+  assert.match(runbook, /Rollback/);
+});
+
+test("public-release CI includes browser, scanner, load, and restore gates", () => {
+  const workflow = read(".github/workflows/ci.yml");
+  const readme = read("README.md");
+  const webPackage = read("apps/web/package.json");
+  const restoreScript = read("scripts/backup-restore-rehearsal.sh");
+  const loadSmoke = read("infra/load/browser-api-smoke.js");
+  const releaseRunbook = read("docs/operations/public-release.md");
+
+  assert.match(webPackage, /"e2e": "playwright test"/);
+  assert.match(webPackage, /"@playwright\/test"/);
+  assert.match(workflow, /playwright install --with-deps chromium/);
+  assert.match(workflow, /playwright test/);
+  assert.match(workflow, /gitleaks/);
+  assert.match(workflow, /trivy/);
+  assert.match(workflow, /name: Scan release game-service image/);
+  assert.match(workflow, /image-ref: three-zero-four-game-service:latest/);
+  assert.match(workflow, /name: Scan release web image/);
+  assert.match(workflow, /image-ref: three-zero-four-web:latest/);
+  assert.match(workflow, /backup-restore-rehearsal\.sh/);
+  assert.match(
+    workflow,
+    /G304_RESTORE_REHEARSAL=1 scripts\/backup-restore-rehearsal\.sh/,
+  );
+  assert.match(workflow, /browser-api-smoke\.js/);
+  assert.match(workflow, /upload-artifact@[0-9a-f]{40}/);
+  assert.match(restoreScript, /trap cleanup EXIT/);
+  assert.match(restoreScript, /G304_RESTORE_REHEARSAL/);
+  assert.match(restoreScript, /pg_restore/);
+  assert.match(restoreScript, /schema_migrations/);
+  assert.match(loadSmoke, /MAX_CONCURRENCY/);
+  assert.match(loadSmoke, /MAX_DURATION_MS/);
+  assert.match(loadSmoke, /guest-sessions/);
+  assert.match(releaseRunbook, /Public-release rehearsal/);
+  assert.match(releaseRunbook, /G304_RESTORE_REHEARSAL=1/);
+  assert.match(readme, /Public-release rehearsal/);
+});
