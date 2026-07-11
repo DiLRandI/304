@@ -1,13 +1,102 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RoomLobby } from "../src/components/room-lobby.js";
 import { lobbyProjection } from "./browser-fixtures.js";
 
+const originalClipboard = navigator.clipboard;
+
+function setClipboard(
+  clipboard: { writeText(text: string): Promise<void> } | undefined,
+): void {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: clipboard,
+  });
+}
+
+async function expectCopyStatus(message: string): Promise<void> {
+  fireEvent.click(screen.getByRole("button", { name: "Copy invite code" }));
+  await waitFor(() =>
+    expect(screen.getByRole("status").textContent).toBe(message),
+  );
+}
+
 describe("RoomLobby", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    setClipboard(originalClipboard);
+    vi.restoreAllMocks();
+  });
+
+  it("asks the guest to copy manually when the Clipboard API is unavailable", async () => {
+    setClipboard(undefined);
+    render(
+      <RoomLobby
+        leave={vi.fn()}
+        projection={lobbyProjection()}
+        start={vi.fn()}
+      />,
+    );
+
+    await expectCopyStatus("Copy the invite code manually.");
+  });
+
+  it("reports success only after writing the exact invite code", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setClipboard({ writeText });
+    render(
+      <RoomLobby
+        leave={vi.fn()}
+        projection={lobbyProjection()}
+        start={vi.fn()}
+      />,
+    );
+
+    await expectCopyStatus("Invite code copied.");
+    expect(writeText).toHaveBeenCalledOnce();
+    expect(writeText).toHaveBeenCalledWith("304-abcdefghijkl");
+  });
+
+  it("asks the guest to copy manually when clipboard writing rejects", async () => {
+    setClipboard({
+      writeText: vi.fn().mockRejectedValue(new Error("permission denied")),
+    });
+    render(
+      <RoomLobby
+        leave={vi.fn()}
+        projection={lobbyProjection()}
+        start={vi.fn()}
+      />,
+    );
+
+    await expectCopyStatus("Copy the invite code manually.");
+  });
+
+  it("asks the guest to copy manually when clipboard writing throws", async () => {
+    setClipboard({
+      writeText: vi.fn().mockImplementation(() => {
+        throw new Error("clipboard unavailable");
+      }),
+    });
+    render(
+      <RoomLobby
+        leave={vi.fn()}
+        projection={lobbyProjection()}
+        start={vi.fn()}
+      />,
+    );
+
+    await expectCopyStatus("Copy the invite code manually.");
+  });
 
   it("shows a host the private invite code and an authoritative start control", async () => {
     const user = userEvent.setup();

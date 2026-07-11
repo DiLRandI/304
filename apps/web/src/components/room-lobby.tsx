@@ -25,8 +25,13 @@ export function RoomLobby({
   const isHost = view.isHost;
 
   async function copyInvite(): Promise<void> {
+    const clipboard = navigator.clipboard;
+    if (typeof clipboard?.writeText !== "function") {
+      setCopyStatus("Copy the invite code manually.");
+      return;
+    }
     try {
-      await navigator.clipboard?.writeText(projection.inviteCode);
+      await clipboard.writeText(projection.inviteCode);
       setCopyStatus("Invite code copied.");
     } catch {
       setCopyStatus("Copy the invite code manually.");
