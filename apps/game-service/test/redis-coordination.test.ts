@@ -35,6 +35,16 @@ describeIntegration("Redis game coordination", () => {
     });
   });
 
+  it("waits briefly for a contended lease that is about to expire", async () => {
+    const roomId = randomUUID();
+    await redis.set(`g304:lease:${roomId}`, "other-owner", { PX: 75 });
+    const lease = new RoomLease(redis, 5_000);
+
+    await expect(
+      lease.withLease(roomId, async () => "accepted-after-contention"),
+    ).resolves.toBe("accepted-after-contention");
+  });
+
   it("releases only its own lease and tracks expiring presence", async () => {
     const roomId = randomUUID();
     const playerId = randomUUID();

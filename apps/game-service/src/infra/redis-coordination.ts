@@ -4,6 +4,7 @@ import { DomainError } from "../domain/errors.js";
 
 const RELEASE_LEASE_SCRIPT =
   "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0";
+const ROOM_LEASE_RETRY_DELAYS_MS = [25, 75, 150, 250] as const;
 const FIXED_WINDOW_INCREMENT_SCRIPT =
   "local count = redis.call('INCR', KEYS[1]); if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end return count";
 const AUTOMATION_OUTCOME_METRICS_KEY = "g304:metrics:automation-outcomes";
@@ -30,19 +31,28 @@ export class RoomLease {
   async withLease<T>(roomId: string, work: () => Promise<T>): Promise<T> {
     const key = `g304:lease:${redisKeyPart(roomId)}`;
     const owner = randomUUID();
-    const acquired = await this.redis.set(key, owner, {
-      NX: true,
-      PX: this.ttlMs,
-    });
-    if (acquired !== "OK") {
-      throw new DomainError("ROOM_BUSY", 503, "Room is busy; retry shortly");
-    }
-    try {
-      return await work();
-    } finally {
-      await this.redis.eval(RELEASE_LEASE_SCRIPT, {
-        keys: [key],
-        arguments: [owner],
+    for (let attempt = 0; ; attempt += 1) {
+      const acquired = await this.redis.set(key, owner, {
+        NX: true,
+        PX: this.ttlMs,
+      });
+      if (acquired === "OK") {
+        try {
+          return await work();
+        } finally {
+          await this.redis.eval(RELEASE_LEASE_SCRIPT, {
+            keys: [key],
+            arguments: [owner],
+          });
+        }
+      }
+
+      const retryDelayMs = ROOM_LEASE_RETRY_DELAYS_MS[attempt];
+      if (retryDelayMs === undefined) {
+        throw new DomainError("ROOM_BUSY", 503, "Room is busy; retry shortly");
+      }
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, retryDelayMs);
       });
     }
   }
