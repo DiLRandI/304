@@ -73,6 +73,47 @@ test("display preferences stay tappable inside a touch-mobile viewport", async (
   }
 });
 
+test("a 320px private lobby contains valid long names and its invite code", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto("/play");
+  await dismissConsent(page);
+  await page.getByLabel("Display name").fill("M".repeat(48));
+  await page.getByLabel("Rule profile").selectOption("six_304_36");
+  await page.getByRole("button", { name: "Create private room" }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Set the table before the first hand.",
+    }),
+  ).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    const lobby = document
+      .querySelector(".room-lobby")
+      ?.getBoundingClientRect();
+    const seatHeadings = [
+      ...document.querySelectorAll<HTMLElement>(".lobby-seats h2"),
+    ];
+    return {
+      documentWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+      lobbyLeft: lobby?.left ?? -1,
+      lobbyRight: lobby?.right ?? Number.POSITIVE_INFINITY,
+      overflowingSeatNames: seatHeadings.filter(
+        (heading) => heading.scrollWidth > heading.clientWidth,
+      ).length,
+    };
+  });
+  expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.innerWidth);
+  expect(geometry.lobbyLeft).toBeGreaterThanOrEqual(0);
+  expect(geometry.lobbyRight).toBeLessThanOrEqual(geometry.innerWidth);
+  expect(geometry.overflowingSeatNames).toBe(0);
+
+  await page.getByRole("button", { name: "Leave table" }).click();
+  await expect(page).toHaveURL(/\/play$/);
+});
+
 test("keyboard action controls and display preferences work without pointer-only behavior", async ({
   page,
 }) => {
