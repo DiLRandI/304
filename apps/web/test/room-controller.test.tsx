@@ -31,6 +31,7 @@ describe("useRoomController", () => {
       getRoom: vi.fn().mockResolvedValue(initial),
       getSnapshot: vi.fn().mockResolvedValue(updated),
       joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
       roomSocketUrl: vi
         .fn()
         .mockReturnValue("wss://api.example.test/v1/realtime/rooms/room"),
@@ -65,6 +66,7 @@ describe("useRoomController", () => {
       getRoom: vi.fn().mockResolvedValue(initial),
       getSnapshot: vi.fn().mockResolvedValue(gapProjection),
       joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
       roomSocketUrl: vi
         .fn()
         .mockReturnValue("wss://api.example.test/v1/realtime/rooms/room"),
@@ -105,6 +107,7 @@ describe("useRoomController", () => {
       getRoom: vi.fn().mockReturnValue(roomRequest),
       getSnapshot: vi.fn(),
       joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
       roomSocketUrl: vi.fn(),
       startRoom: vi.fn(),
       submitCommand: vi.fn(),
@@ -124,5 +127,40 @@ describe("useRoomController", () => {
     });
 
     expect(client.joinRoom).not.toHaveBeenCalled();
+  });
+
+  it("leaves only after a safe exit response, then clears private state without reconnecting", async () => {
+    const initial = activeProjection(1);
+    const roomSocket = socket();
+    const client = {
+      getRoom: vi.fn().mockResolvedValue(initial),
+      getSnapshot: vi.fn(),
+      joinRoom: vi.fn(),
+      leaveRoom: vi.fn().mockResolvedValue({
+        eventVersion: 2,
+        roomId: ROOM_ID,
+        status: "left",
+      }),
+      roomSocketUrl: vi
+        .fn()
+        .mockReturnValue("wss://api.example.test/v1/realtime/rooms/room"),
+      startRoom: vi.fn(),
+      submitCommand: vi.fn(),
+    };
+    const createSocket = vi.fn().mockReturnValue(roomSocket);
+    const { result } = renderHook(() =>
+      useRoomController("304-abcdefghijkl", client, { createSocket }),
+    );
+
+    await waitFor(() => expect(result.current.projection).toEqual(initial));
+    await act(async () => result.current.leave());
+    act(() => roomSocket.onclose?.(new Event("close")));
+
+    expect(client.leaveRoom).toHaveBeenCalledWith(ROOM_ID, 1);
+    expect(roomSocket.close).toHaveBeenCalledOnce();
+    expect(client.getSnapshot).not.toHaveBeenCalled();
+    expect(createSocket).toHaveBeenCalledOnce();
+    expect(result.current.connection).toBe("offline");
+    expect(result.current.projection).toBeNull();
   });
 });

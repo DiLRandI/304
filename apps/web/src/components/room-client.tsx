@@ -1,6 +1,7 @@
 "use client";
 
 import type { GameAction } from "@three-zero-four/contracts";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { useRoomController } from "../hooks/use-room-controller";
 import { GameClient } from "../lib/game-client";
@@ -41,9 +42,15 @@ function ConnectedRoom({
   client: GameClient;
   roomReference: string;
 }) {
+  const router = useRouter();
   const controller = useRoomController(roomReference, client);
   const submit = (action: GameAction) => {
     void controller.submit(action);
+  };
+  const leave = () => {
+    void controller.leave().then((exit) => {
+      if (exit) router.replace("/play");
+    });
   };
 
   if (controller.loading && !controller.projection) {
@@ -74,12 +81,14 @@ function ConnectedRoom({
       ) : null}
       {controller.projection.status === "lobby" ? (
         <RoomLobby
+          leave={leave}
           projection={controller.projection}
           start={() => void controller.start()}
         />
       ) : (
         <GameTable
           connection={controller.connection}
+          leave={leave}
           projection={controller.projection}
           submit={submit}
         />

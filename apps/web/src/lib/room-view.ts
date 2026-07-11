@@ -32,8 +32,30 @@ export interface ProjectedTrickPlay {
   seatIndex: number;
 }
 
+export type ProjectedHandResult =
+  | {
+      handNumber: number;
+      noScore: true;
+      reason: string;
+      tokens: [number, number];
+    }
+  | {
+      bidderTeam: "A" | "B";
+      bidderTeamPoints: number;
+      bid: number;
+      handNumber: number;
+      matchComplete: boolean;
+      movement: number;
+      otherTeamPoints: number;
+      success: boolean;
+      tokens: [number, number];
+      trickCount: number;
+      winningTeam: "A" | "B";
+    };
+
 export interface GameRoomView {
   kind: "game";
+  isHost: boolean;
   legalActions: GameAction[];
   privateSeat: {
     hand: ProjectedCard[];
@@ -44,6 +66,7 @@ export interface GameRoomView {
     activeSeat: number | null;
     bid: number;
     handNumber: number;
+    handResult: ProjectedHandResult | null;
     phase: string;
     profileId: string;
     seatCount: 4 | 6;
@@ -61,6 +84,7 @@ export interface GameRoomView {
 
 export interface LobbyRoomView {
   kind: "lobby";
+  isHost: boolean;
   lobby: {
     ruleProfileId: string;
     seats: Array<{
@@ -93,6 +117,111 @@ function nullableInteger(value: unknown): number | null | undefined {
 function nullableString(value: unknown): string | null | undefined {
   if (value === null) return null;
   return typeof value === "string" ? value : undefined;
+}
+
+function team(value: unknown): "A" | "B" | null {
+  return value === "A" || value === "B" ? value : null;
+}
+
+function tokenPair(value: unknown): [number, number] | null {
+  if (!Array.isArray(value) || value.length !== 2) return null;
+  const teamA = nonNegativeInteger(value[0]);
+  const teamB = nonNegativeInteger(value[1]);
+  if (teamA === null || teamB === null) return null;
+  return [teamA, teamB];
+}
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[],
+): boolean {
+  const keys = Object.keys(value);
+  return (
+    keys.length === expected.length &&
+    keys.every((key) => expected.includes(key))
+  );
+}
+
+function readHandResult(
+  value: unknown,
+): ProjectedHandResult | null | undefined {
+  if (value === null) return null;
+  if (!isRecord(value)) return undefined;
+  if (value.noScore === true) {
+    if (!hasExactKeys(value, ["handNumber", "noScore", "reason", "tokens"])) {
+      return undefined;
+    }
+    const handNumber = nonNegativeInteger(value.handNumber);
+    const tokens = tokenPair(value.tokens);
+    if (
+      handNumber === null ||
+      tokens === null ||
+      typeof value.reason !== "string" ||
+      value.reason.trim().length === 0
+    ) {
+      return undefined;
+    }
+    return {
+      handNumber,
+      noScore: true,
+      reason: value.reason,
+      tokens,
+    };
+  }
+  if (
+    !hasExactKeys(value, [
+      "bidderTeam",
+      "bidderTeamPoints",
+      "bid",
+      "handNumber",
+      "matchComplete",
+      "movement",
+      "otherTeamPoints",
+      "success",
+      "tokens",
+      "trickCount",
+      "winningTeam",
+    ])
+  ) {
+    return undefined;
+  }
+  const bidderTeam = team(value.bidderTeam);
+  const winningTeam = team(value.winningTeam);
+  const bid = nonNegativeInteger(value.bid);
+  const bidderTeamPoints = nonNegativeInteger(value.bidderTeamPoints);
+  const handNumber = nonNegativeInteger(value.handNumber);
+  const movement = nonNegativeInteger(value.movement);
+  const otherTeamPoints = nonNegativeInteger(value.otherTeamPoints);
+  const tokens = tokenPair(value.tokens);
+  const trickCount = nonNegativeInteger(value.trickCount);
+  if (
+    bidderTeam === null ||
+    winningTeam === null ||
+    bid === null ||
+    bidderTeamPoints === null ||
+    handNumber === null ||
+    movement === null ||
+    otherTeamPoints === null ||
+    tokens === null ||
+    trickCount === null ||
+    typeof value.matchComplete !== "boolean" ||
+    typeof value.success !== "boolean"
+  ) {
+    return undefined;
+  }
+  return {
+    bidderTeam,
+    bidderTeamPoints,
+    bid,
+    handNumber,
+    matchComplete: value.matchComplete,
+    movement,
+    otherTeamPoints,
+    success: value.success,
+    tokens,
+    trickCount,
+    winningTeam,
+  };
 }
 
 function readCard(value: unknown): ProjectedCard | null {
@@ -189,7 +318,11 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
   if (!Array.isArray(publicState.seats) || !Array.isArray(privateSeat.hand)) {
     return null;
   }
-  if (!Array.isArray(view.legalActions) || typeof view.prompt !== "string") {
+  if (
+    !Array.isArray(view.legalActions) ||
+    typeof view.isHost !== "boolean" ||
+    typeof view.prompt !== "string"
+  ) {
     return null;
   }
 
@@ -198,12 +331,14 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
   const activeSeat = nullableInteger(publicState.activeSeat);
   const privateSeatIndex = nonNegativeInteger(privateSeat.index);
   const bidding = publicState.bidding;
+  const handResult = readHandResult(publicState.handResult);
   const trump = publicState.trump;
   const trick = readTrick(publicState.trick);
   if (
     (seatCount !== 4 && seatCount !== 6) ||
     handNumber === null ||
     activeSeat === undefined ||
+    handResult === undefined ||
     privateSeatIndex === null ||
     !isRecord(bidding) ||
     typeof bidding.currentBid !== "number" ||
@@ -256,6 +391,7 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
 
   return {
     kind: "game",
+    isHost: view.isHost,
     legalActions,
     privateSeat: { hand, index: privateSeatIndex },
     prompt: view.prompt,
@@ -263,6 +399,7 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
       activeSeat,
       bid: bidding.currentBid,
       handNumber,
+      handResult,
       phase: publicState.phase,
       profileId: publicState.profileId,
       seatCount,
@@ -284,7 +421,13 @@ export function readLobbyRoomView(
 ): LobbyRoomView | null {
   if (projection.status !== "lobby" || !isRecord(projection.view)) return null;
   const lobby = projection.view.lobby;
-  if (!isRecord(lobby) || typeof lobby.ruleProfileId !== "string") return null;
+  if (
+    !isRecord(lobby) ||
+    typeof lobby.ruleProfileId !== "string" ||
+    typeof projection.view.isHost !== "boolean"
+  ) {
+    return null;
+  }
   if (!Array.isArray(lobby.seats)) return null;
   const seats: LobbyRoomView["lobby"]["seats"] = [];
   for (const item of lobby.seats) {
@@ -311,6 +454,7 @@ export function readLobbyRoomView(
   }
   return {
     kind: "lobby",
+    isHost: projection.view.isHost,
     lobby: { ruleProfileId: lobby.ruleProfileId, seats },
   };
 }

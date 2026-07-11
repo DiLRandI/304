@@ -5,9 +5,11 @@ import { useState } from "react";
 import { readLobbyRoomView } from "../lib/room-view";
 
 export function RoomLobby({
+  leave,
   projection,
   start,
 }: {
+  leave(): void;
   projection: RoomProjection;
   start(): void;
 }) {
@@ -20,7 +22,7 @@ export function RoomLobby({
       </section>
     );
   }
-  const isHost = projection.viewerSeatIndex === 0;
+  const isHost = view.isHost;
 
   async function copyInvite(): Promise<void> {
     try {
@@ -74,15 +76,20 @@ export function RoomLobby({
           ? "Six-seat 304-36 variant"
           : "Classic four-seat 304"}
       </p>
-      {isHost ? (
-        <button className="primary-action" onClick={start} type="button">
-          Start game
+      <div className="lobby-actions">
+        {isHost ? (
+          <button className="primary-action" onClick={start} type="button">
+            Start game
+          </button>
+        ) : (
+          <p aria-live="polite" className="form-status">
+            Waiting for the host to start the game.
+          </p>
+        )}
+        <button className="leave-table" onClick={leave} type="button">
+          Leave table
         </button>
-      ) : (
-        <p aria-live="polite" className="form-status">
-          Waiting for the host to start the game.
-        </p>
-      )}
+      </div>
     </section>
   );
 }

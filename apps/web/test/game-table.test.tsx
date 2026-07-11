@@ -1,12 +1,18 @@
 /** @vitest-environment jsdom */
 
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { GameTable } from "../src/components/game-table.js";
-import { activeProjection, jackOfSpades } from "./browser-fixtures.js";
+import {
+  activeProjection,
+  jackOfSpades,
+  resultProjection,
+} from "./browser-fixtures.js";
 
 describe("GameTable", () => {
+  afterEach(cleanup);
+
   it("enables only a legal projected card and submits its server action", async () => {
     const user = userEvent.setup();
     const submit = vi.fn();
@@ -14,6 +20,7 @@ describe("GameTable", () => {
     render(
       <GameTable
         connection="live"
+        leave={vi.fn()}
         projection={activeProjection()}
         submit={submit}
       />,
@@ -42,11 +49,97 @@ describe("GameTable", () => {
     projection.view = { publicState: { seats: "not-a-seat-list" } };
 
     render(
-      <GameTable connection="live" projection={projection} submit={vi.fn()} />,
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={vi.fn()}
+      />,
     );
 
     expect(
       screen.getByText("This table update could not be displayed safely."),
     ).toBeTruthy();
+  });
+
+  it("announces only the server-projected result and labels continuation precisely", () => {
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={resultProjection()}
+        submit={vi.fn()}
+      />,
+    );
+
+    const result = screen.getByRole("region", { name: "Hand result" });
+    expect(result.textContent).toContain("Winning team A");
+    expect(result.textContent).toContain("Bid160");
+    expect(screen.getByRole("button", { name: "Next hand" })).toBeTruthy();
+    expect(screen.getByLabelText("Seat 1").getAttribute("data-seat-type")).toBe(
+      "human",
+    );
+    expect(screen.getByLabelText("Seat 1").getAttribute("data-hand-size")).toBe(
+      "8",
+    );
+  });
+
+  it("uses the rematch label only for a completed match and rejects overbroad result data", () => {
+    const completed = resultProjection(true);
+    const completedRender = render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={completed}
+        submit={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Play another match" }),
+    ).toBeTruthy();
+    completedRender.unmount();
+
+    const overbroad = resultProjection();
+    const publicState = overbroad.view.publicState as Record<string, unknown>;
+    publicState.handResult = {
+      ...(publicState.handResult as Record<string, unknown>),
+      shuffleSeed: 42,
+    };
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={overbroad}
+        submit={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("This table update could not be displayed safely."),
+    ).toBeTruthy();
+  });
+
+  it("renders a strictly projected no-score result without inventing a winner", () => {
+    const projection = resultProjection();
+    const publicState = projection.view.publicState as Record<string, unknown>;
+    publicState.handResult = {
+      handNumber: 1,
+      noScore: true,
+      reason: "All players passed. No score movement this hand.",
+      tokens: [11, 11],
+    };
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={vi.fn()}
+      />,
+    );
+
+    const result = screen.getByRole("region", { name: "Hand result" });
+    expect(result.textContent).toContain("No score movement");
+    expect(result.textContent).toContain("All players passed");
+    expect(result.textContent).not.toContain("Winning team");
   });
 });

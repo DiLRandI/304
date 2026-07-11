@@ -518,6 +518,46 @@ dd[data-state="missing"] {
   font-size: 1rem;
 }
 
+.lobby-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.lobby-actions > .form-status {
+  width: fit-content;
+}
+
+.lobby-actions .primary-action {
+  width: fit-content;
+}
+
+.leave-table {
+  display: inline-flex;
+  min-height: 2.6rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(242 192 126 / 35%);
+  border-radius: 0.72rem;
+  background: rgb(101 48 28 / 26%);
+  color: #f8d2c0;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.84rem;
+  font-weight: 760;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.leave-table:hover {
+  border-color: rgb(255 207 165 / 64%);
+  background: rgb(133 62 36 / 42%);
+  transform: translateY(-1px);
+}
+
 .room-lobby > .primary-action,
 .room-lobby > .form-status {
   grid-column: 1 / -1;
@@ -543,6 +583,11 @@ dd[data-state="missing"] {
   justify-content: space-between;
   gap: 1rem;
   padding: 0 0.25rem;
+}
+
+.table-exit {
+  display: flex;
+  justify-content: end;
 }
 
 .connection-state {
@@ -764,6 +809,56 @@ dd[data-state="missing"] {
   color: #f5f4e9;
   font-size: 1rem;
   line-height: 1.45;
+}
+
+.hand-result {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgb(243 199 95 / 46%);
+  border-radius: 0.9rem;
+  background: linear-gradient(
+    135deg,
+    rgb(108 77 22 / 54%),
+    rgb(25 70 43 / 70%)
+  );
+}
+
+.hand-result h2 {
+  color: #fff5dd;
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  letter-spacing: -0.03em;
+}
+
+.hand-result > p:last-child {
+  color: #e8eddc;
+  line-height: 1.5;
+}
+
+.hand-result dl {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 1px solid rgb(255 244 207 / 18%);
+  border-radius: 0.7rem;
+  overflow: hidden;
+}
+
+.hand-result dl > div {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 3.7rem;
+  align-content: center;
+  padding: 0.55rem;
+  background: rgb(3 25 16 / 34%);
+}
+
+.hand-result dl > div + div {
+  border-inline-start: 1px solid rgb(255 244 207 / 18%);
+}
+
+.hand-result dd {
+  color: #fff8e9;
+  font-size: 0.82rem;
 }
 
 .command-actions {
@@ -1102,6 +1197,7 @@ html[data-contrast="high"] {
 html[data-contrast="high"] body,
 html[data-contrast="high"] .table-center,
 html[data-contrast="high"] .seat-panel,
+html[data-contrast="high"] .hand-result,
 html[data-contrast="high"] .public-page > section,
 html[data-contrast="high"] .consent-banner,
 html[data-contrast="high"] .rules-popover,
@@ -1115,6 +1211,8 @@ html[data-contrast="high"] .summary,
 html[data-contrast="high"] .public-page p,
 html[data-contrast="high"] .seat-panel > p:last-child,
 html[data-contrast="high"] .trick-cards > p,
+html[data-contrast="high"] .hand-result > p:last-child,
+html[data-contrast="high"] .hand-result dd,
 html[data-contrast="high"] .consent-banner > p:not(.eyebrow) {
   color: #fff;
 }
@@ -1123,6 +1221,12 @@ html[data-contrast="high"] .card-button {
   border: 3px solid #000;
   background: #fff;
   box-shadow: none;
+}
+
+html[data-contrast="high"] .leave-table {
+  border-color: #fff;
+  background: #000;
+  color: #fff;
 }
 
 html[data-contrast="high"] .card-button[data-suit="hearts"],
@@ -1171,6 +1275,16 @@ html[data-contrast="high"] .card-button[data-suit="diamonds"] {
 
   .table-center {
     min-height: 18rem;
+  }
+
+  .hand-result dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  :where(.hand-result) dl > div:nth-child(3),
+  :where(.hand-result) dl > div:nth-child(5) {
+    border-inline-start: 0;
+    border-block-start: 1px solid rgb(255 244 207 / 18%);
   }
 
   .player-hand {
@@ -1229,6 +1343,10 @@ html[data-contrast="high"] .card-button[data-suit="diamonds"] {
     align-items: flex-start;
   }
 
+  .table-exit {
+    justify-content: flex-start;
+  }
+
   .table-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1282,6 +1400,7 @@ html[data-contrast="high"] .card-button[data-suit="diamonds"] {
   .invite-panel button,
   .command-actions button,
   .safe-table-state button,
+  .leave-table,
   .card-button {
     transition-duration: 0.01ms;
   }

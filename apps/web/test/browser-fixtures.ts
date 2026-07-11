@@ -81,6 +81,7 @@ export function activeProjection(eventVersion = 1): RoomProjection {
     status: "in_hand",
     viewerSeatIndex: 0,
     view: {
+      isHost: true,
       legalActions: [
         {
           cardId: jackOfSpades.cardId,
@@ -98,6 +99,7 @@ export function activeProjection(eventVersion = 1): RoomProjection {
         activeSeat: 0,
         bidding: { currentBid: 160, currentBidSeat: 0 },
         handNumber: 1,
+        handResult: null,
         phase: "trick_play",
         profileId: "classic_304_4p",
         seatCount: 4,
@@ -115,14 +117,53 @@ export function activeProjection(eventVersion = 1): RoomProjection {
   };
 }
 
-export function lobbyProjection(eventVersion = 1): RoomProjection {
+export function resultProjection(matchComplete = false): RoomProjection {
+  const projection = activeProjection();
+  projection.status = "hand_result";
+  projection.view = {
+    isHost: true,
+    legalActions: [{ type: "ACK_RESULT" }],
+    privateSeat: projection.view.privateSeat,
+    prompt: matchComplete
+      ? "Match complete."
+      : "Hand complete. Continue to next hand.",
+    publicState: {
+      ...(projection.view.publicState as Record<string, unknown>),
+      activeSeat: null,
+      handResult: {
+        bidderTeam: "A",
+        bidderTeamPoints: 196,
+        bid: 160,
+        handNumber: 1,
+        matchComplete,
+        movement: 1,
+        otherTeamPoints: 108,
+        success: true,
+        tokens: [12, 10],
+        trickCount: 8,
+        winningTeam: "A",
+      },
+      phase: matchComplete ? "match_complete" : "hand_result",
+      tokens: [12, 10],
+      trick: { plays: [] },
+    },
+  };
+  return projection;
+}
+
+export function lobbyProjection(
+  eventVersion = 1,
+  viewerSeatIndex = 0,
+  isHost = true,
+): RoomProjection {
   return {
     eventVersion,
     inviteCode: "304-abcdefghijkl",
     roomId: ROOM_ID,
     status: "lobby",
-    viewerSeatIndex: 0,
+    viewerSeatIndex,
     view: {
+      isHost,
       lobby: {
         ruleProfileId: "classic_304_4p",
         seats: seats.map((seat) => ({

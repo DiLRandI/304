@@ -31,6 +31,7 @@ interface DurableProjection {
   eventVersion: number;
   viewerSeatIndex: number | null;
   view: {
+    isHost?: boolean;
     publicState?: {
       activeSeat: number | null;
       dealerSeat?: number;
@@ -573,6 +574,8 @@ describeIntegration("durable room HTTP API", () => {
     const hostResult = results.get(host.playerId);
     const guestResult = results.get(guest.playerId);
     if (!hostResult || !guestResult) throw new Error("Expected hand results");
+    expect(hostResult.view.isHost).toBe(true);
+    expect(guestResult.view.isHost).toBe(false);
     const restarted = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/start`,
@@ -743,6 +746,7 @@ describeIntegration("durable room HTTP API", () => {
       remainingGuest.cookie,
       room.roomId,
     );
+    expect(newHostResult.view.isHost).toBe(true);
     expect(newHostResult.view.legalActions).toContainEqual({
       type: "ACK_RESULT",
     });
