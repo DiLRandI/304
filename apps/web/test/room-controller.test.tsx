@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useRoomController } from "../src/hooks/use-room-controller.js";
 import {
   activeProjection,
@@ -23,6 +23,8 @@ function socket() {
 }
 
 describe("useRoomController", () => {
+  afterEach(cleanup);
+
   it("submits a legal action at the current server version", async () => {
     const initial = activeProjection(1);
     const updated = activeProjection(2);
