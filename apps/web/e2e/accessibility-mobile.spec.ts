@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { devices, expect, type Page, test } from "@playwright/test";
 
 function uniqueName(prefix: string): string {
   return `${prefix} ${Date.now()} ${Math.random().toString(36).slice(2, 8)}`;
@@ -42,6 +42,35 @@ test("six-seat mobile play keeps the prompt, legal action, and private hand reac
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("display preferences stay tappable inside a touch-mobile viewport", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ ...devices["iPhone 13"] });
+  const page = await context.newPage();
+  try {
+    await page.goto("/play");
+    await dismissConsent(page);
+    await page.locator("summary").click();
+
+    const highContrast = page.getByLabel("High contrast");
+    const reducedMotion = page.getByLabel("Reduce motion");
+    for (const control of [highContrast, reducedMotion]) {
+      await expect(control).toBeVisible();
+      await expect(control).toBeInViewport();
+    }
+
+    await highContrast.check();
+    await reducedMotion.check();
+    await expect(page.locator("html")).toHaveAttribute("data-contrast", "high");
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-reduced-motion",
+      "true",
+    );
+  } finally {
+    await context.close();
+  }
 });
 
 test("keyboard action controls and display preferences work without pointer-only behavior", async ({
