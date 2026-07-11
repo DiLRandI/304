@@ -84,14 +84,18 @@ cookies, invite codes, or raw events into alert labels or annotations.
 
 ## Durable room integration rehearsal
 
-With the local topology running, execute the same database/Redis-backed service test used by CI:
+Execute the same database/Redis-backed service test used by CI in a separate,
+disposable Compose project:
 
 ```bash
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration build integration
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml up --build --wait postgres redis
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml run --rm --no-deps migrate
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration build integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml down --volumes --remove-orphans
 ```
 
-The runner executes the full service suite, including `durable-rooms.integration.test.ts`, `realtime.test.ts`, `realtime-multiclient.integration.test.ts`, `room-automation.integration.test.ts`, `room-simulation.test.ts`, and `recovery-fuzz.integration.test.ts`, against disposable PostgreSQL and Redis services. It creates test guests and rooms only; it does not contact external systems or authorize public traffic. Building the profile first ensures the test image matches the checked-out service source; `--no-deps` keeps the already-healthy migration, database, Redis, service, and worker containers intact.
+The runner executes the full service suite, including `durable-rooms.integration.test.ts`, `realtime.test.ts`, `realtime-multiclient.integration.test.ts`, `room-automation.integration.test.ts`, `room-simulation.test.ts`, and `recovery-fuzz.integration.test.ts`, against disposable PostgreSQL and Redis services. It creates test guests and rooms only; it does not contact external systems or authorize public traffic. The isolated project starts no game service or worker, so a live worker cannot claim test jobs; building the profile first ensures the test image matches the checked-out service source.
 
 ## Migrations
 

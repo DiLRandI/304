@@ -146,6 +146,25 @@ async function getSnapshot(
   return response.json() as DurableProjection;
 }
 
+function isTerminalPhase(phase: string | undefined): boolean {
+  return phase === "hand_result" || phase === "match_complete";
+}
+
+async function collectProjections(
+  currentRuntime: TestRuntime,
+  roomId: string,
+  players: readonly TestPlayer[],
+): Promise<Map<string, DurableProjection>> {
+  const projections = new Map<string, DurableProjection>();
+  for (const player of players) {
+    projections.set(
+      player.playerId,
+      await getSnapshot(currentRuntime.app, player.cookie, roomId),
+    );
+  }
+  return projections;
+}
+
 async function advanceToHandResult(
   currentRuntime: TestRuntime,
   roomId: string,
@@ -153,16 +172,14 @@ async function advanceToHandResult(
 ): Promise<Map<string, DurableProjection>> {
   const automationOwner = randomUUID();
   for (let step = 0; step < 240; step += 1) {
-    const projections = new Map<string, DurableProjection>();
-    for (const player of players) {
-      projections.set(
-        player.playerId,
-        await getSnapshot(currentRuntime.app, player.cookie, roomId),
-      );
-    }
+    const projections = await collectProjections(
+      currentRuntime,
+      roomId,
+      players,
+    );
     const firstProjection = projections.values().next().value;
     if (!firstProjection) throw new Error("Room has no player projection");
-    if (firstProjection.view.publicState?.phase === "hand_result") {
+    if (isTerminalPhase(firstProjection.view.publicState?.phase)) {
       return projections;
     }
     const activePlayer = players.find((player) => {
@@ -203,7 +220,13 @@ async function advanceToHandResult(
       roomId,
     );
     if (jobs.length === 0) {
-      throw new Error("Expected a due bot action while advancing the hand");
+      const settled = await collectProjections(currentRuntime, roomId, players);
+      const settledPhase = settled.values().next().value?.view
+        .publicState?.phase;
+      if (isTerminalPhase(settledPhase)) return settled;
+      throw new Error(
+        `Expected a due bot action while advancing ${settledPhase ?? "unknown"} phase`,
+      );
     }
     for (const job of jobs) {
       expect(await currentRuntime.coordinator.runAutomation(job)).toBe(

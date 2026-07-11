@@ -283,7 +283,7 @@ git diff --check master...HEAD
 
 Expected: all quality checks pass, audits report no high vulnerabilities, package signatures verify, and the diff has no whitespace errors.
 
-- [ ] **Step 4: Build final images sequentially and run live acceptance**
+- [x] **Step 4: Build final images sequentially and run live acceptance**
 
 Use this isolated Compose environment for every command in this step:
 
@@ -315,11 +315,14 @@ curl --fail --silent --show-error http://127.0.0.1:4100/metrics
 E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter @three-zero-four/web exec playwright test
 G304_RESTORE_REHEARSAL=1 scripts/backup-restore-rehearsal.sh
 LOAD_BASE_URL=http://127.0.0.1:4100 LOAD_ORIGIN=http://127.0.0.1:3000 node infra/load/browser-api-smoke.js
-docker compose --progress=plain --project-name g304-lifecycle --file infra/compose/compose.yaml --profile integration build integration
-docker compose --project-name g304-lifecycle --file infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --progress=plain --project-name g304-integration --file infra/compose/compose.yaml up --build --wait postgres redis
+docker compose --project-name g304-integration --file infra/compose/compose.yaml run --rm --no-deps migrate
+docker compose --progress=plain --project-name g304-integration --file infra/compose/compose.yaml --profile integration build integration
+docker compose --project-name g304-integration --file infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --project-name g304-integration --file infra/compose/compose.yaml down --volumes --remove-orphans
 ```
 
-Expected: `/readyz` returns a ready status, metrics contain only bounded aggregate names, all seven browser flows pass, backup/restore and browser API smoke pass, and the integration profile exits zero. Never touch `g304-m3-*` containers.
+Expected: `/readyz` returns a ready status, metrics contain only bounded aggregate names, all seven browser flows pass, backup/restore and browser API smoke pass, and the integration profile exits zero. The dedicated integration project deliberately excludes the game service and worker so they cannot claim test bot jobs. Never touch `g304-m3-*` containers.
 
 - [ ] **Step 5: Commit docs, merge locally, and preserve root changes**
 

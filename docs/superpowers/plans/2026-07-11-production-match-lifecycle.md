@@ -617,8 +617,11 @@ curl --fail --silent --show-error http://127.0.0.1:4100/readyz
 E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter @three-zero-four/web exec playwright test
 G304_RESTORE_REHEARSAL=1 scripts/backup-restore-rehearsal.sh
 LOAD_BASE_URL=http://127.0.0.1:4100 LOAD_ORIGIN=http://127.0.0.1:3000 node infra/load/browser-api-smoke.js
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration build integration
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml up --build --wait postgres redis
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml run --rm --no-deps migrate
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration build integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml down --volumes --remove-orphans
 docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes --remove-orphans
 ```
 

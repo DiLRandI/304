@@ -64,8 +64,10 @@ jobs:
       - run: E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter @three-zero-four/web exec playwright test
       - run: G304_RESTORE_REHEARSAL=1 scripts/backup-restore-rehearsal.sh
       - run: LOAD_BASE_URL=http://127.0.0.1:4100 LOAD_ORIGIN=http://127.0.0.1:3000 node infra/load/browser-api-smoke.js
-      - run: docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration build integration
-      - run: docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+      - run: docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml up --build --wait postgres redis
+      - run: docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml run --rm --no-deps migrate
+      - run: docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration build integration
+      - run: docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
       - if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -78,5 +80,11 @@ jobs:
         run: docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml ps
       - if: failure()
         run: docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml logs --no-color
+      - if: failure()
+        run: docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml ps
+      - if: failure()
+        run: docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml logs --no-color
+      - if: always()
+        run: docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml down --volumes --remove-orphans
       - if: always()
         run: docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes --remove-orphans

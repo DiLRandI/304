@@ -167,6 +167,9 @@ async function currentSnapshots(
   players: readonly AuthenticatedSession[],
   roomId: string,
 ): Promise<Map<string, RoomProjection>> {
+  for (const player of players) {
+    await game.markRealtimePresence(player, roomId);
+  }
   const snapshots = new Map<string, RoomProjection>();
   for (const player of players) {
     snapshots.set(player.playerId, await game.getSnapshot(player, roomId));

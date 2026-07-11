@@ -44,7 +44,11 @@ pnpm --filter @three-zero-four/web exec playwright install chromium
 E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter @three-zero-four/web exec playwright test
 G304_RESTORE_REHEARSAL=1 scripts/backup-restore-rehearsal.sh
 LOAD_BASE_URL=http://127.0.0.1:4100 LOAD_ORIGIN=http://127.0.0.1:3000 node infra/load/browser-api-smoke.js
-docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml up --build --wait postgres redis
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml run --rm --no-deps migrate
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration build integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml --profile integration run --rm --no-deps integration
+docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml down --volumes --remove-orphans
 docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes --remove-orphans
 ```
 
@@ -61,6 +65,11 @@ guests each. It performs only guest creation, room creation, invite join, and
 private snapshot requests—never game commands, raw database operations, or
 destructive mutations. It fails on any non-2xx response, a five-second request
 timeout, or a request exceeding its configured safe latency threshold.
+
+The database/Redis integration runner uses the separate `g304-integration`
+Compose project. It starts only PostgreSQL, Redis, and migrations before the
+test container, so the live automation worker cannot claim a test bot job.
+The project has no host ports and is removed after the test.
 
 ## Restore rehearsal safeguards
 
