@@ -167,6 +167,68 @@ test("a guest starts Classic practice and submits its first legal action", async
   await expect(page.locator('[aria-label="304 game table"]')).toBeVisible();
 });
 
+test("a guest retries a transient initial room-load failure without reloading", async ({
+  page,
+}) => {
+  await page.goto("/play");
+  await dismissConsent(page);
+  await page.getByLabel("Display name").fill(uniqueName("Retry guest"));
+  await page.getByRole("button", { name: "Create private room" }).click();
+  await expect(page).toHaveURL(/\/room\//);
+  await expect(
+    page.getByRole("heading", {
+      name: "Set the table before the first hand.",
+    }),
+  ).toBeVisible();
+
+  let allowRecovery = false;
+  let interceptedInitialLoad = false;
+  await page.route("**/v1/rooms/*", async (route) => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+    if (
+      !allowRecovery &&
+      request.method() === "GET" &&
+      /^\/v1\/rooms\/[^/]+$/.test(pathname)
+    ) {
+      interceptedInitialLoad = true;
+      await route.fulfill({
+        body: JSON.stringify({
+          error: {
+            code: "ROOM_BUSY",
+            message: "Room temporarily unavailable",
+          },
+        }),
+        contentType: "application/json",
+        status: 503,
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.reload();
+  await expect(page.getByText("Room temporarily unavailable")).toBeVisible();
+  allowRecovery = true;
+  const retryRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "GET" &&
+      /^\/v1\/rooms\/[^/]+$/.test(new URL(request.url()).pathname),
+    { timeout: 5_000 },
+  );
+  await page.getByRole("button", { name: "Try again" }).click();
+  await retryRequest;
+
+  await expect(
+    page.getByRole("heading", {
+      name: "Set the table before the first hand.",
+    }),
+  ).toBeVisible();
+  expect(interceptedInitialLoad).toBe(true);
+  await page.getByRole("button", { name: "Leave table" }).click();
+  await expect(page).toHaveURL(/\/play$/);
+});
+
 for (const [profile, label] of [
   ["classic_304_4p", "Classic"] as const,
   ["six_304_36", "six-seat"] as const,

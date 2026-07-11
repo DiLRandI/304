@@ -65,7 +65,7 @@ function ConnectedRoom({
     return (
       <section aria-live="polite" className="safe-table-state">
         <p>{controller.error ?? "This private room is unavailable."}</p>
-        <button onClick={() => void controller.refresh()} type="button">
+        <button onClick={() => void controller.retry()} type="button">
           Try again
         </button>
       </section>
