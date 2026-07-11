@@ -60,7 +60,8 @@ per seat (a closed trump maker shows five normal-hand cards plus the reserved
 face-down indicator),
 plus a two-person private room, private-hand separation, socket recovery, a
 transient initial room-load retry, a six-seat mobile layout, keyboard actions,
-and display preferences. It does not inspect PostgreSQL to advance a game.
+invite-copy fallback feedback, and display preferences. It does not inspect
+PostgreSQL to advance a game.
 
 The bounded load smoke creates at most six temporary Classic lobbies with two
 guests each. It performs only guest creation, room creation, invite join, and

@@ -229,6 +229,32 @@ test("a guest retries a transient initial room-load failure without reloading", 
   await expect(page).toHaveURL(/\/play$/);
 });
 
+test("a private-room guest gets manual-copy guidance without the Clipboard API", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await page.goto("/play");
+  await dismissConsent(page);
+  await page.getByLabel("Display name").fill(uniqueName("Clipboard guest"));
+  await page.getByRole("button", { name: "Create private room" }).click();
+  await expect(page).toHaveURL(/\/room\//);
+  await expect
+    .poll(() => page.evaluate(() => typeof navigator.clipboard))
+    .toBe("undefined");
+
+  await page.getByRole("button", { name: "Copy invite code" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Copy the invite code manually.",
+  );
+  await page.getByRole("button", { name: "Leave table" }).click();
+  await expect(page).toHaveURL(/\/play$/);
+});
+
 for (const [profile, label] of [
   ["classic_304_4p", "Classic"] as const,
   ["six_304_36", "six-seat"] as const,
