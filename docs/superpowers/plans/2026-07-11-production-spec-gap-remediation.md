@@ -324,7 +324,7 @@ docker compose --project-name g304-integration --file infra/compose/compose.yaml
 
 Expected: `/readyz` returns a ready status, metrics contain only bounded aggregate names, all seven browser flows pass, backup/restore and browser API smoke pass, and the integration profile exits zero. The dedicated integration project deliberately excludes the game service and worker so they cannot claim test bot jobs. Never touch `g304-m3-*` containers.
 
-- [ ] **Step 5: Commit docs, merge locally, and preserve root changes**
+- [x] **Step 5: Commit docs, merge locally, and preserve root changes**
 
 ```bash
 git add docs/superpowers/specs/2026-07-11-production-match-lifecycle-and-acceptance-design.md docs/features/04_ROOM_MATCHMAKING_AND_BOT_FILL.md docs/product/02_FULL_FEATURE_LIST.md docs/superpowers/plans/2026-07-11-production-match-lifecycle.md docs/superpowers/plans/2026-07-11-production-spec-gap-remediation.md
