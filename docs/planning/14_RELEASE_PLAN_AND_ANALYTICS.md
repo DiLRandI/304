@@ -290,21 +290,25 @@ Public casual launch is ready when:
 
 ### Infrastructure and hosting
 
-- Decide and document final hosting architecture:
-  - Vercel for frontend hosting where suitable.
-  - Backend remains stateful and long-running on a platform with stable process memory, or state is externalized before a single-Vercel deployment strategy.
+- Keep the documented hosting architecture current:
+  - The target topology hosts the release-facing Next.js frontend on Vercel.
+  - The Fastify API and worker remain long-running services backed by
+    PostgreSQL and Redis.
 - Keep deployment manifests and health checks for frontend/backend parity.
 - Record rollback plan per component boundary.
-- During rollout, keep the current Node server as the backend-owned authoritative source.
-- Frontend on Vercel must call only documented `/api/*` contracts and never hold room state assumptions.
-- If Vercel hosts frontend-only, add readiness probes and a dependency health contract for backend APIs.
+- Keep `server.js` as a compatibility baseline, not the release-facing source
+  of game authority.
+- The Vercel frontend calls only the documented game-service contracts and
+  never owns room state.
+- Verify the game service `/livez` and `/readyz` probes before frontend
+  promotion.
 
 ### Framework decision alignment
 
-- Keep the custom Node.js baseline documented as current production shape until migration criteria are fully met.
-- Track Next.js migration and Vercel target architecture in:
-  - `docs/technical/17_FRAMEWORK_AND_HOSTING_DECISION_LOG.md`
-- Do not proceed to full Next.js/Vercel coupling without the documented trigger checklist.
+- Keep the implemented Next.js, Fastify, PostgreSQL, and Redis boundaries
+  aligned with `docs/technical/13_PLATFORM_AND_SUPPLY_CHAIN.md`.
+- Do not move authoritative game state into the browser or request-scoped
+  frontend functions.
 - Migration owners:
   - Product:
   - Engineering:

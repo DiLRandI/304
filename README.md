@@ -100,8 +100,9 @@ local rehearsal and operator-owned production work.
 ## Documentation
 
 - [Product documentation](docs/README.md)
-- [Production platform design](docs/superpowers/specs/2026-07-10-production-game-platform-design.md)
-- [Production foundation plan](docs/superpowers/plans/2026-07-10-production-foundation.md)
+- [Current architecture](docs/technical/09_ARCHITECTURE.md)
+- [Platform and supply-chain decision](docs/technical/13_PLATFORM_AND_SUPPLY_CHAIN.md)
+- [Production operations](docs/operations/production-foundation.md)
 
 ## Release scope
 
