@@ -78,6 +78,32 @@ async function submitVisibleAction(page: Page): Promise<RoomProjection | null> {
   return projection;
 }
 
+async function submitNamedVisibleAction(
+  pages: readonly Page[],
+  name: string | RegExp,
+): Promise<{ page: Page; projection: RoomProjection }> {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    for (const page of pages) {
+      const action = page.getByRole("button", { name }).first();
+      if (!(await action.isVisible())) continue;
+      const commandResponse = page.waitForResponse(
+        (response) =>
+          isCommandResponse(response.url(), response.request().method()),
+        { timeout: 15_000 },
+      );
+      await action.click();
+      const response = await commandResponse;
+      expect(response.status()).toBe(200);
+      const projection = (await response.json()) as RoomProjection;
+      expect(projectedPrompt(projection)).not.toMatch(/\bseat 0\b/i);
+      return { page, projection };
+    }
+    await pages[0]?.waitForTimeout(100);
+  }
+  throw new Error(`No visible action matched ${String(name)}.`);
+}
+
 async function playVisibleActionsToResult(page: Page): Promise<void> {
   const result = page.getByRole("region", { name: "Hand result" });
   const deadline = Date.now() + 110_000;
@@ -446,6 +472,112 @@ test("two private-table guests keep separate hands and recover after a socket re
   } finally {
     await hostContext.close();
     await guestContext.close();
+  }
+});
+
+test("a changed second-round winner reselects trump and completes the hand", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const contexts = await Promise.all(
+    Array.from({ length: 4 }, () => browser.newContext()),
+  );
+  const pages = await Promise.all(contexts.map((context) => context.newPage()));
+  const [host, ...guests] = pages;
+  if (!host) throw new Error("Host page was not created");
+
+  try {
+    await host.goto("/play");
+    await dismissConsent(host);
+    await host.getByLabel("Display name").fill(uniqueName("Second bid host"));
+    await host.getByRole("button", { name: "Create private room" }).click();
+    await expect(host).toHaveURL(/\/room\//);
+    const inviteCode = await host.locator(".invite-panel code").innerText();
+
+    for (const [index, guest] of guests.entries()) {
+      await guest.goto("/play");
+      await dismissConsent(guest);
+      await guest
+        .getByLabel("Display name")
+        .fill(uniqueName(`Second bid guest ${index + 1}`));
+      await guest.getByLabel("Invite code").fill(inviteCode);
+      await guest.getByRole("button", { name: "Join private room" }).click();
+      await expect(guest).toHaveURL(/\/room\//);
+    }
+    await expect(
+      host.locator('.lobby-seats article[data-seat-type="human"]'),
+    ).toHaveCount(4);
+
+    const started = host.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        /\/v1\/rooms\/[^/]+\/start$/.test(new URL(response.url()).pathname),
+    );
+    await host.getByRole("button", { name: "Start game" }).click();
+    expect((await started).status()).toBe(200);
+    for (const page of pages) {
+      await expect(page.locator('[aria-label="304 game table"]')).toBeVisible();
+    }
+
+    const originalMaker = await submitNamedVisibleAction(pages, "Bid 200");
+    for (let index = 0; index < 3; index += 1) {
+      await submitNamedVisibleAction(pages, "Pass bid");
+    }
+    const selectedFirstIndicator = await submitNamedVisibleAction(
+      pages,
+      /^Choose /,
+    );
+    expect(selectedFirstIndicator.page).toBe(originalMaker.page);
+
+    const originalMakerPass = await submitNamedVisibleAction(pages, "Pass bid");
+    expect(originalMakerPass.page).toBe(originalMaker.page);
+    const secondWinner = await submitNamedVisibleAction(pages, "Bid 250");
+    expect(secondWinner.page).not.toBe(originalMaker.page);
+    await submitNamedVisibleAction(pages, "Pass bid");
+    await submitNamedVisibleAction(pages, "Pass bid");
+
+    await expect(
+      secondWinner.page.getByRole("button", { name: /^Choose / }),
+    ).toHaveCount(8);
+    await expect
+      .poll(() =>
+        secondWinner.page
+          .locator(".seat-panel")
+          .evaluateAll((panels) =>
+            panels
+              .map((panel) => Number(panel.getAttribute("data-hand-size")))
+              .join(","),
+          ),
+      )
+      .toBe("8,8,8,8");
+
+    const selectedNewIndicator = await submitNamedVisibleAction(
+      pages,
+      /^Choose /,
+    );
+    expect(selectedNewIndicator.page).toBe(secondWinner.page);
+    const openedTrump = await submitNamedVisibleAction(pages, "Open trump");
+    expect(openedTrump.page).toBe(secondWinner.page);
+
+    await playVisibleActionsUntil(
+      pages,
+      async () => {
+        for (const page of pages) {
+          if (
+            await page.getByRole("region", { name: "Hand result" }).isVisible()
+          ) {
+            return true;
+          }
+        }
+        return false;
+      },
+      "a hand result after a changed second-round winner",
+    );
+    await expect(
+      host.getByRole("region", { name: "Hand result" }),
+    ).toBeVisible();
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()));
   }
 });
 
