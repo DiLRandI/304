@@ -81,6 +81,72 @@ describe("GameTable", () => {
     });
   });
 
+  it("renders the reserved closed-trump indicator as a legal action", async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    const projection = activeProjection();
+    const indicatorAction = {
+      cardId: "__trump_indicator__",
+      faceDown: true,
+      fromIndicator: true,
+      type: "PLAY_CARD" as const,
+    };
+    projection.view.legalActions = [indicatorAction];
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={submit}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Play hidden trump indicator face down",
+      }),
+    );
+    expect(submit).toHaveBeenCalledWith(indicatorAction);
+  });
+
+  it("keeps both face-up and face-down legal plays reachable", async () => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    const projection = activeProjection();
+    const faceUpAction = projection.view.legalActions[0];
+    const faceDownAction = {
+      cardId: jackOfSpades.cardId,
+      faceDown: true,
+      fromIndicator: false,
+      type: "PLAY_CARD" as const,
+    };
+    projection.view.legalActions = [faceUpAction, faceDownAction];
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={submit}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Play Jack of Spades, 30 points face down",
+      }),
+    );
+    expect(submit).toHaveBeenCalledWith(faceDownAction);
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Play Jack of Spades, 30 points",
+      }),
+    );
+    expect(submit).toHaveBeenCalledWith(faceUpAction);
+  });
+
   it("keeps malformed private view data out of the table", () => {
     const projection = activeProjection();
     projection.view = { publicState: { seats: "not-a-seat-list" } };

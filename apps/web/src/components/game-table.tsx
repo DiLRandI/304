@@ -25,6 +25,7 @@ export type TableConnection =
 function actionLabel(
   action: GameAction,
   handResult: ProjectedHandResult | null,
+  privateHand: readonly ProjectedCard[],
 ): string {
   switch (action.type) {
     case "BID":
@@ -41,9 +42,24 @@ function actionLabel(
         handResult.matchComplete
         ? "Play another match"
         : "Next hand";
-    case "SELECT_TRUMP":
-    case "PLAY_CARD":
-      return "";
+    case "SELECT_TRUMP": {
+      const card = privateHand.find((item) => item.cardId === action.cardId);
+      return card ? `Choose ${cardLabel(card)} as trump` : "Choose trump";
+    }
+    case "PLAY_CARD": {
+      if (action.fromIndicator) {
+        return "Play hidden trump indicator face down";
+      }
+      const card = privateHand.find((item) => item.cardId === action.cardId);
+      if (!card) {
+        return action.faceDown
+          ? "Play a legal card face down"
+          : "Play a legal card";
+      }
+      return action.faceDown
+        ? `Play ${cardLabel(card)} face down`
+        : `Play ${cardLabel(card)}`;
+    }
   }
 }
 
@@ -102,8 +118,13 @@ export function GameTable({
     );
   }
   const publicState = view.publicState;
+  const primaryCardActions = new Set(
+    view.privateSeat.hand
+      .map((card) => cardAction(card, view.legalActions))
+      .filter((action): action is GameAction => action !== null),
+  );
   const commandActions = view.legalActions.filter(
-    (action) => action.type !== "PLAY_CARD" && action.type !== "SELECT_TRUMP",
+    (action) => !primaryCardActions.has(action),
   );
   const isPlayersTurn = publicState.activeSeat === view.privateSeat.index;
   const cardLegalityNote = isPlayersTurn
@@ -293,7 +314,11 @@ export function GameTable({
               onClick={() => submit(action)}
               type="button"
             >
-              {actionLabel(action, publicState.handResult)}
+              {actionLabel(
+                action,
+                publicState.handResult,
+                view.privateSeat.hand,
+              )}
             </button>
           ))}
         </section>
