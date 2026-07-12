@@ -195,6 +195,112 @@ test("a non-maker bot choice cannot depend on hidden trump identity", () => {
   assert.deepEqual(hearts.action, diamonds.action);
 });
 
+function faceDownPrivacyEngine() {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  const clubsJack = {
+    cardId: "clubs-J",
+    points: 30,
+    rank: "J",
+    suit: "clubs",
+  };
+  const spadesSeven = {
+    cardId: "spades-7",
+    points: 0,
+    rank: "7",
+    suit: "spades",
+  };
+  engine.state.phase = "trick_play";
+  engine.state.trump = {
+    card: null,
+    indicatorVisible: true,
+    isOpen: false,
+    maker: 2,
+    suit: "hearts",
+  };
+  engine.state.trumpCard = null;
+  engine.state.trumpClosed = true;
+  engine.state.trumpSuit = "hearts";
+  engine.state.completedTricks = [
+    {
+      leaderSeat: 0,
+      plays: [
+        {
+          card: clubsJack,
+          faceDown: false,
+          fromIndicator: false,
+          seatIndex: 0,
+        },
+        {
+          card: spadesSeven,
+          faceDown: true,
+          fromIndicator: false,
+          seatIndex: 1,
+        },
+      ],
+      trickIndex: 0,
+      winnerSeat: 0,
+    },
+  ];
+  engine.state.seats[0].wonCards = [clubsJack, spadesSeven];
+  return { engine, spadesSeven };
+}
+
+test("captured face-down cards stay hidden from the winner's seat view", () => {
+  const { engine, spadesSeven } = faceDownPrivacyEngine();
+  const seatView = engine.getSeatView(0);
+
+  assert.ok(seatView);
+  assert.equal(JSON.stringify(seatView).includes(spadesSeven.cardId), false);
+  assert.deepEqual(seatView.wonCards[1], {
+    cardId: "Card Back",
+    hidden: true,
+  });
+});
+
+test("opening trump does not reveal an earlier face-down non-trump card", () => {
+  const { engine, spadesSeven } = faceDownPrivacyEngine();
+  const heartsNine = {
+    cardId: "hearts-9",
+    points: 20,
+    rank: "9",
+    suit: "hearts",
+  };
+  engine.state.completedTricks.push({
+    leaderSeat: 2,
+    plays: [
+      {
+        card: heartsNine,
+        faceDown: true,
+        fromIndicator: false,
+        seatIndex: 2,
+      },
+    ],
+    trickIndex: 1,
+    winnerSeat: 2,
+  });
+  engine.state.seats[2].wonCards = [heartsNine];
+  engine.state.trump.isOpen = true;
+  engine.state.trumpClosed = false;
+
+  const publicState = engine.getPublicState(0);
+  assert.equal(JSON.stringify(publicState).includes(spadesSeven.cardId), false);
+  assert.deepEqual(publicState.completedTricks[0].plays[1].card, {
+    cardId: "Card Back",
+    hidden: true,
+  });
+  assert.equal(
+    publicState.completedTricks[1].plays[0].card.cardId,
+    heartsNine.cardId,
+  );
+  assert.equal(
+    JSON.stringify(engine.getSeatView(0)).includes(spadesSeven.cardId),
+    false,
+  );
+});
+
 test("formats seat references in public game messages as one-based", () => {
   const engine = new GameEngine({
     humanCount: 4,

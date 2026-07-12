@@ -493,6 +493,43 @@ export class GameEngine {
     }
   }
 
+  _isPlayPubliclyVisible(play) {
+    if (!play?.faceDown) return true;
+    if (
+      this.state.phase === PHASE.HAND_RESULT ||
+      this.state.phase === PHASE.MATCH_COMPLETE
+    ) {
+      return true;
+    }
+    return Boolean(
+      this.state.trump?.isOpen &&
+        play.card?.suit &&
+        play.card.suit === this.state.trump.suit,
+    );
+  }
+
+  _completedPlayForCard(cardId) {
+    for (const trick of this.state.completedTricks) {
+      const play = trick.plays?.find((item) => item.card?.cardId === cardId);
+      if (play) return play;
+    }
+    return null;
+  }
+
+  _projectWonCardForViewer(card, viewerSeatIndex) {
+    const play = this._completedPlayForCard(card.cardId);
+    const viewerPlayedCard =
+      play && Number(play.seatIndex) === Number(viewerSeatIndex);
+    if (
+      play?.faceDown &&
+      !viewerPlayedCard &&
+      !this._isPlayPubliclyVisible(play)
+    ) {
+      return { cardId: "Card Back", hidden: true };
+    }
+    return cloneCard(card);
+  }
+
   getPublicState(viewerSeatIndex = null) {
     const viewer = toSeatIndex(viewerSeatIndex);
     const viewerSeat = viewer != null ? this.state.seats[viewer] : null;
@@ -567,7 +604,11 @@ export class GameEngine {
         ? seat.hand.map(cloneCard)
         : seat.hand.map(() => ({ cardId: "Card Back", hidden: true })),
       firstHand: isMySeat ? seat.firstHand.map(cloneCard) : [],
-      wonCards: isMySeat ? seat.wonCards.map(cloneCard) : [],
+      wonCards: isMySeat
+        ? seat.wonCards.map((card) =>
+            this._projectWonCardForViewer(card, viewerSeatIndex),
+          )
+        : [],
     };
   }
 
@@ -1564,23 +1605,24 @@ export class GameEngine {
     if (!trick) {
       return { current: null };
     }
-    const trumpOpen = Boolean(this.state.trump?.isOpen);
-    const hideCard = (play) => ({
-      seatIndex: play.seatIndex,
-      source: play.source,
-      faceDown: play.faceDown,
-      fromIndicator: play.fromIndicator,
-      when: play.when,
-      card:
-        play.faceDown && !trumpOpen
-          ? { cardId: "Card Back", hidden: true }
-          : play.card,
-      cardId: play.faceDown && !trumpOpen ? "Card Back" : play.card?.cardId,
-    });
+    const projectPlay = (play) => {
+      const cardVisible = this._isPlayPubliclyVisible(play);
+      return {
+        seatIndex: play.seatIndex,
+        source: play.source,
+        faceDown: play.faceDown,
+        fromIndicator: play.fromIndicator,
+        when: play.when,
+        card: cardVisible
+          ? cloneCard(play.card)
+          : { cardId: "Card Back", hidden: true },
+        cardId: cardVisible ? play.card?.cardId : "Card Back",
+      };
+    };
     return {
       current: {
         ...trick,
-        plays: trick.plays.map(hideCard),
+        plays: trick.plays.map(projectPlay),
       },
     };
   }
