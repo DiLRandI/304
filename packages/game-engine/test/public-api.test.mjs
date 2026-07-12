@@ -117,6 +117,84 @@ test("viewerless public state does not impersonate seat zero or reveal closed tr
   assert.equal(engine.getPublicState(1).trump.suit, null);
 });
 
+test("a non-maker bot choice cannot depend on hidden trump identity", () => {
+  function probe(hiddenTrumpSuit) {
+    const engine = new GameEngine({
+      botDifficulty: "strong",
+      humanCount: 1,
+      ruleProfile: "classic_304_4p",
+    });
+    const heartsJack = {
+      cardId: "hearts-J",
+      points: 30,
+      rank: "J",
+      suit: "hearts",
+    };
+    const spadesSeven = {
+      cardId: "spades-7",
+      points: 0,
+      rank: "7",
+      suit: "spades",
+    };
+    const indicator = {
+      cardId: `${hiddenTrumpSuit}-9`,
+      points: 20,
+      rank: "9",
+      suit: hiddenTrumpSuit,
+    };
+    engine.state.phase = "trick_play";
+    engine.state.activeSeat = 1;
+    engine.state.seats[1].difficulty = "strong";
+    engine.state.seats[1].hand = [heartsJack, spadesSeven];
+    engine.state.currentLedSuit = "clubs";
+    engine.state.currentTrick = {
+      leaderSeat: 0,
+      plays: [
+        {
+          card: {
+            cardId: "clubs-8",
+            points: 0,
+            rank: "8",
+            suit: "clubs",
+          },
+          faceDown: false,
+          fromIndicator: false,
+          seatIndex: 0,
+        },
+      ],
+      trickIndex: 0,
+    };
+    engine.state.trump = {
+      card: indicator,
+      indicatorVisible: false,
+      isOpen: false,
+      maker: 0,
+      suit: hiddenTrumpSuit,
+    };
+    engine.state.trumpCard = indicator;
+    engine.state.trumpClosed = true;
+    engine.state.trumpSuit = hiddenTrumpSuit;
+
+    return {
+      action: engine.getBotAction(1),
+      legalActions: engine.getLegalActions(1).map((action) => ({
+        cardId: action.cardId,
+        faceDown: action.faceDown,
+        fromIndicator: Boolean(action.fromIndicator),
+        type: action.type,
+      })),
+      publicTrump: engine.getPublicState(1).trump,
+    };
+  }
+
+  const hearts = probe("hearts");
+  const diamonds = probe("diamonds");
+  assert.deepEqual(hearts.publicTrump, diamonds.publicTrump);
+  assert.equal(hearts.publicTrump.suit, null);
+  assert.deepEqual(hearts.legalActions, diamonds.legalActions);
+  assert.deepEqual(hearts.action, diamonds.action);
+});
+
 test("formats seat references in public game messages as one-based", () => {
   const engine = new GameEngine({
     humanCount: 4,

@@ -75,7 +75,8 @@ indicator remain reachable without revealing the indicator card. It does not
 inspect PostgreSQL to advance a game.
 
 The game-engine unit suite separately verifies that a viewerless projection
-marks no seat as the viewer and never inherits seat 0's closed-trump visibility.
+marks no seat as the viewer, never inherits seat 0's closed-trump visibility,
+and gives a non-maker bot no hidden trump data that can influence its choice.
 
 The bounded load smoke creates at most six temporary Classic lobbies with two
 guests each. It performs only guest creation, room creation, invite join, and
