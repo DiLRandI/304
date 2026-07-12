@@ -117,6 +117,36 @@ function projectHandResultForPublic(result) {
   };
 }
 
+function projectReconnectActionForPublic(action) {
+  if (!action || typeof action !== "object") return null;
+  const projected = {
+    type: action.type,
+    at: action.at,
+    handNumber: action.handNumber,
+    phase: action.phase,
+  };
+  if (action.type === "BID" && Number.isFinite(action.amount)) {
+    projected.amount = action.amount;
+  }
+  if (action.type === "PLAY_CARD") {
+    const concealed = action.faceDown === true || action.fromIndicator === true;
+    if (concealed) {
+      projected.faceDown = true;
+    } else if (typeof action.cardId === "string" && action.cardId) {
+      projected.cardId = action.cardId;
+    }
+  }
+  return projected;
+}
+
+function projectReconnectSummaryForPublic(summary) {
+  if (!Array.isArray(summary)) return [];
+  return summary
+    .slice(-12)
+    .map(projectReconnectActionForPublic)
+    .filter((action) => action !== null);
+}
+
 function cloneSeatsForBot(state, botSeatIndex) {
   return state.seats.map((seat, seatIndex) => {
     const isBotSeat = Number(seatIndex) === Number(botSeatIndex);
@@ -561,9 +591,9 @@ export class GameEngine {
         connectionStatus: seat.connectionStatus || "disconnected",
         autopilot: !!seat.autopilot,
         disconnectedAt: seat.disconnectedAt || null,
-        reconnectSummary: Array.isArray(seat.reconnectSummary)
-          ? seat.reconnectSummary.slice(-12)
-          : [],
+        reconnectSummary: projectReconnectSummaryForPublic(
+          seat.reconnectSummary,
+        ),
         handSize: seat.hand.length,
         trickPoints: seat.trickPoints,
         isMe: viewerSeat != null ? viewerSeat.index === seat.index : false,

@@ -511,6 +511,31 @@ function buildJoinUrl(inviteCode) {
   return `/?room=${encodeURIComponent(code)}`;
 }
 
+function projectReconnectSummaryForPublic(summary) {
+  if (!Array.isArray(summary)) return [];
+  return summary.slice(-12).flatMap((action) => {
+    if (!action || typeof action !== "object") return [];
+    const projected = {
+      type: action.type,
+      at: action.at,
+      handNumber: action.handNumber,
+      phase: action.phase,
+    };
+    if (action.type === "BID" && Number.isFinite(action.amount)) {
+      projected.amount = action.amount;
+    }
+    if (action.type === "PLAY_CARD") {
+      const concealed = action.faceDown === true || action.fromIndicator === true;
+      if (concealed) {
+        projected.faceDown = true;
+      } else if (typeof action.cardId === "string" && action.cardId) {
+        projected.cardId = action.cardId;
+      }
+    }
+    return [projected];
+  });
+}
+
 function makeRoomResponse(room, seatIndex = null, session = null) {
   const isHost = !!(session && room.hostUserId === session.userId);
   return {
@@ -538,7 +563,7 @@ function makeRoomResponse(room, seatIndex = null, session = null) {
       connectionStatus: seat.connectionStatus || "disconnected",
       autopilot: !!seat.autopilot,
       disconnectedAt: seat.disconnectedAt || null,
-      reconnectSummary: Array.isArray(seat.reconnectSummary) ? seat.reconnectSummary.slice(-12) : [],
+      reconnectSummary: projectReconnectSummaryForPublic(seat.reconnectSummary),
       isReady: seat.isReady || false,
     })),
   };
