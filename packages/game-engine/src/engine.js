@@ -850,14 +850,14 @@ export class GameEngine {
     const stateForBot = cloneStateForBotsOnly(this.state);
     stateForBot.seats = cloneSeatsForBot(this.state, seatIndex);
     const isTrumpMaker = this.state.trump.maker === seatIndex;
+    const canSeeTrump = this.state.trump.isOpen || isTrumpMaker;
     if (stateForBot.trump) {
       stateForBot.trump = {
-        ...stateForBot.trump,
+        ...getTrumpPublicView(this.state, seatIndex),
         card:
-          stateForBot.trump.card &&
-          (!stateForBot.trumpClosed || isTrumpMaker || stateForBot.trump.isOpen)
-            ? stateForBot.trump.card
-            : { cardId: "Card Back", hidden: true },
+          canSeeTrump && this.state.trump.card
+            ? cloneCard(this.state.trump.card)
+            : null,
       };
     }
     if (stateForBot.currentTrick?.plays) {
@@ -873,8 +873,11 @@ export class GameEngine {
     stateForBot.getLegalActions = (index) => this.getLegalActions(index);
     stateForBot.currentLedSuit = this.state.currentLedSuit;
     stateForBot.trumpClosed = this.state.trumpClosed;
-    stateForBot.trumpSuit = this.state.trumpSuit;
-    stateForBot.trumpCard = this.state.trumpCard;
+    stateForBot.trumpSuit = canSeeTrump ? this.state.trumpSuit : null;
+    stateForBot.trumpCard =
+      canSeeTrump && this.state.trumpCard
+        ? cloneCard(this.state.trumpCard)
+        : null;
     stateForBot.leadingSeat = this.state.currentTrick
       ? this.state.currentTrick.leaderSeat
       : null;
