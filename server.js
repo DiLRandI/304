@@ -568,7 +568,7 @@ function sanitizeRoomForSeat(room, viewerSeat, session, includeEngineState = fal
     seatView: fullSeatView,
     legalActions,
     version: room.engine.state.version,
-    handResult: room.engine.state.handResult,
+    handResult: publicState.handResult,
     isMatchComplete: room.engine.state.phase === "match_complete",
   };
   if (includeEngineState && INCLUDE_ENGINE_STATE) {
