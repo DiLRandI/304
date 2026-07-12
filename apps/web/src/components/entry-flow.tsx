@@ -1,7 +1,7 @@
 "use client";
 
 import type { RoomProjection } from "@three-zero-four/contracts";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   type CreateRoomOptions,
   GameServiceError,
@@ -36,13 +36,23 @@ export function EntryFlow({
     useState<NonNullable<CreateRoomOptions["botDifficulty"]>>("easy");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [startNameInvalid, setStartNameInvalid] = useState(false);
+  const startNameInput = useRef<HTMLInputElement>(null);
+
+  function updateDisplayName(value: string): void {
+    setDisplayName(value);
+    if (value.trim()) setStartNameInvalid(false);
+  }
 
   async function createTable(mode: EntryMode): Promise<void> {
     const name = displayName.trim();
     if (!name) {
+      setStartNameInvalid(true);
       setStatus("Enter a display name before joining a table.");
+      startNameInput.current?.focus();
       return;
     }
+    setStartNameInvalid(false);
     setBusy(true);
     setStatus(
       mode === "practice"
@@ -112,10 +122,17 @@ export function EntryFlow({
           <label>
             Display name
             <input
+              aria-invalid={startNameInvalid || undefined}
               autoComplete="nickname"
               maxLength={48}
-              onChange={(event) => setDisplayName(event.target.value)}
+              onChange={(event) => updateDisplayName(event.target.value)}
+              onInvalid={() => {
+                setStartNameInvalid(true);
+                setStatus("Enter a display name before joining a table.");
+              }}
               placeholder="How should the table know you?"
+              ref={startNameInput}
+              required
               value={displayName}
             />
           </label>
@@ -178,7 +195,7 @@ export function EntryFlow({
             <input
               autoComplete="nickname"
               maxLength={48}
-              onChange={(event) => setDisplayName(event.target.value)}
+              onChange={(event) => updateDisplayName(event.target.value)}
               placeholder="How should the table know you?"
               required
               value={displayName}

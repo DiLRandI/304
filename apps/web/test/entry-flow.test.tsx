@@ -76,6 +76,31 @@ describe("EntryFlow", () => {
     expect(client.startRoom).not.toHaveBeenCalled();
   });
 
+  it("returns focus to the start name for invalid start and create actions", async () => {
+    const user = userEvent.setup();
+    const client = {
+      createGuest: vi.fn(),
+      createRoom: vi.fn(),
+      startRoom: vi.fn(),
+    };
+
+    render(<EntryFlow client={client} onNavigate={vi.fn()} />);
+
+    const displayName = screen.getByLabelText("Display name");
+    await user.type(displayName, "   ");
+    await user.click(screen.getByRole("button", { name: "Start practice" }));
+    expect(document.activeElement).toBe(displayName);
+    expect(displayName.getAttribute("aria-invalid")).toBe("true");
+
+    await user.click(
+      screen.getByRole("button", { name: "Create private room" }),
+    );
+    expect(document.activeElement).toBe(displayName);
+    expect(client.createGuest).not.toHaveBeenCalled();
+    expect(client.createRoom).not.toHaveBeenCalled();
+    expect(client.startRoom).not.toHaveBeenCalled();
+  });
+
   it("announces a known safe service error without exposing protocol details", async () => {
     const user = userEvent.setup();
     const client = {
