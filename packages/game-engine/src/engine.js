@@ -56,6 +56,7 @@ function teamOf(index) {
 }
 
 function toSeatIndex(value) {
+  if (value == null) return null;
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.trunc(n);

@@ -82,6 +82,41 @@ test("personalizes trick prompts only for the active viewer", () => {
   assert.equal(engine.getPrompt(0), "Seat 2 to play.");
 });
 
+test("viewerless public state does not impersonate seat zero or reveal closed trump", () => {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  engine.state.trump = {
+    card: { cardId: "hearts-J", points: 30, rank: "J", suit: "hearts" },
+    indicatorVisible: false,
+    isOpen: false,
+    maker: 0,
+    suit: "hearts",
+  };
+
+  for (const viewerless of [
+    engine.getPublicState(),
+    engine.getPublicState(null),
+  ]) {
+    assert.equal(
+      viewerless.seats.some((seat) => seat.isMe),
+      false,
+    );
+    assert.deepEqual(viewerless.trump, {
+      indicatorVisible: false,
+      isOpen: false,
+      maker: 0,
+      suit: null,
+    });
+  }
+
+  const makerView = engine.getPublicState(0);
+  assert.equal(makerView.seats[0].isMe, true);
+  assert.equal(makerView.trump.suit, "hearts");
+  assert.equal(engine.getPublicState(1).trump.suit, null);
+});
+
 test("formats seat references in public game messages as one-based", () => {
   const engine = new GameEngine({
     humanCount: 4,
