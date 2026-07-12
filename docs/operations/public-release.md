@@ -65,6 +65,9 @@ boundary, invite-copy fallback feedback, one-based player-facing seat prompts,
 viewer-correct turn prompts, changed-winner second-bidding integrity, and
 display preferences. It does not inspect PostgreSQL to advance a game.
 
+The game-engine unit suite separately verifies that a viewerless projection
+marks no seat as the viewer and never inherits seat 0's closed-trump visibility.
+
 The bounded load smoke creates at most six temporary Classic lobbies with two
 guests each. It performs only guest creation, room creation, invite join, and
 private snapshot requests—never game commands, raw database operations, or

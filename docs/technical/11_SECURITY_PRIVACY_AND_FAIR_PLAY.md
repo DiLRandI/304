@@ -56,6 +56,8 @@ Example test cases:
 
 - Player A view contains Player A hand but not Player B hand.
 - Hidden trump card shows only card back to non-trump maker.
+- Viewerless projection marks no seat as the viewer and never inherits seat 0's
+  closed-trump visibility.
 - Face-down non-trump discard remains hidden after trick if not revealed.
 - Spectator view never contains hidden hands.
 - Reconnected user receives only their own private view.
