@@ -114,7 +114,7 @@ export function projectRoomForPlayer(
       publicState: engine.getPublicState(viewerSeatIndex),
       privateSeat,
       legalActions,
-      prompt: engine.getPrompt(),
+      prompt: engine.getPrompt(viewerSeatIndex),
     },
   };
 }

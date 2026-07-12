@@ -559,6 +559,20 @@ test("a changed second-round winner reselects trump and completes the hand", asy
     const openedTrump = await submitNamedVisibleAction(pages, "Open trump");
     expect(openedTrump.page).toBe(secondWinner.page);
 
+    const winningSeatIndex = secondWinner.projection.viewerSeatIndex;
+    expect(typeof winningSeatIndex).toBe("number");
+    await expect(secondWinner.page.locator(".turn-prompt")).toContainText(
+      "Your turn. You lead the trick.",
+    );
+    for (const page of pages) {
+      if (page === secondWinner.page) continue;
+      const prompt = page.locator(".turn-prompt");
+      await expect(prompt).toContainText(
+        `Seat ${Number(winningSeatIndex) + 1} leads the trick.`,
+      );
+      await expect(prompt).not.toContainText("Your turn");
+    }
+
     await playVisibleActionsUntil(
       pages,
       async () => {

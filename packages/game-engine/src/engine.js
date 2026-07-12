@@ -570,8 +570,10 @@ export class GameEngine {
     };
   }
 
-  getPrompt() {
+  getPrompt(viewerSeatIndex = null) {
     const state = this.state;
+    const viewer =
+      viewerSeatIndex == null ? null : toSeatIndex(viewerSeatIndex);
     switch (state.phase) {
       case PHASE.SETUP:
         return "Create and start a hand.";
@@ -585,8 +587,13 @@ export class GameEngine {
         return "Choose trump mode.";
       case PHASE.TRICK_PLAY:
         if (state.currentTrick == null) return "Preparing first trick.";
+        if (viewer != null && viewer === state.activeSeat) {
+          return state.currentTrick.leaderSeat === state.activeSeat
+            ? "Your turn. You lead the trick."
+            : "Your turn. Play a legal card.";
+        }
         return state.currentTrick.leaderSeat === state.activeSeat
-          ? "Your turn. You lead the trick."
+          ? `${formatSeat(state.activeSeat)} leads the trick.`
           : `${formatSeat(state.activeSeat)} to play.`;
       case PHASE.HAND_RESULT:
         return "Hand complete. Continue to next hand.";
