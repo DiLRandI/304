@@ -36,12 +36,24 @@ export function EntryFlow({
     useState<NonNullable<CreateRoomOptions["botDifficulty"]>>("easy");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [inviteCodeInvalid, setInviteCodeInvalid] = useState(false);
+  const [joinNameInvalid, setJoinNameInvalid] = useState(false);
   const [startNameInvalid, setStartNameInvalid] = useState(false);
+  const inviteCodeInput = useRef<HTMLInputElement>(null);
+  const joinNameInput = useRef<HTMLInputElement>(null);
   const startNameInput = useRef<HTMLInputElement>(null);
 
   function updateDisplayName(value: string): void {
     setDisplayName(value);
-    if (value.trim()) setStartNameInvalid(false);
+    if (value.trim()) {
+      setJoinNameInvalid(false);
+      setStartNameInvalid(false);
+    }
+  }
+
+  function updateInviteCode(value: string): void {
+    setInviteCode(value);
+    if (value.trim()) setInviteCodeInvalid(false);
   }
 
   async function createTable(mode: EntryMode): Promise<void> {
@@ -84,9 +96,15 @@ export function EntryFlow({
     const name = displayName.trim();
     const roomReference = inviteCode.trim();
     if (!name || !roomReference) {
+      setJoinNameInvalid(!name);
+      setInviteCodeInvalid(!roomReference);
       setStatus("Enter a display name and private invite code to join.");
+      if (!name) joinNameInput.current?.focus();
+      else inviteCodeInput.current?.focus();
       return;
     }
+    setJoinNameInvalid(false);
+    setInviteCodeInvalid(false);
     setBusy(true);
     setStatus("Joining the private table…");
     try {
@@ -193,10 +211,18 @@ export function EntryFlow({
           <label>
             Name for this room
             <input
+              aria-invalid={joinNameInvalid || undefined}
               autoComplete="nickname"
               maxLength={48}
               onChange={(event) => updateDisplayName(event.target.value)}
+              onInvalid={() => {
+                setJoinNameInvalid(true);
+                setStatus(
+                  "Enter a display name and private invite code to join.",
+                );
+              }}
               placeholder="How should the table know you?"
+              ref={joinNameInput}
               required
               value={displayName}
             />
@@ -204,8 +230,16 @@ export function EntryFlow({
           <label>
             Invite code
             <input
-              onChange={(event) => setInviteCode(event.target.value)}
+              aria-invalid={inviteCodeInvalid || undefined}
+              onChange={(event) => updateInviteCode(event.target.value)}
+              onInvalid={() => {
+                setInviteCodeInvalid(true);
+                setStatus(
+                  "Enter a display name and private invite code to join.",
+                );
+              }}
               placeholder="304-…"
+              ref={inviteCodeInput}
               required
               value={inviteCode}
             />

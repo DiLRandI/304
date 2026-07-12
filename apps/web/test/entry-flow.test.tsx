@@ -101,6 +101,36 @@ describe("EntryFlow", () => {
     expect(client.startRoom).not.toHaveBeenCalled();
   });
 
+  it("focuses the invalid whitespace field inside the join form", async () => {
+    const user = userEvent.setup();
+    const client = {
+      createGuest: vi.fn(),
+      createRoom: vi.fn(),
+      startRoom: vi.fn(),
+    };
+
+    render(<EntryFlow client={client} onNavigate={vi.fn()} />);
+
+    const startName = screen.getByLabelText("Display name");
+    const joinName = screen.getByLabelText("Name for this room");
+    const inviteCode = screen.getByLabelText("Invite code");
+    await user.type(joinName, "   ");
+    await user.type(inviteCode, "304-room");
+    await user.click(screen.getByRole("button", { name: "Join private room" }));
+    expect(document.activeElement).toBe(joinName);
+    expect(joinName.getAttribute("aria-invalid")).toBe("true");
+    expect(startName.getAttribute("aria-invalid")).toBe(null);
+
+    await user.clear(joinName);
+    await user.type(joinName, "Nila");
+    await user.clear(inviteCode);
+    await user.type(inviteCode, "   ");
+    await user.click(screen.getByRole("button", { name: "Join private room" }));
+    expect(document.activeElement).toBe(inviteCode);
+    expect(inviteCode.getAttribute("aria-invalid")).toBe("true");
+    expect(client.createGuest).not.toHaveBeenCalled();
+  });
+
   it("announces a known safe service error without exposing protocol details", async () => {
     const user = userEvent.setup();
     const client = {
