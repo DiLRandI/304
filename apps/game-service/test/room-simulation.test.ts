@@ -5,11 +5,18 @@ type RuleProfileId = "classic_304_4p" | "six_304_36";
 
 interface SimulationCard {
   cardId: string;
+  suit?: string;
 }
 
 interface SimulationState {
   activeSeat: number | null;
-  completedTricks: unknown[];
+  completedTricks: Array<{
+    plays: Array<{
+      card: SimulationCard;
+      faceDown: boolean;
+      seatIndex: number;
+    }>;
+  }>;
   phase: string;
   seats: Array<{
     hand: SimulationCard[];
@@ -19,6 +26,7 @@ interface SimulationState {
     card: SimulationCard | null;
     isOpen: boolean;
     maker: number | null;
+    suit?: string | null;
   };
 }
 
@@ -78,6 +86,21 @@ function assertNoPrivateCardLeaks(engine: GameEngine): void {
       state.trump.maker !== viewerSeatIndex
     ) {
       expect(payload).not.toContain(hiddenTrump.cardId);
+    }
+    if (state.phase !== "hand_result" && state.phase !== "match_complete") {
+      for (const trick of state.completedTricks) {
+        for (const play of trick.plays) {
+          const publiclyRevealedTrump =
+            state.trump.isOpen && play.card.suit === state.trump.suit;
+          if (
+            play.faceDown &&
+            !publiclyRevealedTrump &&
+            play.seatIndex !== viewerSeatIndex
+          ) {
+            expect(payload).not.toContain(play.card.cardId);
+          }
+        }
+      }
     }
   }
 }
