@@ -283,3 +283,122 @@ test("room events hide a selected trump indicator from seated opponents", async 
     false,
   );
 });
+
+test("completed room responses expose only the public hand result", async (t) => {
+  const app = await startServer();
+  t.after(() => app.close());
+
+  const sessions = [];
+  for (const displayName of ["Host", "North", "East", "West"]) {
+    const guest = await requestJson(`${app.baseUrl}/api/guest-session`, {
+      method: "POST",
+      body: JSON.stringify({ displayName }),
+    });
+    assert.equal(guest.response.status, 201);
+    sessions.push({
+      displayName,
+      headers: { "x-session-token": guest.body.sessionToken },
+    });
+  }
+
+  const room = await requestJson(`${app.baseUrl}/api/rooms`, {
+    method: "POST",
+    headers: sessions[0].headers,
+    body: JSON.stringify({
+      visibility: "private",
+      tableSizeMode: "classic_4",
+      ruleProfileId: "classic_304_4p",
+      botDifficulty: "easy",
+      humanCount: 4,
+      enableSecondBidding: true,
+    }),
+  });
+  assert.equal(room.response.status, 201);
+
+  const sessionsBySeat = new Map([[0, sessions[0]]]);
+  for (const session of sessions.slice(1)) {
+    const joined = await requestJson(
+      `${app.baseUrl}/api/rooms/${room.body.inviteCode}/join`,
+      {
+        method: "POST",
+        headers: session.headers,
+        body: JSON.stringify({ displayName: session.displayName }),
+      },
+    );
+    assert.equal(joined.response.status, 201);
+    sessionsBySeat.set(joined.body.seatIndex, session);
+  }
+
+  let state = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/start`,
+    {
+      method: "POST",
+      headers: sessions[0].headers,
+      body: JSON.stringify({}),
+    },
+  );
+  assert.equal(state.response.status, 200);
+
+  let actionCount = 0;
+  while (
+    state.body.phase !== "hand_result" &&
+    state.body.phase !== "match_complete" &&
+    actionCount < 100
+  ) {
+    const activeSeat = state.body.publicState.activeSeat;
+    const activeSession = sessionsBySeat.get(activeSeat);
+    assert.ok(activeSession, `expected session for active seat ${activeSeat}`);
+    state = await requestJson(
+      `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+      { headers: activeSession.headers },
+    );
+
+    let action;
+    if (state.body.phase === "four_bidding") {
+      action =
+        state.body.publicState.bidding.currentBid === 0
+          ? state.body.legalActions.find(
+              (candidate) =>
+                candidate.type === "BID" && candidate.amount === 160,
+            )
+          : state.body.legalActions.find(
+              (candidate) => candidate.type === "PASS_BID",
+            );
+    } else if (state.body.phase === "trump_selection") {
+      action = state.body.legalActions.find(
+        (candidate) => candidate.type === "SELECT_TRUMP",
+      );
+    } else if (state.body.phase === "second_bidding") {
+      action = state.body.legalActions.find(
+        (candidate) => candidate.type === "PASS_BID",
+      );
+    } else if (state.body.phase === "trump_choice") {
+      action = state.body.legalActions.find(
+        (candidate) => candidate.type === "TRUMP_OPEN",
+      );
+    } else if (state.body.phase === "trick_play") {
+      action = state.body.legalActions.find(
+        (candidate) => candidate.type === "PLAY_CARD",
+      );
+    }
+    assert.ok(action, `expected legal action during ${state.body.phase}`);
+
+    state = await requestJson(
+      `${app.baseUrl}/api/rooms/${room.body.roomId}/actions`,
+      {
+        method: "POST",
+        headers: activeSession.headers,
+        body: JSON.stringify(action),
+      },
+    );
+    assert.equal(state.response.status, 200);
+    actionCount += 1;
+    await new Promise((resolve) => setTimeout(resolve, 75));
+  }
+
+  assert.equal(state.body.phase, "hand_result");
+  assert.deepEqual(state.body.handResult, state.body.publicState.handResult);
+  assert.equal(Object.hasOwn(state.body.handResult, "shuffleSeed"), false);
+  assert.equal(Object.hasOwn(state.body.handResult, "seedCommit"), false);
+  assert.equal(Object.hasOwn(state.body.handResult, "deckVersion"), false);
+});
