@@ -89,6 +89,27 @@ test("the mobile join form keeps its required name field with the join action", 
   await expect(joinName).toBeInViewport();
 });
 
+test("mobile start actions focus their missing display name", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/play");
+  await dismissConsent(page);
+
+  const displayName = page.getByLabel("Display name");
+  await page.getByRole("button", { name: "Start practice" }).click();
+  await expect(displayName).toBeFocused();
+  await expect(displayName).toBeInViewport();
+
+  await displayName.fill("   ");
+  await page.getByRole("button", { name: "Create private room" }).click();
+  await expect(displayName).toBeFocused();
+  await expect(displayName).toBeInViewport();
+  await expect(page.getByRole("status")).toContainText(
+    "Enter a display name before joining a table.",
+  );
+});
+
 test("a 320px private lobby contains valid long names and its invite code", async ({
   page,
 }) => {
