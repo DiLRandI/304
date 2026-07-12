@@ -592,24 +592,42 @@ function getPublicRoomEventLog(room, viewerSeat) {
     if (!event || typeof event !== "object") {
       return event;
     }
-    if (event.type !== "PLAY") {
+    const payload =
+      event.payload && typeof event.payload === "object"
+        ? { ...event.payload }
+        : event.payload;
+    if (event.type === "TRUMP_SELECTED") {
+      const actorSeat = Number.isInteger(payload?.seat)
+        ? payload.seat
+        : event.seat;
+      if (actorSeat !== viewerSeat) {
+        return {
+          ...event,
+          payload: {
+            seat: actorSeat,
+            source: payload?.source,
+          },
+        };
+      }
       return {
         ...event,
-        payload: event.payload,
+        payload,
       };
+    }
+    if (event.type !== "PLAY") {
+      return { ...event, payload };
     }
     const actorSeat = event.seat;
     if (actorSeat === viewerSeat) {
-      return { ...event };
+      return { ...event, payload };
     }
+    const publicPayload = { ...payload };
+    delete publicPayload.cardId;
+    delete publicPayload.faceDown;
+    delete publicPayload.fromIndicator;
     return {
       ...event,
-      payload: {
-        ...event.payload,
-        cardId: undefined,
-        faceDown: undefined,
-        fromIndicator: undefined,
-      },
+      payload: publicPayload,
     };
   });
 }

@@ -131,3 +131,155 @@ test("two human players receive distinct private views and can reconnect to thei
     guestState.body.seatView.hand.map((card) => card.cardId),
   );
 });
+
+test("room events hide a selected trump indicator from seated opponents", async (t) => {
+  const app = await startServer();
+  t.after(() => app.close());
+
+  const sessions = [];
+  for (const displayName of ["Host", "North", "East", "West"]) {
+    const guest = await requestJson(`${app.baseUrl}/api/guest-session`, {
+      method: "POST",
+      body: JSON.stringify({ displayName }),
+    });
+    assert.equal(guest.response.status, 201);
+    sessions.push({
+      displayName,
+      headers: { "x-session-token": guest.body.sessionToken },
+    });
+  }
+
+  const room = await requestJson(`${app.baseUrl}/api/rooms`, {
+    method: "POST",
+    headers: sessions[0].headers,
+    body: JSON.stringify({
+      visibility: "private",
+      tableSizeMode: "classic_4",
+      ruleProfileId: "classic_304_4p",
+      botDifficulty: "easy",
+      humanCount: 4,
+      enableSecondBidding: true,
+    }),
+  });
+  assert.equal(room.response.status, 201);
+
+  const sessionsBySeat = new Map([[0, sessions[0]]]);
+  for (const session of sessions.slice(1)) {
+    const joined = await requestJson(
+      `${app.baseUrl}/api/rooms/${room.body.inviteCode}/join`,
+      {
+        method: "POST",
+        headers: session.headers,
+        body: JSON.stringify({ displayName: session.displayName }),
+      },
+    );
+    assert.equal(joined.response.status, 201);
+    sessionsBySeat.set(joined.body.seatIndex, session);
+  }
+
+  let state = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/start`,
+    {
+      method: "POST",
+      headers: sessions[0].headers,
+      body: JSON.stringify({}),
+    },
+  );
+  assert.equal(state.response.status, 200);
+
+  while (state.body.phase === "four_bidding") {
+    const activeSeat = state.body.publicState.activeSeat;
+    const activeSession = sessionsBySeat.get(activeSeat);
+    state = await requestJson(
+      `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+      { headers: activeSession.headers },
+    );
+    const action =
+      state.body.publicState.bidding.currentBid === 0
+        ? state.body.legalActions.find(
+            (candidate) =>
+              candidate.type === "BID" && candidate.amount === 160,
+          )
+        : state.body.legalActions.find(
+            (candidate) => candidate.type === "PASS_BID",
+          );
+    assert.ok(action);
+    state = await requestJson(
+      `${app.baseUrl}/api/rooms/${room.body.roomId}/actions`,
+      {
+        method: "POST",
+        headers: activeSession.headers,
+        body: JSON.stringify(action),
+      },
+    );
+    assert.equal(state.response.status, 200);
+  }
+
+  assert.equal(state.body.phase, "trump_selection");
+  const makerSeat = state.body.publicState.activeSeat;
+  const makerSession = sessionsBySeat.get(makerSeat);
+  state = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+    { headers: makerSession.headers },
+  );
+  const selectTrump = state.body.legalActions.find(
+    (candidate) => candidate.type === "SELECT_TRUMP",
+  );
+  assert.ok(selectTrump?.cardId);
+
+  const selected = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/actions`,
+    {
+      method: "POST",
+      headers: makerSession.headers,
+      body: JSON.stringify(selectTrump),
+    },
+  );
+  assert.equal(selected.response.status, 200);
+
+  const opponentSeats = [...sessionsBySeat.keys()].filter(
+    (seat) => seat !== makerSeat,
+  );
+  const [makerEvents, ...opponentResults] = await Promise.all([
+    requestJson(`${app.baseUrl}/api/rooms/${room.body.roomId}/events`, {
+      headers: makerSession.headers,
+    }),
+    ...opponentSeats.map((opponentSeat) =>
+      requestJson(`${app.baseUrl}/api/rooms/${room.body.roomId}/events`, {
+        headers: sessionsBySeat.get(opponentSeat).headers,
+      }),
+    ),
+  ]);
+  assert.equal(makerEvents.response.status, 200);
+
+  const makerSelection = makerEvents.body.events.find(
+    (event) => event.type === "TRUMP_SELECTED",
+  );
+  assert.equal(makerSelection?.payload?.cardId, selectTrump.cardId);
+
+  for (const opponentEvents of opponentResults) {
+    assert.equal(opponentEvents.response.status, 200);
+    const opponentSelection = opponentEvents.body.events.find(
+      (event) => event.type === "TRUMP_SELECTED",
+    );
+    assert.deepEqual(Object.keys(opponentSelection?.payload || {}).sort(), [
+      "seat",
+      "source",
+    ]);
+    assert.equal(opponentSelection?.payload?.seat, makerSeat);
+    assert.equal(
+      JSON.stringify(opponentEvents.body).includes(selectTrump.cardId),
+      false,
+    );
+  }
+
+  const opponentState = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+    { headers: sessionsBySeat.get(opponentSeats[0]).headers },
+  );
+  assert.equal(opponentState.response.status, 200);
+  assert.equal(
+    JSON.stringify(opponentState.body).includes(selectTrump.cardId),
+    false,
+  );
+});
