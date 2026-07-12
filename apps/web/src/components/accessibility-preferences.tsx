@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  readBrowserStorage,
+  writeBrowserStorage,
+} from "../lib/browser-storage";
 
 type CardSize = "large" | "normal";
 
@@ -9,11 +13,11 @@ const CONTRAST_KEY = "g304.high-contrast";
 const REDUCED_MOTION_KEY = "g304.reduced-motion";
 
 function storedCardSize(): CardSize {
-  return localStorage.getItem(CARD_SIZE_KEY) === "large" ? "large" : "normal";
+  return readBrowserStorage(CARD_SIZE_KEY) === "large" ? "large" : "normal";
 }
 
 function storedBoolean(key: string): boolean {
-  return localStorage.getItem(key) === "true";
+  return readBrowserStorage(key) === "true";
 }
 
 function applyPreferences(
@@ -46,19 +50,19 @@ export function AccessibilityPreferences() {
   }, []);
 
   function updateCardSize(next: CardSize): void {
-    localStorage.setItem(CARD_SIZE_KEY, next);
+    writeBrowserStorage(CARD_SIZE_KEY, next);
     setCardSize(next);
     applyPreferences(next, highContrast, reducedMotion);
   }
 
   function updateHighContrast(next: boolean): void {
-    localStorage.setItem(CONTRAST_KEY, String(next));
+    writeBrowserStorage(CONTRAST_KEY, String(next));
     setHighContrast(next);
     applyPreferences(cardSize, next, reducedMotion);
   }
 
   function updateReducedMotion(next: boolean): void {
-    localStorage.setItem(REDUCED_MOTION_KEY, String(next));
+    writeBrowserStorage(REDUCED_MOTION_KEY, String(next));
     setReducedMotion(next);
     applyPreferences(cardSize, highContrast, next);
   }

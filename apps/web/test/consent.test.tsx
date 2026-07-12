@@ -50,4 +50,52 @@ describe("public analytics consent", () => {
     expect(track("page_view", { cardId: "private-card" }, options)).toBe(false);
     expect(transport).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps the choice usable when storage writes fail", async () => {
+    const user = userEvent.setup();
+    const onChoice = vi.fn();
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("Storage quota exceeded", "QuotaExceededError");
+      });
+
+    try {
+      render(<ConsentBanner onChoice={onChoice} />);
+      await user.click(screen.getByRole("button", { name: "Essential only" }));
+
+      expect(onChoice).toHaveBeenCalledWith("essential_only");
+      expect(
+        screen.queryByRole("complementary", { name: "Privacy choices" }),
+      ).toBe(null);
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
+  it("falls back to unknown consent when storage reads fail", () => {
+    const getItem = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new DOMException("Storage access denied", "SecurityError");
+      });
+
+    try {
+      render(<ConsentBanner />);
+      expect(
+        screen.getByRole("complementary", { name: "Privacy choices" }),
+      ).toBeTruthy();
+      expect(
+        track(
+          "page_view",
+          { screen: "play" },
+          {
+            endpoint: "https://analytics.example.test/collect",
+          },
+        ),
+      ).toBe(false);
+    } finally {
+      getItem.mockRestore();
+    }
+  });
 });

@@ -26,6 +26,9 @@ an approved analytics service and verified that optional analytics consent is
 being collected. Without explicit opt-in and a configured endpoint, the web
 client emits no optional analytics request.
 
+If browser storage is unavailable, consent and display controls remain usable
+for the current page lifecycle and optional analytics remains disabled.
+
 ## Public-release rehearsal
 
 From a clean checkout, run the following only against disposable local Compose
@@ -63,7 +66,8 @@ transient initial room-load retry, WebSocket-constructor recovery, a six-seat
 mobile layout, keyboard actions, 320px lobby containment, the active-hand exit
 boundary, invite-copy fallback feedback, one-based player-facing seat prompts,
 viewer-correct turn prompts, changed-winner second-bidding integrity, and
-display preferences. It does not inspect PostgreSQL to advance a game.
+display preferences, including storage read/write denial fallbacks. It does not
+inspect PostgreSQL to advance a game.
 
 The game-engine unit suite separately verifies that a viewerless projection
 marks no seat as the viewer and never inherits seat 0's closed-trump visibility.

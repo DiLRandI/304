@@ -1,3 +1,5 @@
+import { readBrowserStorage, writeBrowserStorage } from "./browser-storage";
+
 export const CONSENT_STORAGE_KEY = "g304.analytics-consent";
 
 export type ConsentState = "unknown" | "essential_only" | "optional_analytics";
@@ -35,15 +37,6 @@ const EVENT_PROPERTIES: Record<AnalyticsEvent, ReadonlySet<string>> = {
   private_room_joined: new Set(["ruleProfileId"]),
   preference_changed: new Set(["preference", "value"]),
 };
-
-function browserStorage(): Storage | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
 
 function configuredEndpoint(): string | undefined {
   const endpoint = process.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT?.trim();
@@ -94,14 +87,14 @@ function browserTransport(endpoint: string, payload: AnalyticsPayload): void {
 }
 
 export function readConsent(): ConsentState {
-  const stored = browserStorage()?.getItem(CONSENT_STORAGE_KEY);
+  const stored = readBrowserStorage(CONSENT_STORAGE_KEY);
   return stored === "essential_only" || stored === "optional_analytics"
     ? stored
     : "unknown";
 }
 
 export function writeConsent(consent: Exclude<ConsentState, "unknown">): void {
-  browserStorage()?.setItem(CONSENT_STORAGE_KEY, consent);
+  writeBrowserStorage(CONSENT_STORAGE_KEY, consent);
 }
 
 export function track(
