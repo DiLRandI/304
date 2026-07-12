@@ -73,6 +73,22 @@ test("display preferences stay tappable inside a touch-mobile viewport", async (
   }
 });
 
+test("the mobile join form keeps its required name field with the join action", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/play");
+  await dismissConsent(page);
+
+  const joinForm = page.getByRole("form", { name: "Join a private room" });
+  const joinName = joinForm.getByLabel("Name for this room");
+  await joinForm.getByLabel("Invite code").fill("304-mobile-test");
+  await joinForm.getByRole("button", { name: "Join private room" }).click();
+
+  await expect(joinName).toBeFocused();
+  await expect(joinName).toBeInViewport();
+});
+
 test("a 320px private lobby contains valid long names and its invite code", async ({
   page,
 }) => {

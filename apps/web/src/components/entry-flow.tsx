@@ -165,18 +165,31 @@ export function EntryFlow({
         </form>
 
         <form
+          aria-labelledby="join-room-title"
           className="entry-card entry-card-muted"
           onSubmit={(event) => {
             event.preventDefault();
             void joinRoom();
           }}
         >
-          <h2>Join a private room</h2>
+          <h2 id="join-room-title">Join a private room</h2>
+          <label>
+            Name for this room
+            <input
+              autoComplete="nickname"
+              maxLength={48}
+              onChange={(event) => setDisplayName(event.target.value)}
+              placeholder="How should the table know you?"
+              required
+              value={displayName}
+            />
+          </label>
           <label>
             Invite code
             <input
               onChange={(event) => setInviteCode(event.target.value)}
               placeholder="304-…"
+              required
               value={inviteCode}
             />
           </label>
