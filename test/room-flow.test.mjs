@@ -402,3 +402,51 @@ test("completed room responses expose only the public hand result", async (t) =>
   assert.equal(Object.hasOwn(state.body.handResult, "seedCommit"), false);
   assert.equal(Object.hasOwn(state.body.handResult, "deckVersion"), false);
 });
+
+test("legacy debug configuration never exposes engine snapshots", async (t) => {
+  const app = await startServer({
+    env: { INCLUDE_ENGINE_STATE: "true" },
+  });
+  t.after(() => app.close());
+
+  const guest = await requestJson(`${app.baseUrl}/api/guest-session`, {
+    method: "POST",
+    body: JSON.stringify({ displayName: "Snapshot Guard" }),
+  });
+  assert.equal(guest.response.status, 201);
+
+  const sessionHeaders = { "x-session-token": guest.body.sessionToken };
+  const room = await requestJson(`${app.baseUrl}/api/rooms`, {
+    method: "POST",
+    headers: sessionHeaders,
+    body: JSON.stringify({
+      visibility: "private",
+      tableSizeMode: "classic_4",
+      ruleProfileId: "classic_304_4p",
+      botDifficulty: "easy",
+      humanCount: 1,
+      enableSecondBidding: true,
+    }),
+  });
+  assert.equal(room.response.status, 201);
+
+  const started = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/start`,
+    {
+      method: "POST",
+      headers: sessionHeaders,
+      body: JSON.stringify({}),
+    },
+  );
+  assert.equal(started.response.status, 200);
+
+  const anonymous = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+  );
+  assert.equal(anonymous.response.status, 200);
+
+  for (const responseBody of [started.body, anonymous.body]) {
+    assert.equal(Object.hasOwn(responseBody, "engineState"), false);
+    assert.equal(JSON.stringify(responseBody).includes("handShuffle"), false);
+  }
+});

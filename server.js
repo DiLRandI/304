@@ -49,7 +49,6 @@ const CLEANUP_INTERVAL_MS = parseIntegerSetting(process.env.CLEANUP_INTERVAL_MS,
 const MAX_SESSIONS_IN_MEMORY = parseIntegerSetting(process.env.MAX_SESSIONS_IN_MEMORY, 5000, 100, 500000);
 const MAX_ROOMS_IN_MEMORY = parseIntegerSetting(process.env.MAX_ROOMS_IN_MEMORY, 1200, 32, 200000);
 const REQUEST_TIMEOUT_MS = parseIntegerSetting(process.env.REQUEST_TIMEOUT_MS, 15 * 1000, 250, 120000);
-const INCLUDE_ENGINE_STATE = parseBooleanSetting(process.env.INCLUDE_ENGINE_STATE, false);
 const TRUST_PROXY = parseBooleanSetting(process.env.TRUST_PROXY, false);
 const MAX_SESSION_TOKEN_LEN = parseIntegerSetting(process.env.MAX_SESSION_TOKEN_LEN, 80, 32, 256);
 const REQUIRE_ORIGIN_CHECK = parseBooleanSetting(process.env.REQUIRE_ORIGIN_CHECK, NODE_ENV === "production");
@@ -545,7 +544,7 @@ function makeRoomResponse(room, seatIndex = null, session = null) {
   };
 }
 
-function sanitizeRoomForSeat(room, viewerSeat, session, includeEngineState = false) {
+function sanitizeRoomForSeat(room, viewerSeat, session) {
   const base = makeRoomResponse(room, viewerSeat, session);
   if (!room.engine) {
     return {
@@ -561,7 +560,7 @@ function sanitizeRoomForSeat(room, viewerSeat, session, includeEngineState = fal
   const fullSeatView = viewerSeat == null ? null : room.engine.getSeatView(viewerSeat);
   const publicState = room.engine.getPublicState(viewerSeat);
   const legalActions = viewerSeat == null ? [] : room.engine.getLegalActions(viewerSeat);
-  const payload = {
+  return {
     ...base,
     phase: room.engine.state.phase,
     publicState,
@@ -571,19 +570,11 @@ function sanitizeRoomForSeat(room, viewerSeat, session, includeEngineState = fal
     handResult: publicState.handResult,
     isMatchComplete: room.engine.state.phase === "match_complete",
   };
-  if (includeEngineState && INCLUDE_ENGINE_STATE) {
-    payload.engineState = room.engine.getSnapshot();
-  }
-  return payload;
 }
 
 function getSeatIndexFromSession(room, session) {
   if (!room || !session) return null;
   return room.participants.get(session.sessionToken) ?? null;
-}
-
-function isEngineDumpAllowed() {
-  return INCLUDE_ENGINE_STATE;
 }
 
 function getPublicRoomEventLog(room, viewerSeat) {
@@ -670,8 +661,8 @@ function listPublicRooms() {
     .map((room) => buildPublicRoomSummary(room));
 }
 
-function createRoomSummary(room, viewerSeat = null, session = null, includeEngineState = false) {
-  return sanitizeRoomForSeat(room, viewerSeat, session, includeEngineState);
+function createRoomSummary(room, viewerSeat = null, session = null) {
+  return sanitizeRoomForSeat(room, viewerSeat, session);
 }
 
 function createEmptySession(displayName) {
@@ -1037,7 +1028,7 @@ async function apiRooms(req, res, method, roomRef, action, query) {
       if (Number.isFinite(seat)) {
         touchSeatPresence(roomRef, seat);
       }
-      return writeJson(res, 200, createRoomSummary(roomRef, seat, session, true));
+      return writeJson(res, 200, createRoomSummary(roomRef, seat, session));
     }
     return writeError(res, 405, "Method not allowed");
   }
@@ -1080,7 +1071,7 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     if (typeof existingSeat === "number") {
       touchSeatPresence(roomRef, existingSeat);
       rememberSessionRoom(session, roomRef);
-      return writeJson(res, 200, sanitizeRoomForSeat(roomRef, existingSeat, session, true));
+      return writeJson(res, 200, sanitizeRoomForSeat(roomRef, existingSeat, session));
     }
     if (roomRef.status !== "lobby") {
       return writeError(res, 409, "Room is not accepting joins now");
@@ -1129,7 +1120,7 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     if (currentType === "empty" || currentType === "bot") {
       // occupant replaced
     }
-    return writeJson(res, 201, sanitizeRoomForSeat(roomRef, pickSeat, session, true));
+    return writeJson(res, 201, sanitizeRoomForSeat(roomRef, pickSeat, session));
   }
 
   if (action === "seat") {
@@ -1151,7 +1142,7 @@ async function apiRooms(req, res, method, roomRef, action, query) {
       return writeError(res, 400, "Invalid seat index");
     }
     if (existingSeat === preferredSeat) {
-      return writeJson(res, 200, sanitizeRoomForSeat(roomRef, preferredSeat, session, true));
+      return writeJson(res, 200, sanitizeRoomForSeat(roomRef, preferredSeat, session));
     }
     const target = roomRef.seats[preferredSeat];
     if (!seatIsUsableForSeat(roomRef, preferredSeat, session)) {
@@ -1181,7 +1172,7 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     rememberSessionRoom(session, roomRef);
     roomRef.updatedAt = nowIsoString();
     roomRef.version += 1;
-    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, preferredSeat, session, true));
+    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, preferredSeat, session));
   }
 
   if (action === "ready") {
@@ -1204,7 +1195,7 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     roomRef.seats[viewerSeat].isReady = nextReady;
     touchSeatPresence(roomRef, viewerSeat);
     rememberSessionRoom(session, roomRef);
-    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, viewerSeat, session, true));
+    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, viewerSeat, session));
   }
 
   if (action === "heartbeat") {
@@ -1218,7 +1209,7 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     if (Number.isFinite(viewerSeat)) {
       touchSeatPresence(roomRef, viewerSeat);
     }
-    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, viewerSeat, session, true));
+    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, viewerSeat, session));
   }
 
   if (action === "start") {
@@ -1278,14 +1269,14 @@ async function apiRooms(req, res, method, roomRef, action, query) {
       roomRef.active = true;
       runBotsUntilStable(roomRef);
     }
-    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, getViewerSeat(roomRef, session), session, true));
+    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, getViewerSeat(roomRef, session), session));
   }
 
   if (action === "state") {
     if (method !== "GET") {
       return writeError(res, 405, "Method not allowed");
     }
-    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, getViewerSeat(roomRef, session), session, true));
+    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, getViewerSeat(roomRef, session), session));
   }
 
   if (action === "actions") {
@@ -1330,7 +1321,7 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     roomRef.version = roomRef.engine.state.version;
     roomRef.updatedAt = new Date().toISOString();
     runBotsUntilStable(roomRef);
-    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, viewerSeat, session, true));
+    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, viewerSeat, session));
   }
 
   return writeError(res, 404, "Unknown room action");
@@ -1498,7 +1489,7 @@ async function requestHandler(req, res) {
           enableSecondBidding,
         });
         rememberSessionRoom(session, room);
-        writeJson(res, 201, createRoomSummary(room, 0, session, true));
+        writeJson(res, 201, createRoomSummary(room, 0, session));
         return;
       }
       if (method === "GET") {
