@@ -87,6 +87,19 @@ test("the mobile join form keeps its required name field with the join action", 
 
   await expect(joinName).toBeFocused();
   await expect(joinName).toBeInViewport();
+
+  await joinName.fill("   ");
+  await joinForm.getByRole("button", { name: "Join private room" }).click();
+  await expect(joinName).toBeFocused();
+  await expect(joinName).toHaveAttribute("aria-invalid", "true");
+
+  await joinName.fill("Nila");
+  const inviteCode = joinForm.getByLabel("Invite code");
+  await inviteCode.fill("   ");
+  await joinForm.getByRole("button", { name: "Join private room" }).click();
+  await expect(inviteCode).toBeFocused();
+  await expect(inviteCode).toBeInViewport();
+  await expect(inviteCode).toHaveAttribute("aria-invalid", "true");
 });
 
 test("mobile start actions focus their missing display name", async ({

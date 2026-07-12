@@ -68,11 +68,11 @@ boundary, invite-copy fallback feedback, one-based player-facing seat prompts,
 viewer-correct turn prompts, changed-winner second-bidding integrity, and
 display preferences, including storage read/write denial fallbacks. The mobile
 join flow also verifies that its required display name stays with the join form
-and receives focus when missing; Start and Create return focus to their required
-name on short mobile viewports as well. Component coverage verifies that
-alternate face-down plays and the reserved closed-trump indicator remain
-reachable without revealing the indicator card. It does not inspect PostgreSQL
-to advance a game.
+and that blank or whitespace-only join fields receive focus; Start and Create
+return focus to their required name on short mobile viewports as well. Component
+coverage verifies that alternate face-down plays and the reserved closed-trump
+indicator remain reachable without revealing the indicator card. It does not
+inspect PostgreSQL to advance a game.
 
 The game-engine unit suite separately verifies that a viewerless projection
 marks no seat as the viewer and never inherits seat 0's closed-trump visibility.
