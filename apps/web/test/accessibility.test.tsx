@@ -80,4 +80,62 @@ describe("browser accessibility", () => {
     expect(document.documentElement.dataset.contrast).toBe("high");
     expect(document.documentElement.dataset.reducedMotion).toBe("true");
   });
+
+  it("renders default preferences when storage access is denied", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new DOMException("Storage access denied", "SecurityError");
+      },
+    });
+
+    try {
+      render(<AccessibilityPreferences />);
+
+      expect(screen.getByLabelText("Card size")).toHaveProperty(
+        "value",
+        "normal",
+      );
+      expect(screen.getByLabelText("High contrast")).toHaveProperty(
+        "checked",
+        false,
+      );
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(window, "localStorage", descriptor);
+      }
+    }
+  });
+
+  it("applies preference changes in memory when storage writes fail", async () => {
+    const user = userEvent.setup();
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("Storage quota exceeded", "QuotaExceededError");
+      });
+
+    try {
+      render(<AccessibilityPreferences />);
+
+      await user.selectOptions(screen.getByLabelText("Card size"), "large");
+      await user.click(screen.getByLabelText("High contrast"));
+      await user.click(screen.getByLabelText("Reduce motion"));
+
+      expect(screen.getByLabelText("Card size")).toHaveProperty(
+        "value",
+        "large",
+      );
+      expect(screen.getByLabelText("High contrast")).toHaveProperty(
+        "checked",
+        true,
+      );
+      expect(document.documentElement.dataset.cardSize).toBe("large");
+      expect(document.documentElement.dataset.contrast).toBe("high");
+      expect(document.documentElement.dataset.reducedMotion).toBe("true");
+    } finally {
+      setItem.mockRestore();
+    }
+  });
 });
