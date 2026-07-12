@@ -418,7 +418,9 @@ test("two private-table guests keep separate hands and recover after a socket re
 
     await guest.goto("/play");
     await dismissConsent(guest);
-    await guest.getByLabel("Display name").fill(uniqueName("Private guest"));
+    await guest
+      .getByLabel("Name for this room")
+      .fill(uniqueName("Private guest"));
     await guest.getByLabel("Invite code").fill(inviteCode);
     await guest.getByRole("button", { name: "Join private room" }).click();
     await expect(guest).toHaveURL(/\/room\//);
@@ -498,7 +500,7 @@ test("a changed second-round winner reselects trump and completes the hand", asy
       await guest.goto("/play");
       await dismissConsent(guest);
       await guest
-        .getByLabel("Display name")
+        .getByLabel("Name for this room")
         .fill(uniqueName(`Second bid guest ${index + 1}`));
       await guest.getByLabel("Invite code").fill(inviteCode);
       await guest.getByRole("button", { name: "Join private room" }).click();
@@ -619,7 +621,7 @@ test("five browser guests start a six-seat private room with one bot and six all
       await guest.goto("/play");
       await dismissConsent(guest);
       await guest
-        .getByLabel("Display name")
+        .getByLabel("Name for this room")
         .fill(uniqueName(`Six-seat guest ${index + 1}`));
       await guest.getByLabel("Invite code").fill(inviteCode);
       await guest.getByRole("button", { name: "Join private room" }).click();

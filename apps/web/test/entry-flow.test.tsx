@@ -45,6 +45,37 @@ describe("EntryFlow", () => {
     expect(client.startRoom).toHaveBeenCalledWith(ROOM_ID, 1);
   });
 
+  it("joins with the display name provided inside the join form", async () => {
+    const user = userEvent.setup();
+    const onNavigate = vi.fn();
+    const client = {
+      createGuest: vi.fn().mockResolvedValue({
+        expiresAt: "2026-07-12T12:00:00.000Z",
+        player: {
+          displayName: "Nila",
+          id: "961da264-92cd-4267-a5a6-483f485fc263",
+        },
+      }),
+      createRoom: vi.fn(),
+      startRoom: vi.fn(),
+    };
+
+    render(<EntryFlow client={client} onNavigate={onNavigate} />);
+
+    await user.type(screen.getByLabelText("Name for this room"), "  Nila  ");
+    await user.type(
+      screen.getByLabelText("Invite code"),
+      "304-room one{Enter}",
+    );
+
+    await waitFor(() =>
+      expect(onNavigate).toHaveBeenCalledWith("/room/304-room%20one"),
+    );
+    expect(client.createGuest).toHaveBeenCalledWith("Nila");
+    expect(client.createRoom).not.toHaveBeenCalled();
+    expect(client.startRoom).not.toHaveBeenCalled();
+  });
+
   it("announces a known safe service error without exposing protocol details", async () => {
     const user = userEvent.setup();
     const client = {
