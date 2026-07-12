@@ -37,11 +37,16 @@ async function waitForHealthy(baseUrl, child) {
   throw new Error("server did not become healthy within 10 seconds");
 }
 
-export async function startServer() {
+export async function startServer(options = {}) {
   const port = await reservePort();
   const child = spawn(process.execPath, ["server.js"], {
     cwd: repoRoot,
-    env: { ...process.env, NODE_ENV: "test", PORT: String(port) },
+    env: {
+      ...process.env,
+      ...(options.env || {}),
+      NODE_ENV: "test",
+      PORT: String(port),
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   const output = [];
