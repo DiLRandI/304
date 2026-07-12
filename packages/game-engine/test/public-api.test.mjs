@@ -301,6 +301,76 @@ test("opening trump does not reveal an earlier face-down non-trump card", () => 
   );
 });
 
+test("public reconnect summaries omit hidden autopilot card identities", () => {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  engine.startMatch();
+  engine.state.seats[1].reconnectSummary = [
+    {
+      type: "SELECT_TRUMP",
+      at: "2026-07-12T00:00:00.000Z",
+      handNumber: 1,
+      phase: "trump_selection",
+      cardId: "hearts-J",
+      indicatorCardId: "hearts-J",
+      rank: "J",
+      suit: "hearts",
+    },
+    {
+      type: "PLAY_CARD",
+      at: "2026-07-12T00:00:01.000Z",
+      handNumber: 1,
+      phase: "trick_play",
+      cardId: "spades-9",
+      faceDown: true,
+      fromIndicator: false,
+      rank: "9",
+      suit: "spades",
+    },
+    {
+      type: "PLAY_CARD",
+      at: "2026-07-12T00:00:02.000Z",
+      handNumber: 1,
+      phase: "trick_play",
+      cardId: "clubs-7",
+      faceDown: false,
+      fromIndicator: false,
+    },
+  ];
+
+  const publicSummary = engine.getPublicState(0).seats[1].reconnectSummary;
+  assert.deepEqual(publicSummary, [
+    {
+      type: "SELECT_TRUMP",
+      at: "2026-07-12T00:00:00.000Z",
+      handNumber: 1,
+      phase: "trump_selection",
+    },
+    {
+      type: "PLAY_CARD",
+      at: "2026-07-12T00:00:01.000Z",
+      handNumber: 1,
+      phase: "trick_play",
+      faceDown: true,
+    },
+    {
+      type: "PLAY_CARD",
+      at: "2026-07-12T00:00:02.000Z",
+      handNumber: 1,
+      phase: "trick_play",
+      cardId: "clubs-7",
+    },
+  ]);
+  assert.equal(JSON.stringify(publicSummary).includes("hearts-J"), false);
+  assert.equal(JSON.stringify(publicSummary).includes("spades-9"), false);
+
+  const privateSummary = engine.getSeatView(1).reconnectSummary;
+  assert.equal(privateSummary[0].cardId, "hearts-J");
+  assert.equal(privateSummary[1].cardId, "spades-9");
+});
+
 test("formats seat references in public game messages as one-based", () => {
   const engine = new GameEngine({
     humanCount: 4,
