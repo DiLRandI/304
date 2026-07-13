@@ -990,7 +990,7 @@ function executeOneBotAction(room) {
     if (!action) return;
 
     const beforeState = room.engine.state;
-    const applied = room.engine.applyAction(action);
+    const applied = room.engine.applyAutomationAction(action, slot.seatIndex);
     if (!applied.ok) return;
 
     if (slot.seatInfo?.autopilot) {
@@ -1051,6 +1051,7 @@ function stopBotRunner(room) {
 async function apiRooms(req, res, method, roomRef, action, query) {
   const session = getSession(req, true);
   reconcileRoomPresence(roomRef);
+  runBotsUntilStable(roomRef);
 
   if (!action) {
     if (method === "GET") {
