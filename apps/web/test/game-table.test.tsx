@@ -165,6 +165,25 @@ describe("GameTable", () => {
     ).toBeTruthy();
   });
 
+  it("does not present partial trick points as a complete score", () => {
+    const projection = activeProjection();
+    const publicState = projection.view.publicState as Record<string, unknown>;
+    publicState.trickPointsPartial = true;
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("Hidden until face-down cards are revealed"),
+    ).toBeTruthy();
+  });
+
   it("announces only the server-projected result and labels continuation precisely", () => {
     render(
       <GameTable

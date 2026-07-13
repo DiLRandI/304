@@ -73,6 +73,7 @@ export interface GameRoomView {
     seats: ProjectedSeat[];
     tokens: [number, number];
     trick: ProjectedTrickPlay[];
+    trickPointsPartial: boolean;
     trump: {
       indicatorVisible: boolean;
       isOpen: boolean;
@@ -334,6 +335,7 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
   const handResult = readHandResult(publicState.handResult);
   const trump = publicState.trump;
   const trick = readTrick(publicState.trick);
+  const trickPointsPartial = publicState.trickPointsPartial === true;
   if (
     (seatCount !== 4 && seatCount !== 6) ||
     handNumber === null ||
@@ -406,6 +408,7 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
       seats,
       tokens: [teamATokens, teamBTokens],
       trick,
+      trickPointsPartial,
       trump: {
         indicatorVisible: trump.indicatorVisible,
         isOpen: trump.isOpen,

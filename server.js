@@ -612,6 +612,15 @@ function getPublicRoomEventLog(room, viewerSeat) {
       event.payload && typeof event.payload === "object"
         ? { ...event.payload }
         : event.payload;
+    if (event.type === "TRICK_END") {
+      return {
+        ...event,
+        payload: {
+          winner: payload?.winner,
+          openTrump: payload?.openTrump,
+        },
+      };
+    }
     if (event.type === "TRUMP_SELECTED") {
       const actorSeat = Number.isInteger(payload?.seat)
         ? payload.seat

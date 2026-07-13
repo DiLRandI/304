@@ -225,8 +225,9 @@ export function GameTable({
             <div>
               <dt>Trick points</dt>
               <dd>
-                A {teamTrickPoints(publicState.seats, "A")} · B{" "}
-                {teamTrickPoints(publicState.seats, "B")}
+                {publicState.trickPointsPartial
+                  ? "Hidden until face-down cards are revealed"
+                  : `A ${teamTrickPoints(publicState.seats, "A")} · B ${teamTrickPoints(publicState.seats, "B")}`}
               </dd>
             </div>
           </dl>
