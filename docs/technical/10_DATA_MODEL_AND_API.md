@@ -205,8 +205,8 @@ Response:
 ```json
 {
   "roomId": "room_123",
-  "inviteCode": "304-LK7M",
-  "joinUrl": "/room/room_123?code=304-LK7M"
+  "inviteCode": "304-LK7MQ9R2W5XZ",
+  "joinUrl": "/room/room_123?code=304-LK7MQ9R2W5XZ"
 }
 ```
 
@@ -228,7 +228,7 @@ Request:
 
 ```json
 {
-  "inviteCode": "304-LK7M"
+  "inviteCode": "304-LK7MQ9R2W5XZ"
 }
 ```
 

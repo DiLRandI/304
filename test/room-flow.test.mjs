@@ -34,6 +34,7 @@ test("quick-practice room starts with one person, three bots, and a private hand
     }),
   });
   assert.equal(room.response.status, 201);
+  assert.match(room.body.inviteCode, /^304-[A-Z0-9]{12}$/);
 
   const started = await requestJson(`${app.baseUrl}/api/rooms/${room.body.roomId}/start`, {
     method: "POST",
@@ -42,6 +43,7 @@ test("quick-practice room starts with one person, three bots, and a private hand
   });
   assert.equal(started.response.status, 200);
   assert.equal(started.body.status, "in_hand");
+  assert.match(started.body.publicState.inviteCode, /^304-[A-Z0-9]{12}$/);
   assert.equal(started.body.seats.filter((seat) => seat.type === "human").length, 1);
   assert.equal(started.body.seats.filter((seat) => seat.type === "bot").length, 3);
   assert.equal(started.body.seatView.hand.length, 4);

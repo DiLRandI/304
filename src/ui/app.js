@@ -272,7 +272,7 @@ function normalizeRoomCode(value) {
 }
 
 function isRoomCode(value) {
-  return /^304-[A-Z0-9]{4}$/.test(normalizeRoomCode(value));
+  return /^304-[A-Z0-9]{12}$/.test(normalizeRoomCode(value));
 }
 
 function formatSeatStatusLabel(seat) {
