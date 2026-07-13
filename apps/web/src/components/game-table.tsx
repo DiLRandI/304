@@ -7,7 +7,7 @@ import {
   type ProjectedHandResult,
   readActiveRoomView,
 } from "../lib/room-view";
-import { CardButton, cardLabel } from "./card";
+import { CardButton, CardFace, cardLabel } from "./card";
 import { RulesDrawer } from "./rules-drawer";
 
 function isNoScoreResult(
@@ -185,18 +185,24 @@ export function GameTable({
         <div className="table-center">
           <section aria-label="Current trick" className="trick-area">
             <p className="eyebrow">Current trick</p>
-            <div className="trick-cards">
+            <div
+              className="trick-cards"
+              data-seat-count={publicState.seatCount}
+            >
               {view.publicState.trick.length === 0 ? (
                 <p>Waiting for the lead card.</p>
               ) : (
                 view.publicState.trick.map((play) => (
                   <div
+                    aria-label={`${cardLabel(play.card)}, played by Seat ${play.seatIndex + 1}`}
                     className="trick-card"
+                    data-hidden={play.card.hidden || undefined}
+                    data-seat-index={play.seatIndex}
+                    data-suit={play.card.suit ?? undefined}
                     key={`${play.seatIndex}-${play.card.cardId}`}
+                    role="img"
                   >
-                    <span>
-                      {play.card.hidden ? "Card back" : cardLabel(play.card)}
-                    </span>
+                    <CardFace card={play.card} />
                   </div>
                 ))
               )}

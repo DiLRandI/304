@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GameTable } from "../src/components/game-table.js";
@@ -8,6 +8,7 @@ import {
   activeProjection,
   jackOfSpades,
   resultProjection,
+  sevenOfClubs,
 } from "./browser-fixtures.js";
 
 describe("GameTable", () => {
@@ -182,6 +183,49 @@ describe("GameTable", () => {
     expect(
       screen.getByText("Hidden until face-down cards are revealed"),
     ).toBeTruthy();
+  });
+
+  it("renders played cards as accessible visuals at their player seats", () => {
+    const projection = activeProjection();
+    const publicState = projection.view.publicState as Record<string, unknown>;
+    publicState.trick = {
+      plays: [
+        { card: sevenOfClubs, faceDown: false, seatIndex: 2 },
+        {
+          card: { cardId: "hidden-indicator", hidden: true },
+          faceDown: true,
+          seatIndex: 3,
+        },
+      ],
+    };
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={vi.fn()}
+      />,
+    );
+
+    const trick = screen.getByRole("region", { name: "Current trick" });
+    const visibleCard = within(trick).getByRole("img", {
+      name: "Seven of Clubs, 0 points, played by Seat 3",
+    });
+    expect(
+      visibleCard.closest(".trick-card")?.getAttribute("data-seat-index"),
+    ).toBe("2");
+    expect(trick.textContent).not.toContain("Seven of Clubs");
+
+    const hiddenCard = within(trick).getByRole("img", {
+      name: "Hidden card, played by Seat 4",
+    });
+    expect(hiddenCard.closest(".trick-card")?.getAttribute("data-hidden")).toBe(
+      "true",
+    );
+    expect(
+      trick.querySelector(".trick-cards")?.getAttribute("data-seat-count"),
+    ).toBe("4");
   });
 
   it("announces only the server-projected result and labels continuation precisely", () => {

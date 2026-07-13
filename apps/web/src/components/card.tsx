@@ -37,6 +37,34 @@ export function cardLabel(card: ProjectedCard): string {
   return `${rankName(card.rank)} of ${suitName(card.suit)}, ${card.points} points`;
 }
 
+export function CardFace({ card }: { card: ProjectedCard }) {
+  const isHidden = card.hidden || !card.rank || !card.suit;
+
+  return (
+    <span
+      aria-hidden="true"
+      className="card-face"
+      data-hidden={isHidden || undefined}
+      data-suit={card.suit ?? undefined}
+    >
+      {isHidden ? (
+        <span aria-hidden="true" className="card-back">
+          304
+        </span>
+      ) : (
+        <>
+          <span aria-hidden="true" className="card-rank">
+            {card.rank}
+          </span>
+          <span aria-hidden="true" className="card-suit">
+            {SUIT_SYMBOLS[card.suit ?? ""] ?? "?"}
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
 export function CardButton({
   action,
   card,
@@ -67,21 +95,8 @@ export function CardButton({
       }}
       type="button"
     >
-      {isHidden ? (
-        <span aria-hidden="true" className="card-back">
-          304
-        </span>
-      ) : (
-        <>
-          <span aria-hidden="true" className="card-rank">
-            {card.rank}
-          </span>
-          <span aria-hidden="true" className="card-suit">
-            {SUIT_SYMBOLS[card.suit ?? ""] ?? "?"}
-          </span>
-          <span className="sr-only">{label}</span>
-        </>
-      )}
+      <CardFace card={card} />
+      <span className="sr-only">{label}</span>
     </button>
   );
 }
