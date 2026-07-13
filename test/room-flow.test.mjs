@@ -443,10 +443,61 @@ test("legacy debug configuration never exposes engine snapshots", async (t) => {
   const anonymous = await requestJson(
     `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
   );
-  assert.equal(anonymous.response.status, 200);
+  assert.equal(anonymous.response.status, 401);
 
   for (const responseBody of [started.body, anonymous.body]) {
     assert.equal(Object.hasOwn(responseBody, "engineState"), false);
     assert.equal(JSON.stringify(responseBody).includes("handShuffle"), false);
+  }
+});
+
+test("private room and state reads require an authenticated seated player", async (t) => {
+  const app = await startServer();
+  t.after(() => app.close());
+
+  const [host, outsider] = await Promise.all(
+    ["Host", "Outsider"].map((displayName) =>
+      requestJson(`${app.baseUrl}/api/guest-session`, {
+        method: "POST",
+        body: JSON.stringify({ displayName }),
+      }),
+    ),
+  );
+  assert.equal(host.response.status, 201);
+  assert.equal(outsider.response.status, 201);
+
+  const hostHeaders = { "x-session-token": host.body.sessionToken };
+  const outsiderHeaders = { "x-session-token": outsider.body.sessionToken };
+  const room = await requestJson(`${app.baseUrl}/api/rooms`, {
+    method: "POST",
+    headers: hostHeaders,
+    body: JSON.stringify({
+      visibility: "private",
+      tableSizeMode: "classic_4",
+      ruleProfileId: "classic_304_4p",
+      botDifficulty: "easy",
+      humanCount: 1,
+      enableSecondBidding: true,
+    }),
+  });
+  assert.equal(room.response.status, 201);
+
+  const paths = [
+    `/api/rooms/${room.body.roomId}`,
+    `/api/rooms/${room.body.roomId}/state`,
+  ];
+  for (const path of paths) {
+    const anonymous = await requestJson(`${app.baseUrl}${path}`);
+    assert.equal(anonymous.response.status, 401);
+
+    const nonMember = await requestJson(`${app.baseUrl}${path}`, {
+      headers: outsiderHeaders,
+    });
+    assert.equal(nonMember.response.status, 403);
+
+    const member = await requestJson(`${app.baseUrl}${path}`, {
+      headers: hostHeaders,
+    });
+    assert.equal(member.response.status, 200);
   }
 });
