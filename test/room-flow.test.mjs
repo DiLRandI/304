@@ -635,11 +635,22 @@ test("an active disconnected player advances through autopilot", async (t) => {
   );
   assert.equal(autopilotTriggered.response.status, 200);
 
-  await new Promise((resolve) => setTimeout(resolve, 650));
-  const advanced = await requestJson(
-    `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
-    { headers: hostHeaders },
-  );
+  let advanced;
+  const advanceDeadline = Date.now() + 5_000;
+  do {
+    advanced = await requestJson(
+      `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+      { headers: hostHeaders },
+    );
+    if (
+      advanced.body.version > versionBeforeAutopilot &&
+      advanced.body.publicState.seats[autopilotSeat].reconnectSummary.length > 0
+    ) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  } while (Date.now() < advanceDeadline);
+
   assert.equal(advanced.response.status, 200);
   assert.ok(advanced.body.version > versionBeforeAutopilot);
   assert.ok(
