@@ -26,7 +26,15 @@ const SEAT_DISPLAY_VERSION = 1;
 function inviteCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "304-";
-  for (let i = 0; i < 4; i++) {
+  const randomValues = new Uint32Array(12);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(randomValues);
+    for (const value of randomValues) {
+      out += chars[value % chars.length];
+    }
+    return out;
+  }
+  for (let i = 0; i < 12; i++) {
     out += chars[Math.floor(Math.random() * chars.length)];
   }
   return out;

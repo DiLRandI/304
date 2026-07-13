@@ -714,11 +714,16 @@ function rememberSessionRoom(session, room) {
 
 function nextInviteCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "304-";
-  for (let i = 0; i < 4; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+  for (let attempt = 0; attempt < 8; attempt++) {
+    let code = "304-";
+    for (let i = 0; i < 12; i++) {
+      code += chars[crypto.randomInt(chars.length)];
+    }
+    if (!roomsByCode.has(code)) {
+      return code;
+    }
   }
-  return code;
+  throw new Error("Unable to allocate a unique invite code");
 }
 
 function createRoomObject({

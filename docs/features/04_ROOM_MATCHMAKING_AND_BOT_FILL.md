@@ -217,7 +217,7 @@ After a hand:
 
 ### Private room invite
 
-- Generate short invite code, e.g. `304-LK7M`.
+- Generate a 12-character invite code with at least 60 bits of entropy, e.g. `304-LK7MQ9R2W5XZ`.
 - Generate shareable URL.
 - Users entering link join lobby if room is open.
 - Expired or full rooms show useful error.
