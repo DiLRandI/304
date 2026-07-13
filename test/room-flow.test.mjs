@@ -503,3 +503,146 @@ test("private room and state reads require an authenticated seated player", asyn
     assert.equal(member.response.status, 200);
   }
 });
+
+test("an active disconnected player advances through autopilot", async (t) => {
+  const app = await startServer({
+    env: {
+      ROOM_PRESENCE_TIMEOUT_MS: "10000",
+      DISCONNECT_GRACE_MS: "5000",
+      BOT_THINK_DELAY_EASY_MIN_MS: "300",
+      BOT_THINK_DELAY_EASY_MAX_MS: "300",
+    },
+  });
+  t.after(() => app.close());
+
+  const sessions = [];
+  for (const displayName of ["Host", "North", "East", "West"]) {
+    const guest = await requestJson(`${app.baseUrl}/api/guest-session`, {
+      method: "POST",
+      body: JSON.stringify({ displayName }),
+    });
+    assert.equal(guest.response.status, 201);
+    sessions.push({
+      displayName,
+      headers: { "x-session-token": guest.body.sessionToken },
+    });
+  }
+
+  const hostHeaders = sessions[0].headers;
+  const room = await requestJson(`${app.baseUrl}/api/rooms`, {
+    method: "POST",
+    headers: hostHeaders,
+    body: JSON.stringify({
+      visibility: "private",
+      tableSizeMode: "classic_4",
+      ruleProfileId: "classic_304_4p",
+      botDifficulty: "easy",
+      humanCount: 4,
+      enableSecondBidding: true,
+    }),
+  });
+  assert.equal(room.response.status, 201);
+
+  const sessionsBySeat = new Map([[0, sessions[0]]]);
+  for (const session of sessions.slice(1)) {
+    const joined = await requestJson(
+      `${app.baseUrl}/api/rooms/${room.body.inviteCode}/join`,
+      {
+        method: "POST",
+        headers: session.headers,
+        body: JSON.stringify({ displayName: session.displayName }),
+      },
+    );
+    assert.equal(joined.response.status, 201);
+    sessionsBySeat.set(joined.body.seatIndex, session);
+  }
+
+  let state = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/start`,
+    {
+      method: "POST",
+      headers: hostHeaders,
+      body: JSON.stringify({}),
+    },
+  );
+  assert.equal(state.response.status, 200);
+
+  while (state.body.publicState.activeSeat !== 0) {
+    const activeSeat = state.body.publicState.activeSeat;
+    const activeSession = sessionsBySeat.get(activeSeat);
+    const current = await requestJson(
+      `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+      { headers: activeSession.headers },
+    );
+    const action =
+      current.body.publicState.bidding.currentBid === 0
+        ? current.body.legalActions.find(
+            (candidate) =>
+              candidate.type === "BID" && candidate.amount === 160,
+          )
+        : current.body.legalActions.find(
+            (candidate) => candidate.type === "PASS_BID",
+          );
+    assert.ok(action);
+    state = await requestJson(
+      `${app.baseUrl}/api/rooms/${room.body.roomId}/actions`,
+      {
+        method: "POST",
+        headers: activeSession.headers,
+        body: JSON.stringify(action),
+      },
+    );
+    assert.equal(state.response.status, 200);
+  }
+
+  const hostTurn = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+    { headers: hostHeaders },
+  );
+  const hostAction = hostTurn.body.legalActions.find(
+    (candidate) => candidate.type === "PASS_BID",
+  );
+  assert.ok(hostAction);
+  state = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/actions`,
+    {
+      method: "POST",
+      headers: hostHeaders,
+      body: JSON.stringify(hostAction),
+    },
+  );
+  assert.equal(state.response.status, 200);
+
+  const autopilotSeat = state.body.publicState.activeSeat;
+  assert.notEqual(autopilotSeat, 0);
+  const versionBeforeAutopilot = state.body.version;
+
+  await new Promise((resolve) => setTimeout(resolve, 10_100));
+  const disconnected = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+    { headers: hostHeaders },
+  );
+  assert.equal(disconnected.response.status, 200);
+  assert.equal(
+    disconnected.body.publicState.seats[autopilotSeat].connectionStatus,
+    "disconnected",
+  );
+
+  await new Promise((resolve) => setTimeout(resolve, 5_100));
+  const autopilotTriggered = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+    { headers: hostHeaders },
+  );
+  assert.equal(autopilotTriggered.response.status, 200);
+
+  await new Promise((resolve) => setTimeout(resolve, 650));
+  const advanced = await requestJson(
+    `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+    { headers: hostHeaders },
+  );
+  assert.equal(advanced.response.status, 200);
+  assert.ok(advanced.body.version > versionBeforeAutopilot);
+  assert.ok(
+    advanced.body.publicState.seats[autopilotSeat].reconnectSummary.length > 0,
+  );
+});
