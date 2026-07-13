@@ -1,3 +1,5 @@
+import { createHash, createHmac, randomBytes } from "node:crypto";
+
 export const SUITS = [
   { id: "clubs", label: "Clubs", short: "C" },
   { id: "diamonds", label: "Diamonds", short: "D" },
@@ -121,4 +123,3 @@ export function shuffleDeck(cards, { seed = null } = {}) {
   }
   return deck;
 }
-import { createHash, createHmac, randomBytes } from "node:crypto";

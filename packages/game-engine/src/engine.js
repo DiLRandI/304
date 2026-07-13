@@ -576,8 +576,11 @@ export class GameEngine {
   }
 
   _hasConcealedPointValues() {
-    return !this._trickPointsArePublic(this.state.currentTrick) || this.state.completedTricks.some(
-      (trick) => !this._trickPointsArePublic(trick),
+    return (
+      !this._trickPointsArePublic(this.state.currentTrick) ||
+      this.state.completedTricks.some(
+        (trick) => !this._trickPointsArePublic(trick),
+      )
     );
   }
 
@@ -1699,8 +1702,8 @@ export class GameEngine {
         winnerSeat: trick.winnerSeat ?? null,
         leadSuit: trick.leadSuit ?? null,
         openedTrumpThisTrick: Boolean(trick.openedTrumpThisTrick),
-        points: pointsArePublic ? trick.points ?? null : null,
-        pointValue: pointsArePublic ? trick.pointValue ?? null : null,
+        points: pointsArePublic ? (trick.points ?? null) : null,
+        pointValue: pointsArePublic ? (trick.pointValue ?? null) : null,
         plays: trick.plays.map(projectPlay),
       },
     };
