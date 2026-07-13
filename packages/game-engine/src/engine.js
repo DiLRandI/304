@@ -245,7 +245,7 @@ export class GameEngine {
       handShuffle: {
         seed: null,
         seedCommit: null,
-        deckVersion: "mulberry32-v1",
+        deckVersion: "hmac-sha256-v1",
       },
     };
     this._buildSeats(profile, playerName, initialSeats);
@@ -379,7 +379,7 @@ export class GameEngine {
         this.state.profile.id,
         this.state.handNumber,
       ),
-      deckVersion: "mulberry32-v1",
+      deckVersion: "hmac-sha256-v1",
       seatCount: this.state.seatCount,
     };
     this.state.deck = shuffleDeck(buildDeck(this.state.profile), {

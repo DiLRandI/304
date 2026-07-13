@@ -21,58 +21,36 @@ export function cardId(suit, rank) {
   return `${suit[0].toUpperCase()}_${rank}`;
 }
 
-function toSeedInt(seed) {
-  if (typeof seed === "number" && Number.isFinite(seed)) {
-    return Math.abs(Math.floor(seed)) >>> 0;
-  }
-  if (typeof seed !== "string" && typeof seed !== "number") {
-    return 0;
-  }
-  let hash = 2166136261 >>> 0;
-  const text = String(seed);
-  for (let i = 0; i < text.length; i++) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-    hash >>>= 0;
-  }
-  return hash >>> 0;
-}
-
 export function generateShuffleSeed() {
-  const now = Date.now().toString(36);
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    const buffer = new Uint32Array(2);
-    crypto.getRandomValues(buffer);
-    return `s_${buffer[0].toString(16)}${buffer[1].toString(16)}_${now}`;
-  }
-  const randomPart = Math.floor(Math.random() * 0xffffffff).toString(16);
-  return `s_${randomPart}_${now}`;
+  return `s_${randomBytes(32).toString("hex")}`;
 }
 
 function createSeededRandom(seed) {
-  let state = toSeedInt(seed) || 0x9e3779b9;
+  const key = Buffer.from(String(seed));
+  let counter = 0;
+  let block = Buffer.alloc(0);
+  let offset = 0;
   return () => {
-    state = Math.imul(state, 1664525) + 1013904223;
-    state >>>= 0;
-    return state / 4294967296;
+    if (offset + 4 > block.length) {
+      const nonce = Buffer.alloc(8);
+      nonce.writeBigUInt64BE(BigInt(counter));
+      counter += 1;
+      block = createHmac("sha256", key).update(nonce).digest();
+      offset = 0;
+    }
+    const value = block.readUInt32BE(offset);
+    offset += 4;
+    return value / 4294967296;
   };
 }
 
-function simpleCommit(seed, profileId, handNumber) {
+function secureCommit(seed, profileId, handNumber) {
   const source = `${String(seed)}|${profileId}|${String(handNumber)}`;
-  let h1 = 0;
-  let h2 = 0;
-  for (let i = 0; i < source.length; i++) {
-    const code = source.charCodeAt(i);
-    h1 = (h1 + code * (i + 1)) % 2147483647;
-    h2 = (h2 * 31 + code) % 2147483647;
-  }
-  const combined = (h1.toString(16) + h2.toString(16)).padStart(12, "0");
-  return `c_${combined}`;
+  return `c_${createHash("sha256").update(source).digest("hex")}`;
 }
 
 export function makeShuffleCommit(seed, profileId, handNumber) {
-  return simpleCommit(seed, profileId, handNumber);
+  return secureCommit(seed, profileId, handNumber);
 }
 
 export function formatCard(card) {
@@ -134,13 +112,7 @@ export function shuffleDeck(cards, { seed = null } = {}) {
   const random =
     seed != null
       ? createSeededRandom(seed)
-      : typeof crypto !== "undefined" && crypto.getRandomValues
-        ? () => {
-            const buf = new Uint32Array(1);
-            crypto.getRandomValues(buf);
-            return buf[0] / 4294967296;
-          }
-        : () => Math.random();
+      : () => randomBytes(4).readUInt32BE() / 4294967296;
   for (let i = deck.length - 1; i > 0; i--) {
     const swapIndex = Math.floor(random() * (i + 1));
     const t = deck[i];
@@ -149,3 +121,4 @@ export function shuffleDeck(cards, { seed = null } = {}) {
   }
   return deck;
 }
+import { createHash, createHmac, randomBytes } from "node:crypto";
