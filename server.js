@@ -1049,10 +1049,14 @@ async function apiRooms(req, res, method, roomRef, action, query) {
 
   if (!action) {
     if (method === "GET") {
-      const seat = getViewerSeat(roomRef, session);
-      if (Number.isFinite(seat)) {
-        touchSeatPresence(roomRef, seat);
+      if (!session) {
+        return writeError(res, 401, "Session required");
       }
+      const seat = getViewerSeat(roomRef, session);
+      if (!Number.isFinite(seat)) {
+        return writeError(res, 403, "You are not seated in this room");
+      }
+      touchSeatPresence(roomRef, seat);
       return writeJson(res, 200, createRoomSummary(roomRef, seat, session));
     }
     return writeError(res, 405, "Method not allowed");
@@ -1301,7 +1305,15 @@ async function apiRooms(req, res, method, roomRef, action, query) {
     if (method !== "GET") {
       return writeError(res, 405, "Method not allowed");
     }
-    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, getViewerSeat(roomRef, session), session));
+    if (!session) {
+      return writeError(res, 401, "Session required");
+    }
+    const viewerSeat = getViewerSeat(roomRef, session);
+    if (!Number.isFinite(viewerSeat)) {
+      return writeError(res, 403, "You are not seated in this room");
+    }
+    touchSeatPresence(roomRef, viewerSeat);
+    return writeJson(res, 200, sanitizeRoomForSeat(roomRef, viewerSeat, session));
   }
 
   if (action === "actions") {
