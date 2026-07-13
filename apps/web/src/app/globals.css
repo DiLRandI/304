@@ -741,43 +741,88 @@ dd[data-state="missing"] {
 
 .trick-area {
   display: grid;
-  min-height: 10rem;
+  min-height: 13rem;
   align-content: start;
   gap: 0.75rem;
 }
 
 .trick-cards {
   display: grid;
-  min-height: 7rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
-  align-content: center;
+  min-height: 10.5rem;
+  grid-template-areas:
+    ". seat-2 ."
+    "seat-1 . seat-3"
+    ". seat-0 .";
+  grid-template-columns: repeat(3, minmax(3.25rem, 1fr));
+  grid-template-rows: repeat(3, minmax(3.25rem, 1fr));
+  gap: 0.35rem;
+  place-items: center;
+}
+
+.trick-cards[data-seat-count="6"] {
+  grid-template-areas:
+    "seat-3 seat-4 ."
+    "seat-2 . seat-5"
+    "seat-1 . seat-0";
 }
 
 .trick-cards > p {
-  grid-column: 1 / -1;
+  grid-area: 1 / 1 / -1 / -1;
   align-self: center;
   color: #afc4b1;
   font-size: 0.86rem;
   text-align: center;
 }
 
-.trick-card {
-  display: grid;
-  min-height: 3.2rem;
-  place-items: center;
-  border: 1px solid rgb(242 241 214 / 24%);
-  border-radius: 0.55rem;
-  background: #f4ecda;
-  color: #14261b;
-  padding: 0.4rem;
-  text-align: center;
+.trick-card[data-seat-index="0"] {
+  grid-area: seat-0;
 }
 
-.trick-card span {
-  font-size: 0.76rem;
-  font-weight: 760;
-  line-height: 1.2;
+.trick-card[data-seat-index="1"] {
+  grid-area: seat-1;
+}
+
+.trick-card[data-seat-index="2"] {
+  grid-area: seat-2;
+}
+
+.trick-card[data-seat-index="3"] {
+  grid-area: seat-3;
+}
+
+.trick-card[data-seat-index="4"] {
+  grid-area: seat-4;
+}
+
+.trick-card[data-seat-index="5"] {
+  grid-area: seat-5;
+}
+
+.trick-card {
+  display: grid;
+  width: clamp(3.35rem, 5vw, 4.6rem);
+  aspect-ratio: 0.68;
+  place-items: center;
+  border: 1px solid rgb(38 47 35 / 32%);
+  border-radius: 0.6rem;
+  background: linear-gradient(145deg, #fffaf0, #e9dfc9);
+  box-shadow:
+    0 0.55rem 0.8rem rgb(0 0 0 / 25%),
+    inset 0 0 0 2px rgb(255 255 255 / 54%);
+  color: #1a2b20;
+  padding: 0.35rem;
+}
+
+.trick-card > .card-face {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+
+.trick-card[data-suit="hearts"],
+.trick-card[data-suit="diamonds"] {
+  color: #8d3029;
 }
 
 .table-metrics {
@@ -924,6 +969,10 @@ dd[data-state="missing"] {
     transform 150ms ease,
     box-shadow 150ms ease,
     opacity 150ms ease;
+}
+
+.card-button > .card-face {
+  display: contents;
 }
 
 .card-button:not(:disabled):hover {
@@ -1224,6 +1273,10 @@ html[data-card-size="large"] .card-button {
   min-width: 4.5rem;
 }
 
+html[data-card-size="large"] .trick-card {
+  width: clamp(4rem, 6vw, 5.4rem);
+}
+
 html[data-card-size="large"] .player-hand {
   min-height: 9.5rem;
 }
@@ -1256,7 +1309,8 @@ html[data-contrast="high"] .consent-banner > p:not(.eyebrow) {
   color: #fff;
 }
 
-html[data-contrast="high"] .card-button {
+html[data-contrast="high"] .card-button,
+html[data-contrast="high"] .trick-card {
   border: 3px solid #000;
   background: #fff;
   box-shadow: none;
@@ -1269,7 +1323,9 @@ html[data-contrast="high"] .leave-table {
 }
 
 html[data-contrast="high"] .card-button[data-suit="hearts"],
-html[data-contrast="high"] .card-button[data-suit="diamonds"] {
+html[data-contrast="high"] .card-button[data-suit="diamonds"],
+html[data-contrast="high"] .trick-card[data-suit="hearts"],
+html[data-contrast="high"] .trick-card[data-suit="diamonds"] {
   color: #7a0000;
 }
 
