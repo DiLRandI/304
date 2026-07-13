@@ -174,6 +174,18 @@ function hasCompleteSixSeatDeal(projection: RoomProjection | null): boolean {
   );
 }
 
+async function pageShowsCompleteSixSeatDeal(page: Page): Promise<boolean> {
+  const handSizes = await page
+    .locator(".seat-panel")
+    .evaluateAll((panels) =>
+      panels
+        .map((panel) => Number(panel.getAttribute("data-hand-size")))
+        .sort((left, right) => left - right),
+    );
+  const summary = handSizes.join(",");
+  return summary === "6,6,6,6,6,6" || summary === "5,6,6,6,6,6";
+}
+
 test("a guest starts Classic practice and submits its first legal action", async ({
   page,
 }) => {
@@ -644,7 +656,11 @@ test("five browser guests start a six-seat private room with one bot and six all
 
     await playVisibleActionsUntil(
       pages,
-      async (projection) => hasCompleteSixSeatDeal(projection),
+      async (projection) =>
+        hasCompleteSixSeatDeal(projection) ||
+        (await Promise.all(pages.map(pageShowsCompleteSixSeatDeal))).some(
+          Boolean,
+        ),
       "a complete six-seat deal",
     );
     await expect(

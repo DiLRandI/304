@@ -744,6 +744,14 @@ export class GameEngine {
     ];
   }
 
+  _isEffectiveMaximumBid(amount) {
+    const step =
+      this.state.bidding.phase === "four"
+        ? this.state.profile.fourCardBidStep
+        : this.state.profile.eightCardBidStep;
+    return amount + step > this.state.profile.maxBid;
+  }
+
   _getLegalBidsForSeat(seatIndex) {
     const values = this._legalBidValues();
     const actedAlready = this.state.bidding.actedInRound[seatIndex] || false;
@@ -867,14 +875,20 @@ export class GameEngine {
     const hasLeadSuit = leadSuit
       ? hand.some((card) => card.suit === leadSuit)
       : false;
+    const isFinalIndicatorLead =
+      isLeader &&
+      hand.length === 0 &&
+      this.state.completedTricks.length ===
+        this.state.profile.cardBatch[0] + this.state.profile.cardBatch[1] - 1;
     const includeTrumpIndicator =
       this.state.trump.card &&
       this.state.trumpClosed &&
       this.state.trump.maker === seatIndex &&
-      !isLeader &&
-      !!leadSuit &&
-      leadSuit !== this.state.trump.suit &&
-      !hand.some((card) => card.suit === leadSuit);
+      (isFinalIndicatorLead ||
+        (!isLeader &&
+          !!leadSuit &&
+          leadSuit !== this.state.trump.suit &&
+          !hand.some((card) => card.suit === leadSuit)));
 
     for (const card of hand) {
       if (isLeader) {
@@ -1171,6 +1185,9 @@ export class GameEngine {
       this.state.bidding.passesAfterBid = 0;
       this.state.gameMessage = `${formatSeat(seatIndex)} bids ${amount}.`;
       this._appendLog("BID", { seat: seatIndex, amount, phase: "four" });
+      if (this._isEffectiveMaximumBid(amount)) {
+        return this._finishFourCardBidding();
+      }
       this._advanceBidTurn();
       return { ok: true };
     }
@@ -1182,6 +1199,9 @@ export class GameEngine {
       this.state.bidding.secondRound.actionsTaken += 1;
       this.state.gameMessage = `${formatSeat(seatIndex)} bids ${amount} in second round.`;
       this._appendLog("BID", { seat: seatIndex, amount, phase: "second" });
+      if (this._isEffectiveMaximumBid(amount)) {
+        return this._finishSecondBidding();
+      }
       return this._advanceSecondBiddingTurn();
     }
     return { ok: false, reason: "Invalid bid phase." };
@@ -1195,15 +1215,7 @@ export class GameEngine {
         this.state.bidding.passesAfterBid += 1;
         this._appendLog("PASS", { seat: seatIndex, phase: "four" });
         if (this.state.bidding.passesAfterBid >= this.state.seatCount - 1) {
-          const winnerSeat = this.state.bidding.currentBidSeat;
-          const finalBid = this.state.bidding.currentBid;
-          this._appendLog("FOUR_BID_END", { winnerSeat, finalBid });
-          this.state.trump.maker = winnerSeat;
-          this.state.bidding.initialMakerSeat = winnerSeat;
-          this.state.phase = PHASE.TRUMP_SELECTION;
-          this.state.activeSeat = winnerSeat;
-          this.state.gameMessage = `Four-card bidding done. Winner is ${formatSeat(winnerSeat, false)}. Select trump indicator.`;
-          return { ok: true };
+          return this._finishFourCardBidding();
         }
       } else {
         this.state.bidding.noBidPasses += 1;
@@ -1223,6 +1235,18 @@ export class GameEngine {
     }
     this.state.error = "Cannot pass now.";
     return { ok: false, reason: this.state.error };
+  }
+
+  _finishFourCardBidding() {
+    const winnerSeat = this.state.bidding.currentBidSeat;
+    const finalBid = this.state.bidding.currentBid;
+    this._appendLog("FOUR_BID_END", { winnerSeat, finalBid });
+    this.state.trump.maker = winnerSeat;
+    this.state.bidding.initialMakerSeat = winnerSeat;
+    this.state.phase = PHASE.TRUMP_SELECTION;
+    this.state.activeSeat = winnerSeat;
+    this.state.gameMessage = `Four-card bidding done. Winner is ${formatSeat(winnerSeat, false)}. Select trump indicator.`;
+    return { ok: true };
   }
 
   _advanceBidTurn() {
@@ -1273,7 +1297,10 @@ export class GameEngine {
 
     if (source === "first") {
       this._dealCards(this.state.profile.cardBatch[1], false);
-      if (this.state.bidding.secondRound.enabled) {
+      if (
+        this.state.bidding.secondRound.enabled &&
+        !this._isEffectiveMaximumBid(this.state.bidding.currentBid)
+      ) {
         const highBid = this.state.bidding.currentBid;
         const maker = this.state.trump.maker;
         const currentBidSeat = this.state.bidding.currentBidSeat;
@@ -1319,29 +1346,33 @@ export class GameEngine {
     this.state.trumpCard = null;
   }
 
+  _finishSecondBidding() {
+    const hadSecondBid = this.state.bidding.secondRound.anyBid;
+    const winningSeat = this.state.bidding.currentBidSeat;
+    const originalMaker = this.state.trump.maker;
+    if (hadSecondBid) {
+      this.state.bidding.phase = "second";
+      const secondRoundWonByDifferentMaker = winningSeat !== originalMaker;
+      if (secondRoundWonByDifferentMaker) {
+        this._returnIndicatorToMaker();
+        this.state.trump.maker = winningSeat;
+        this.state.phase = PHASE.TRUMP_SELECTION;
+        this.state.activeSeat = winningSeat;
+        this.state.gameMessage = `${formatSeat(winningSeat)} won second bidding. Re-select indicator from full hand.`;
+        return { ok: true };
+      }
+    }
+    this.state.phase = PHASE.TRUMP_CHOICE;
+    this.state.trump.maker = winningSeat;
+    this._startTrumpChoice();
+    return { ok: true };
+  }
+
   _advanceSecondBiddingTurn() {
     const order = this.state.bidding.secondRound.order;
     this.state.bidding.secondRound.activeOrderIndex += 1;
     if (this.state.bidding.secondRound.activeOrderIndex >= order.length) {
-      const hadSecondBid = this.state.bidding.secondRound.anyBid;
-      const winningSeat = this.state.bidding.currentBidSeat;
-      const originalMaker = this.state.trump.maker;
-      if (hadSecondBid) {
-        this.state.bidding.phase = "second";
-        const secondRoundWonByDifferentMaker = winningSeat !== originalMaker;
-        if (secondRoundWonByDifferentMaker) {
-          this._returnIndicatorToMaker();
-          this.state.trump.maker = winningSeat;
-          this.state.phase = PHASE.TRUMP_SELECTION;
-          this.state.activeSeat = winningSeat;
-          this.state.gameMessage = `${formatSeat(winningSeat)} won second bidding. Re-select indicator from full hand.`;
-          return { ok: true };
-        }
-      }
-      this.state.phase = PHASE.TRUMP_CHOICE;
-      this.state.trump.maker = winningSeat;
-      this._startTrumpChoice();
-      return { ok: true };
+      return this._finishSecondBidding();
     }
     this.state.activeSeat =
       order[this.state.bidding.secondRound.activeOrderIndex];

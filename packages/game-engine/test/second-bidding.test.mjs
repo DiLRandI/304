@@ -65,6 +65,23 @@ test("offers the 250 minimum when second bidding follows a 160 opening", () => {
   );
 });
 
+test("a maximum second-round bid ends bidding without pass-only turns", () => {
+  const { engine, originalMaker } = reachSecondBidding({ openingBid: 200 });
+
+  apply(engine, { seatIndex: originalMaker, type: "PASS_BID" });
+  const maximumBidder = engine.state.activeSeat;
+  const maximumBid = engine
+    .getLegalActions(maximumBidder)
+    .find((action) => action.type === "BID" && action.amount === 300);
+  assert.ok(maximumBid);
+  apply(engine, maximumBid);
+
+  assert.equal(engine.state.phase, "trump_selection");
+  assert.equal(engine.state.trump.maker, maximumBidder);
+  assert.equal(engine.state.activeSeat, maximumBidder);
+  assert.equal(engine.state.trump.card, null);
+});
+
 test("a new second-round winner reselects trump and completes all eight tricks", () => {
   const { engine, originalIndicatorId, originalMaker } = reachSecondBidding();
 

@@ -218,6 +218,67 @@ test("a non-maker bot choice cannot depend on hidden trump identity", () => {
   assert.deepEqual(hearts.action, diamonds.action);
 });
 
+test("a closed-trump maker can lead the final trick with only the indicator", () => {
+  const engine = new GameEngine({
+    botDifficulty: "strong",
+    humanCount: 1,
+    ruleProfile: "classic_304_4p",
+  });
+  const indicator = {
+    cardId: "diamonds-J",
+    points: 30,
+    rank: "J",
+    suit: "diamonds",
+  };
+  engine.state.phase = "trick_play";
+  engine.state.activeSeat = 3;
+  engine.state.completedTricks = Array.from({ length: 7 }, (_, trickIndex) => ({
+    leaderSeat: 0,
+    plays: [],
+    trickIndex,
+    winnerSeat: 0,
+  }));
+  engine.state.currentLedSuit = null;
+  engine.state.currentTrick = {
+    leaderSeat: 3,
+    plays: [],
+    points: 0,
+    trickIndex: 7,
+  };
+  engine.state.seats[3].hand = [];
+  engine.state.trump = {
+    card: indicator,
+    indicatorVisible: false,
+    isOpen: false,
+    maker: 3,
+    suit: "diamonds",
+  };
+  engine.state.trumpCard = indicator;
+  engine.state.trumpClosed = true;
+  engine.state.trumpSuit = "diamonds";
+
+  const action = engine.getBotAction(3);
+  assert.deepEqual(action, {
+    type: "PLAY_CARD",
+    seatIndex: 3,
+    cardId: "__trump_indicator__",
+    card: indicator,
+    faceDown: true,
+    fromIndicator: true,
+    label: "Play hidden trump indicator face down",
+    ariaLabel: "Play hidden trump indicator face down",
+  });
+
+  assert.deepEqual(engine.applyAutomationAction(action, 3), { ok: true });
+  assert.equal(
+    engine.state.currentTrick.plays[0].card.cardId,
+    indicator.cardId,
+  );
+  assert.equal(engine.state.currentTrick.plays[0].fromIndicator, true);
+  assert.equal(engine.state.trump.card, null);
+  assert.equal(engine.state.activeSeat, 0);
+});
+
 function faceDownPrivacyEngine() {
   const engine = new GameEngine({
     humanCount: 4,
@@ -605,6 +666,49 @@ test("never offers a bid above the profile's 304-point deck total", () => {
     .filter((action) => action.type === "BID");
 
   assert.deepEqual(bids, []);
+});
+
+test("a maximum four-card bid closes bidding and skips a pass-only second round", () => {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  engine.startMatch();
+  const maximumBidder = engine.state.activeSeat;
+  engine.state.bidding.currentBid = 290;
+  engine.state.bidding.currentBidSeat = (maximumBidder + 3) % 4;
+
+  assert.deepEqual(
+    engine.applyAction({
+      actorSeatIndex: maximumBidder,
+      amount: 300,
+      seatIndex: maximumBidder,
+      type: "BID",
+    }),
+    { ok: true },
+  );
+  assert.equal(engine.state.phase, "trump_selection");
+  assert.equal(engine.state.activeSeat, maximumBidder);
+
+  const indicator = engine
+    .getLegalActions(maximumBidder)
+    .find((action) => action.type === "SELECT_TRUMP");
+  assert.ok(indicator);
+  assert.deepEqual(
+    engine.applyAction({
+      ...indicator,
+      actorSeatIndex: maximumBidder,
+      seatIndex: maximumBidder,
+    }),
+    { ok: true },
+  );
+  assert.equal(engine.state.phase, "trump_choice");
+  assert.equal(
+    engine
+      .getLegalActions(maximumBidder)
+      .some((action) => action.type === "PASS_BID"),
+    false,
+  );
 });
 
 test("offers an acknowledgement that starts another match after match completion", () => {
