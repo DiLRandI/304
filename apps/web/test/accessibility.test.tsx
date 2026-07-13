@@ -65,6 +65,7 @@ describe("browser accessibility", () => {
       screen.getByRole("dialog", { name: "Rules and card values" }),
     ).toBeTruthy();
     expect(screen.getByText("Jack · 30 points")).toBeTruthy();
+    expect(screen.getByText("Nine · 20 points")).toBeTruthy();
   });
 
   it("applies explicit display preferences through document data attributes", async () => {

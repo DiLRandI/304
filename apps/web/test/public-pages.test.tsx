@@ -30,6 +30,7 @@ describe("public release pages", () => {
     expect(screen.getByText("Classic four-seat 304")).toBeTruthy();
     expect(screen.getByText("Six-seat 304-36")).toBeTruthy();
     expect(screen.getByText("Jack · 30 points")).toBeTruthy();
+    expect(screen.getByText("Nine · 20 points")).toBeTruthy();
   });
 
   it("states the actual casual data and no-wagering boundaries", () => {

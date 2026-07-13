@@ -4,11 +4,12 @@ import { useState } from "react";
 
 const CARD_VALUES = [
   "Jack · 30 points",
+  "Nine · 20 points",
   "Ace · 11 points",
   "Ten · 10 points",
   "King · 3 points",
   "Queen · 2 points",
-  "Nine, Eight, Seven, and Six · 0 points",
+  "Eight, Seven, and Six · 0 points",
 ] as const;
 
 export function CardValues() {
