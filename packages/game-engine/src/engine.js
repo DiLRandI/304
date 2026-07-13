@@ -568,6 +568,36 @@ export class GameEngine {
     return cloneCard(card);
   }
 
+  _trickPointsArePublic(trick) {
+    if (!trick) return true;
+    return Boolean(
+      trick?.plays?.every((play) => this._isPlayPubliclyVisible(play)),
+    );
+  }
+
+  _hasConcealedPointValues() {
+    return !this._trickPointsArePublic(this.state.currentTrick) || this.state.completedTricks.some(
+      (trick) => !this._trickPointsArePublic(trick),
+    );
+  }
+
+  _publicTrickPointsBySeat() {
+    const totals = Array.from({ length: this.state.seatCount }, () => 0);
+    for (const trick of this.state.completedTricks) {
+      if (!this._trickPointsArePublic(trick)) continue;
+      const winnerSeat = toSeatIndex(trick.winnerSeat);
+      if (winnerSeat == null) continue;
+      const pointValue = Number.isFinite(trick.pointValue)
+        ? trick.pointValue
+        : trick.plays.reduce(
+            (total, play) => total + (play.card?.points || 0),
+            0,
+          );
+      totals[winnerSeat] += pointValue;
+    }
+    return totals;
+  }
+
   getPublicState(viewerSeatIndex = null) {
     const viewer = toSeatIndex(viewerSeatIndex);
     const viewerSeat = viewer != null ? this.state.seats[viewer] : null;
@@ -581,6 +611,8 @@ export class GameEngine {
         ).current
       : null;
     const trump = getTrumpPublicView(this.state, viewer);
+    const trickPointsPartial = this._hasConcealedPointValues();
+    const publicTrickPoints = this._publicTrickPointsBySeat();
     return {
       inviteCode: this.state.inviteCode,
       profile: this.state.profile,
@@ -603,7 +635,7 @@ export class GameEngine {
           seat.reconnectSummary,
         ),
         handSize: seat.hand.length,
-        trickPoints: seat.trickPoints,
+        trickPoints: publicTrickPoints[seat.index],
         isMe: viewerSeat != null ? viewerSeat.index === seat.index : false,
       })),
       dealerSeat: this.state.dealerSeat,
@@ -616,6 +648,7 @@ export class GameEngine {
       tokens: this.state.tokens,
       handResult: projectHandResultForPublic(this.state.handResult),
       gameMessage: this.state.gameMessage,
+      trickPointsPartial,
       version: this.state.version,
     };
   }
@@ -624,6 +657,7 @@ export class GameEngine {
     const seat = this.state.seats[seatIndex];
     if (!seat || viewerSeatIndex == null) return null;
     const isMySeat = Number(viewerSeatIndex) === Number(seatIndex);
+    const publicTrickPoints = this._publicTrickPointsBySeat();
     return {
       index: seat.index,
       seatLabel: seat.seatLabel,
@@ -637,7 +671,7 @@ export class GameEngine {
         ? seat.reconnectSummary.slice(-12)
         : [],
       difficulty: seat.difficulty,
-      trickPoints: seat.trickPoints,
+      trickPoints: publicTrickPoints[seat.index],
       hand: isMySeat
         ? seat.hand.map(cloneCard)
         : seat.hand.map(() => ({ cardId: "Card Back", hidden: true })),
@@ -1657,9 +1691,16 @@ export class GameEngine {
         cardId: cardVisible ? play.card?.cardId : "Card Back",
       };
     };
+    const pointsArePublic = this._trickPointsArePublic(trick);
     return {
       current: {
-        ...trick,
+        trickIndex: trick.trickIndex,
+        leaderSeat: trick.leaderSeat,
+        winnerSeat: trick.winnerSeat ?? null,
+        leadSuit: trick.leadSuit ?? null,
+        openedTrumpThisTrick: Boolean(trick.openedTrumpThisTrick),
+        points: pointsArePublic ? trick.points ?? null : null,
+        pointValue: pointsArePublic ? trick.pointValue ?? null : null,
         plays: trick.plays.map(projectPlay),
       },
     };

@@ -301,6 +301,36 @@ test("opening trump does not reveal an earlier face-down non-trump card", () => 
   );
 });
 
+test("concealed face-down cards also conceal their point value", () => {
+  const { engine } = faceDownPrivacyEngine();
+  const hiddenNine = {
+    cardId: "spades-9",
+    points: 20,
+    rank: "9",
+    suit: "spades",
+  };
+  const trick = engine.state.completedTricks[0];
+  trick.plays[1].card = hiddenNine;
+  trick.points = 50;
+  trick.pointValue = 50;
+  engine.state.seats[0].wonCards = [trick.plays[0].card, hiddenNine];
+  engine.state.seats[0].trickPoints = 50;
+
+  const publicState = engine.getPublicState(0);
+  assert.equal(publicState.trickPointsPartial, true);
+  assert.equal(publicState.completedTricks[0].points, null);
+  assert.equal(publicState.completedTricks[0].pointValue, null);
+  assert.equal(publicState.seats[0].trickPoints, 0);
+  assert.equal(engine.getSeatView(0).trickPoints, 0);
+
+  engine.state.phase = "hand_result";
+  const revealed = engine.getPublicState(0);
+  assert.equal(revealed.trickPointsPartial, false);
+  assert.equal(revealed.completedTricks[0].points, 50);
+  assert.equal(revealed.completedTricks[0].pointValue, 50);
+  assert.equal(revealed.seats[0].trickPoints, 50);
+});
+
 test("public reconnect summaries omit hidden autopilot card identities", () => {
   const engine = new GameEngine({
     humanCount: 4,
