@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { GAME_PROFILES, GameEngine, getProfile } from "../src/index.js";
+import {
+  buildDeck,
+  GAME_PROFILES,
+  GameEngine,
+  generateShuffleSeed,
+  getProfile,
+  makeShuffleCommit,
+  shuffleDeck,
+} from "../src/index.js";
 
 test("exports the established 304 engine through one package boundary", () => {
   assert.equal(getProfile("classic_304_4p").seatCount, 4);
@@ -13,6 +21,21 @@ test("exports the established 304 engine through one package boundary", () => {
   engine.startMatch();
   assert.equal(engine.getSnapshot().phase, "four_bidding");
   assert.equal(engine.getSnapshot().seats[0].hand.length, 4);
+});
+
+test("shuffle seeds retain entropy beyond a 32-bit state", () => {
+  const deck = buildDeck(getProfile("classic_304_4p"));
+  const first = shuffleDeck(deck, { seed: 1 }).map((card) => card.cardId);
+  const second = shuffleDeck(deck, { seed: 4_294_967_297 }).map(
+    (card) => card.cardId,
+  );
+
+  assert.notDeepEqual(first, second);
+  assert.match(generateShuffleSeed(), /^s_[0-9a-f]{64}$/);
+  assert.match(
+    makeShuffleCommit("seed-for-commit", "classic_304_4p", 1),
+    /^c_[0-9a-f]{64}$/,
+  );
 });
 
 test("keeps seat indexes zero-based while displaying one-based seat numbers", () => {
