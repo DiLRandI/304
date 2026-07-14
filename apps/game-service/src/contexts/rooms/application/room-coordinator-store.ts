@@ -11,6 +11,7 @@ import type {
 export type RoomTransaction = unknown;
 
 export interface RoomCreationInput {
+  deduplicationResponse?: unknown;
   id: string;
   inviteCode: string;
   hostPlayerId: string;
@@ -57,6 +58,7 @@ export interface RoomCommandDuplicate {
 }
 
 export interface RoomSessionCommandDuplicate {
+  deduplicationResponse?: unknown;
   roomId: string;
 }
 

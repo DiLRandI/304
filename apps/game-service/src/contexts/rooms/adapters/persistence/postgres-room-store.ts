@@ -46,10 +46,12 @@ export interface CommandDuplicate {
 }
 
 export interface SessionCommandDuplicate {
+  deduplicationResponse?: unknown;
   roomId: string;
 }
 
 export interface NewRoomInput {
+  deduplicationResponse?: unknown;
   id: string;
   inviteCode: string;
   hostPlayerId: string;
@@ -129,6 +131,7 @@ interface DuplicateRow extends QueryResultRow {
 }
 
 interface SessionDuplicateRow extends QueryResultRow {
+  deduplication_response: unknown | null;
   room_id: string;
 }
 
@@ -404,7 +407,12 @@ export class PostgresRoomStore {
           [
             input.sessionId,
             input.commandId,
-            JSON.stringify({ roomId: input.id }),
+            JSON.stringify({
+              roomId: input.id,
+              ...(input.deduplicationResponse === undefined
+                ? {}
+                : { deduplicationResponse: input.deduplicationResponse }),
+            }),
           ],
         );
       }
@@ -685,11 +693,17 @@ export class PostgresRoomStore {
     transaction: Queryable = this.database,
   ): Promise<SessionCommandDuplicate | null> {
     const result = await transaction.query<SessionDuplicateRow>(
-      "SELECT response->>'roomId' AS room_id FROM session_command_deduplications WHERE session_id = $1 AND command_id = $2",
+      "SELECT response->>'roomId' AS room_id, response->'deduplicationResponse' AS deduplication_response FROM session_command_deduplications WHERE session_id = $1 AND command_id = $2",
       [sessionId, commandId],
     );
     const row = result.rows[0];
-    return row?.room_id ? { roomId: row.room_id } : null;
+    if (!row?.room_id) return null;
+    return {
+      roomId: row.room_id,
+      ...(row.deduplication_response === null
+        ? {}
+        : { deduplicationResponse: row.deduplication_response }),
+    };
   }
 
   async requireHumanSeat(
