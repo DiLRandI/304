@@ -22,7 +22,7 @@ export interface CreatedSession extends AuthenticatedSession {
   cookieValue: string;
 }
 
-export interface SessionServiceOptions {
+export interface PlayerAccessServiceOptions {
   pepper: string;
   ttlDays: number;
 }
@@ -35,11 +35,11 @@ function sessionRequired(): DomainError {
   );
 }
 
-export class SessionService {
+export class PlayerAccessService {
   private readonly authenticateSession: AuthenticateSession;
   private readonly createGuestSession: CreateGuestSession;
 
-  constructor(database: Database, options: SessionServiceOptions) {
+  constructor(database: Database, options: PlayerAccessServiceOptions) {
     const secrets = new NodeSessionSecrets(options.pepper);
     this.authenticateSession = new AuthenticateSession({
       repository: new PostgresPlayerSessionReader(database),

@@ -1,5 +1,5 @@
 import { buildApp, loadConfig } from "./app.js";
-import { SessionService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
+import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
 import { PostgresRoomCommandRepository } from "./contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { ExecuteRoomCommandHandler } from "./contexts/rooms/application/execute-room-command.js";
 import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
@@ -26,7 +26,7 @@ const config = loadConfig();
 const database = createDatabase(config.DATABASE_URL);
 const redis = await createRedis(config.REDIS_URL);
 const store = new PostgresRoomStore(database);
-const sessions = new SessionService(database, {
+const sessions = new PlayerAccessService(database, {
   pepper: config.SESSION_SECRET_PEPPER,
   ttlDays: config.SESSION_TTL_DAYS,
 });

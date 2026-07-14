@@ -17,7 +17,7 @@ import { z } from "zod";
 import type { ServiceConfig } from "../config.js";
 import type {
   AuthenticatedSession,
-  SessionService,
+  PlayerAccessService,
 } from "../contexts/player-access/adapters/delivery/player-access-service.js";
 import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
@@ -32,7 +32,7 @@ export interface GameRuntime {
     readonly join: Pick<JoinRoomHandler, "execute">;
     readonly leave: Pick<LeaveRoomHandler, "execute">;
   };
-  sessions: SessionService;
+  sessions: PlayerAccessService;
   rateLimiter: RateLimiter;
 }
 

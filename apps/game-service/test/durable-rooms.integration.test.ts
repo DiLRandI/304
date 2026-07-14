@@ -6,7 +6,7 @@ import { createClient, type RedisClientType } from "redis";
 import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { buildApp, loadConfig } from "../src/app.js";
-import { SessionService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
+import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { RoomCoordinator } from "../src/domain/room-coordinator.js";
 import { PostgresRoomStore } from "../src/domain/room-store.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
@@ -79,7 +79,7 @@ async function buildRealApp(): Promise<TestRuntime> {
       "test-only-session-pepper-must-be-at-least-32-characters",
   });
   const store = new PostgresRoomStore(database);
-  const sessions = new SessionService(database, {
+  const sessions = new PlayerAccessService(database, {
     pepper: config.SESSION_SECRET_PEPPER,
     ttlDays: config.SESSION_TTL_DAYS,
   });

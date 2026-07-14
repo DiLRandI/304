@@ -6,7 +6,7 @@ import { GameEngine } from "@three-zero-four/game-engine";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { SessionService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
+import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { RoomCoordinator } from "../src/domain/room-coordinator.js";
 import {
   type ClaimedAutomationJob,
@@ -55,7 +55,7 @@ interface ConnectionCoordinator {
 let database: Database;
 let redis: RedisClientType;
 let store: PostgresRoomStore;
-let sessions: SessionService;
+let sessions: PlayerAccessService;
 
 function coordinator(
   automationOptions?: ConstructorParameters<
@@ -256,7 +256,7 @@ describeIntegration("durable room automation", () => {
     redis = createClient({ url: redisUrl });
     await redis.connect();
     store = new PostgresRoomStore(database);
-    sessions = new SessionService(database, {
+    sessions = new PlayerAccessService(database, {
       pepper: "test-only-session-pepper-must-be-at-least-32-characters",
       ttlDays: 30,
     });

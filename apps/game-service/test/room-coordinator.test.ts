@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import {
   type AuthenticatedSession,
-  SessionService,
+  PlayerAccessService,
 } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { RoomCoordinator } from "../src/domain/room-coordinator.js";
 import { PostgresRoomStore } from "../src/domain/room-store.js";
@@ -30,7 +30,7 @@ interface GameView {
 
 let database: Database;
 let redis: RedisClientType;
-let sessions: SessionService;
+let sessions: PlayerAccessService;
 
 function createCoordinator(): RoomCoordinator {
   return new RoomCoordinator({
@@ -99,7 +99,7 @@ describeIntegration("durable room coordinator", () => {
     await runMigrations(database, migrationsDir);
     redis = createClient({ url: redisUrl });
     await redis.connect();
-    sessions = new SessionService(database, {
+    sessions = new PlayerAccessService(database, {
       pepper: "test-only-session-pepper-must-be-at-least-32-characters",
       ttlDays: 30,
     });
