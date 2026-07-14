@@ -50,6 +50,30 @@ export type JoinLobbyResult =
       readonly ok: false;
     };
 
+export type StartRoomResult =
+  | { readonly ok: true; readonly room: Room }
+  | {
+      readonly error: {
+        readonly code: "HOST_REQUIRED" | "ROOM_ALREADY_STARTED";
+        readonly message: string;
+      };
+      readonly ok: false;
+    };
+
+export type LeaveRoomResult =
+  | {
+      readonly ok: true;
+      readonly room: Room;
+      readonly status: "closed" | "left";
+    }
+  | {
+      readonly error: {
+        readonly code: "ROOM_LEAVE_NOT_ALLOWED" | "SEAT_REQUIRED";
+        readonly message: string;
+      };
+      readonly ok: false;
+    };
+
 function seatCount(profileId: RoomRuleProfileId): 4 | 6 {
   return profileId === "six_304_36" ? 6 : 4;
 }
@@ -140,5 +164,117 @@ export function joinLobby(room: Room, player: RoomPlayer): JoinLobbyResult {
       eventVersion: eventVersion(room.eventVersion + 1),
       seats,
     },
+  };
+}
+
+export function startRoom(room: Room, actor: PlayerId): StartRoomResult {
+  if (room.status !== "lobby") {
+    return {
+      error: {
+        code: "ROOM_ALREADY_STARTED",
+        message: "Room has already started",
+      },
+      ok: false,
+    };
+  }
+  if (room.hostPlayerId !== actor) {
+    return {
+      error: {
+        code: "HOST_REQUIRED",
+        message: "Only the host can start the room",
+      },
+      ok: false,
+    };
+  }
+  const seats = room.seats.map((seat) =>
+    seat.occupant.kind === "empty"
+      ? {
+          ...seat,
+          connectionStatus: "online" as const,
+          occupant: {
+            difficulty: room.settings.botDifficulty,
+            displayName: `Bot ${seat.position + 1}`,
+            kind: "bot" as const,
+          },
+        }
+      : seat,
+  );
+  return {
+    ok: true,
+    room: {
+      ...room,
+      eventVersion: eventVersion(room.eventVersion + 1),
+      seats,
+      status: "in_hand",
+    },
+  };
+}
+
+export function leaveRoom(room: Room, actor: PlayerId): LeaveRoomResult {
+  if (room.status !== "lobby" && room.status !== "hand_result") {
+    return {
+      error: {
+        code: "ROOM_LEAVE_NOT_ALLOWED",
+        message: "You can leave only before or after a hand",
+      },
+      ok: false,
+    };
+  }
+  const departingSeat = room.seats.find(
+    (seat) =>
+      seat.occupant.kind === "human" && seat.occupant.playerId === actor,
+  );
+  if (!departingSeat) {
+    return {
+      error: {
+        code: "SEAT_REQUIRED",
+        message: "You are not seated in this room",
+      },
+      ok: false,
+    };
+  }
+
+  const remainingHumans = room.seats.filter(
+    (seat) =>
+      seat.occupant.kind === "human" && seat.occupant.playerId !== actor,
+  );
+  const replacement =
+    room.status === "hand_result" && remainingHumans.length > 0
+      ? {
+          connectionStatus: "online" as const,
+          occupant: {
+            difficulty: room.settings.botDifficulty,
+            displayName: `Bot ${departingSeat.position + 1}`,
+            kind: "bot" as const,
+          },
+        }
+      : {
+          connectionStatus: "disconnected" as const,
+          occupant: { kind: "empty" as const },
+        };
+  const seats = room.seats.map((seat) =>
+    seat.position === departingSeat.position
+      ? { ...seat, ...replacement }
+      : seat,
+  );
+  const nextHost = remainingHumans
+    .toSorted((first, second) => first.position - second.position)
+    .at(0);
+  const nextHostPlayerId =
+    nextHost?.occupant.kind === "human"
+      ? nextHost.occupant.playerId
+      : room.hostPlayerId;
+  const closed = remainingHumans.length === 0;
+  return {
+    ok: true,
+    room: {
+      ...room,
+      eventVersion: eventVersion(room.eventVersion + 1),
+      hostPlayerId:
+        room.hostPlayerId === actor ? nextHostPlayerId : room.hostPlayerId,
+      seats,
+      status: closed ? "closed" : room.status,
+    },
+    status: closed ? "closed" : "left",
   };
 }

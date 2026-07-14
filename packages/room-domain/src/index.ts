@@ -1,11 +1,18 @@
 export type {
   CreateLobbyInput,
   JoinLobbyResult,
+  LeaveRoomResult,
   Room,
   RoomPlayer,
   RoomRuleProfileId,
+  StartRoomResult,
 } from "./aggregate.js";
-export { createLobby, joinLobby } from "./aggregate.js";
+export {
+  createLobby,
+  joinLobby,
+  leaveRoom,
+  startRoom,
+} from "./aggregate.js";
 export type {
   BotDifficulty,
   ConnectionStatus,
