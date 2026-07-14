@@ -363,6 +363,11 @@ test("transport-aware service errors are not modeled as domain code", async () =
   );
   assert.match(errorSource, /readonly statusCode: number/);
   assert.match(errorSource, /export class ServiceError/);
+  const serviceFiles = await collectSourceFiles("apps/game-service/src");
+  for (const filename of serviceFiles) {
+    const source = await readFile(path.join(repoRoot, filename), "utf8");
+    assert.doesNotMatch(source, /DomainError/, filename);
+  }
 });
 
 test("delivery adapters use the shared service error name", async () => {
