@@ -2,9 +2,10 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import type { ClaimedAutomationJob } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
-import type { RoomCoordinator } from "../src/domain/room-coordinator.js";
-import { AutomationWorker } from "../src/worker/automation-worker.js";
+import {
+  AutomationWorker,
+  type ClaimedAutomationJob,
+} from "../src/worker/automation-worker.js";
 import {
   type MaintenanceRunner,
   RoomMaintenanceWorker,
@@ -52,7 +53,7 @@ describe("automation worker", () => {
     const runAutomation = vi.fn().mockResolvedValue("completed" as const);
     const worker = new AutomationWorker({
       store,
-      coordinator: { runAutomation } as unknown as RoomCoordinator,
+      coordinator: { runAutomation },
       ownerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
       pollIntervalMs: 500,
     });
@@ -91,7 +92,7 @@ describe("automation worker", () => {
     });
     const worker = new AutomationWorker({
       store,
-      coordinator: { runAutomation } as unknown as RoomCoordinator,
+      coordinator: { runAutomation },
       ownerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
       pollIntervalMs: 500,
     });
@@ -125,7 +126,7 @@ describe("automation worker", () => {
     };
     const worker = new AutomationWorker({
       store,
-      coordinator: {} as RoomCoordinator,
+      coordinator: { runAutomation: vi.fn() },
       ownerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
       pollIntervalMs: 500,
     });
@@ -160,7 +161,7 @@ describe("automation worker", () => {
     const pending = vi.fn();
     const worker = new AutomationWorker({
       store,
-      coordinator: {} as RoomCoordinator,
+      coordinator: { runAutomation: vi.fn() },
       pollIntervalMs: 500,
       ownerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
       health: async () => true,
@@ -206,7 +207,7 @@ describe("automation worker", () => {
       store,
       coordinator: {
         runAutomation: vi.fn().mockResolvedValue("completed"),
-      } as unknown as RoomCoordinator,
+      },
       onJob: reported,
       ownerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
       pollIntervalMs: 500,

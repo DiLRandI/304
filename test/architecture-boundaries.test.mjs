@@ -275,3 +275,15 @@ test("the PostgreSQL room store is a Rooms persistence adapter", async () => {
   );
   assert.match(adapterSource, /export class PostgresRoomStore/);
 });
+
+test("the automation worker depends on behavioral ports", async () => {
+  const workerSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/worker/automation-worker.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(workerSource, /postgres-room-store\.js/);
+  assert.doesNotMatch(workerSource, /domain\/room-coordinator\.js/);
+  assert.match(workerSource, /export interface AutomationStore/);
+  assert.match(workerSource, /export interface AutomationCoordinator/);
+});

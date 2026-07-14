@@ -1,24 +1,43 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
-import type {
-  ClaimedAutomationJob,
-  PostgresRoomStore,
-} from "../contexts/rooms/adapters/persistence/postgres-room-store.js";
-import type { RoomCoordinator } from "../domain/room-coordinator.js";
 
 export type AutomationWorkerOutcome = "completed" | "stale" | "failed";
+
+export interface ClaimedAutomationJob {
+  readonly attempts: number;
+  readonly dueAt: Date;
+  readonly expectedEventVersion: number;
+  readonly id: string;
+  readonly kind:
+    | "BOT_ACTION"
+    | "TURN_TIMEOUT"
+    | "DISCONNECT_GRACE"
+    | "TRICK_ADVANCE";
+  readonly roomId: string;
+  readonly targetSeatIndex: number;
+}
+
+export interface AutomationStore {
+  claimDueAutomationJobs(
+    owner: string,
+    now: Date,
+    limit: number,
+    roomId?: string,
+  ): Promise<ClaimedAutomationJob[]>;
+  completeAutomationJob(id: string, owner: string): Promise<void>;
+  countPendingAutomationJobs(): Promise<number>;
+  releaseAutomationJob(id: string, owner: string, error: string): Promise<void>;
+}
+
+export interface AutomationCoordinator {
+  runAutomation(
+    job: ClaimedAutomationJob,
+  ): Promise<Exclude<AutomationWorkerOutcome, "failed">>;
+}
 
 const AUTOMATION_CLAIM_BATCH_SIZE = 16;
 const MAX_AUTOMATION_JOBS_PER_RUN = 512;
 const MAX_CONCURRENT_ROOM_QUEUES = 8;
-
-type AutomationStore = Pick<
-  PostgresRoomStore,
-  | "claimDueAutomationJobs"
-  | "countPendingAutomationJobs"
-  | "completeAutomationJob"
-  | "releaseAutomationJob"
->;
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
@@ -33,7 +52,7 @@ export class AutomationWorker {
   constructor(
     private readonly dependencies: {
       store: AutomationStore;
-      coordinator: RoomCoordinator;
+      coordinator: AutomationCoordinator;
       pollIntervalMs: number;
       ownerId?: string;
       roomId?: string;
