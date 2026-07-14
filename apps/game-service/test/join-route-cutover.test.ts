@@ -39,9 +39,8 @@ describe("join room route cutover", () => {
     const execute = vi
       .fn()
       .mockResolvedValue(projectRoom(joined.room, guestId));
-    const legacyJoin = vi.fn();
     const game = {
-      coordinator: { joinRoom: legacyJoin },
+      coordinator: {},
       rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
       roomUseCases: { join: { execute } },
       sessions: {
@@ -83,7 +82,6 @@ describe("join room route cutover", () => {
       expectedVersion: 1,
       roomReference: "304-AbCdEfGhIjKl_123",
     });
-    expect(legacyJoin).not.toHaveBeenCalled();
     await app.close();
   });
 });

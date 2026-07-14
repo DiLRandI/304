@@ -3,7 +3,6 @@ import {
   type GameCommand,
   GameCommandSchema,
   GuestSessionRequestSchema,
-  type JoinRoomRequest,
   JoinRoomRequestSchema,
   type LeaveRoomRequest,
   LeaveRoomRequestSchema,
@@ -39,11 +38,6 @@ export interface V1RoomCoordinator {
     session: AuthenticatedSession,
     roomId: string,
   ): Promise<RoomProjection>;
-  joinRoom(
-    session: AuthenticatedSession,
-    roomReference: string,
-    request: JoinRoomRequest,
-  ): Promise<RoomProjection>;
   leaveRoom(
     session: AuthenticatedSession,
     roomId: string,
@@ -59,7 +53,7 @@ export interface GameRuntime {
   coordinator: V1RoomCoordinator;
   roomUseCases: {
     readonly create: Pick<CreateRoomHandler, "execute">;
-    readonly join?: Pick<JoinRoomHandler, "execute">;
+    readonly join: Pick<JoinRoomHandler, "execute">;
     readonly leave?: Pick<LeaveRoomHandler, "execute">;
     readonly start: Pick<StartRoomHandler, "execute">;
   };
@@ -170,23 +164,16 @@ export async function registerV1Routes(
         60,
       );
       const input = JoinRoomRequestSchema.parse(request.body);
-      if (runtime.roomUseCases.join) {
-        const projection = await runtime.roomUseCases.join.execute({
-          actor: {
-            displayName: session.displayName,
-            playerId: playerId(session.playerId),
-          },
-          commandId: commandId(input.commandId),
-          expectedVersion: eventVersion(input.expectedVersion),
-          roomReference: request.params.roomRef,
-        });
-        return presentLobbyRoom(projection);
-      }
-      return runtime.coordinator.joinRoom(
-        session,
-        request.params.roomRef,
-        input,
-      );
+      const projection = await runtime.roomUseCases.join.execute({
+        actor: {
+          displayName: session.displayName,
+          playerId: playerId(session.playerId),
+        },
+        commandId: commandId(input.commandId),
+        expectedVersion: eventVersion(input.expectedVersion),
+        roomReference: request.params.roomRef,
+      });
+      return presentLobbyRoom(projection);
     },
   );
 
