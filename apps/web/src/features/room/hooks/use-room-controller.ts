@@ -11,8 +11,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   GameServiceError,
   parseRealtimeServerMessage,
-} from "../features/room/api/game-service-client";
-import { applyProjection } from "../features/room/model/room-state";
+} from "../api/game-service-client";
+import { applyProjection } from "../model/room-state";
 
 const OPEN_SOCKET = 1;
 const PING_INTERVAL_MS = 15_000;
