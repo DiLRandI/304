@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type ConsentState, readConsent, writeConsent } from "../lib/consent";
+import { type ConsentState, readConsent, writeConsent } from "../model/consent";
 
 export function ConsentBanner({
   onChoice,

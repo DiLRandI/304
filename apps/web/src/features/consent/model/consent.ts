@@ -1,4 +1,7 @@
-import { readBrowserStorage, writeBrowserStorage } from "./browser-storage";
+import {
+  readBrowserStorage,
+  writeBrowserStorage,
+} from "../../../lib/browser-storage";
 
 export const CONSENT_STORAGE_KEY = "g304.analytics-consent";
 

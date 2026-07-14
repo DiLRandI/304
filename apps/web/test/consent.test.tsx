@@ -3,8 +3,11 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ConsentBanner } from "../src/components/consent-banner.js";
-import { CONSENT_STORAGE_KEY, track } from "../src/lib/consent.js";
+import {
+  CONSENT_STORAGE_KEY,
+  track,
+} from "../src/features/consent/model/consent.js";
+import { ConsentBanner } from "../src/features/consent/ui/consent-banner.js";
 
 describe("public analytics consent", () => {
   beforeEach(() => {
