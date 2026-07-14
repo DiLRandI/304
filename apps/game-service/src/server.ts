@@ -1,5 +1,6 @@
 import { buildApp, loadConfig } from "./app.js";
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
+import { RoomCoordinator } from "./contexts/rooms/adapters/orchestration/room-coordinator.js";
 import { PostgresRoomCommandRepository } from "./contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
@@ -7,7 +8,6 @@ import { NodeRoomInviteCodeProvider } from "./contexts/rooms/adapters/security/n
 import { ExecuteRoomCommandHandler } from "./contexts/rooms/application/execute-room-command.js";
 import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "./contexts/rooms/application/leave-room.js";
-import { RoomCoordinator } from "./domain/room-coordinator.js";
 import { createDatabase } from "./infra/database.js";
 import { createReadiness } from "./infra/readiness.js";
 import { createRedis } from "./infra/redis.js";

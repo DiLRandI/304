@@ -9,17 +9,18 @@ import type {
 } from "@three-zero-four/contracts";
 import { RoomExitResponseSchema } from "@three-zero-four/contracts";
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
-import { projectRoomForPlayer } from "../contexts/gameplay/adapters/delivery/gameplay-room-presenter.js";
+import { DomainError } from "../../../../domain/errors.js";
+import { projectRoomForPlayer } from "../../../gameplay/adapters/delivery/gameplay-room-presenter.js";
 import {
   createLobbyEngine,
   createStartedEngine,
   seatCountForProfile,
-} from "../contexts/gameplay/adapters/engine/legacy-engine-factory.js";
+} from "../../../gameplay/adapters/engine/legacy-engine-factory.js";
 import {
   applyConnectionState,
   applyLobbySeat,
   isBotDifficulty,
-} from "../contexts/gameplay/adapters/engine/legacy-engine-seat-mapper.js";
+} from "../../../gameplay/adapters/engine/legacy-engine-seat-mapper.js";
 import {
   activeRoomStatus,
   activeSeatIndex,
@@ -27,27 +28,26 @@ import {
   completedTrickWinner,
   isResultPhase,
   phaseTimeoutMs,
-} from "../contexts/gameplay/application/gameplay-automation-policy.js";
-import { RecoveryError } from "../contexts/gameplay/application/gameplay-recovery-error.js";
-import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
-import { projectLobbyForViewer } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
+} from "../../../gameplay/application/gameplay-automation-policy.js";
+import { RecoveryError } from "../../../gameplay/application/gameplay-recovery-error.js";
+import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import type {
   RoomLease,
   RoomPresence,
-} from "../contexts/rooms/application/room-coordination-ports.js";
+} from "../../application/room-coordination-ports.js";
 import type {
   RoomCoordinatorStore,
   RoomTransaction,
-} from "../contexts/rooms/application/room-coordinator-store.js";
-import type { RoomIdentityProvider } from "../contexts/rooms/application/room-identity-provider.js";
-import type { RoomInviteCodeProvider } from "../contexts/rooms/application/room-invite-code-provider.js";
+} from "../../application/room-coordinator-store.js";
+import type { RoomIdentityProvider } from "../../application/room-identity-provider.js";
+import type { RoomInviteCodeProvider } from "../../application/room-invite-code-provider.js";
 import type {
   ClaimedAutomationJob,
   RoomSettings,
   StoredRoom,
   StoredSeat,
-} from "../contexts/rooms/application/room-persistence-model.js";
-import { DomainError } from "./errors.js";
+} from "../../application/room-persistence-model.js";
+import { projectLobbyForViewer } from "../delivery/lobby-room-presenter.js";
 
 interface RoomCoordinatorDependencies {
   identities: RoomIdentityProvider;

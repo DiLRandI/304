@@ -15,6 +15,10 @@ const sourceRoots = [
   "apps/game-service/src/contexts",
   "apps/web/src",
 ];
+const roomCoordinatorFile = path.join(
+  repoRoot,
+  "apps/game-service/src/contexts/rooms/adapters/orchestration/room-coordinator.ts",
+);
 const sourceExtensions = new Set([".js", ".jsx", ".ts", ".tsx"]);
 
 async function collectSourceFiles(relativeDirectory) {
@@ -233,28 +237,19 @@ test("room maintenance depends on an application-owned persistence port", async 
 });
 
 test("room coordination depends on application-owned lease and presence ports", async () => {
-  const coordinatorSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/domain/room-coordinator.ts"),
-    "utf8",
-  );
+  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
 
   assert.doesNotMatch(coordinatorSource, /infra\/redis-coordination\.js/);
-  assert.match(
-    coordinatorSource,
-    /contexts\/rooms\/application\/room-coordination-ports\.js/,
-  );
+  assert.match(coordinatorSource, /application\/room-coordination-ports\.js/);
 });
 
 test("gameplay recovery errors belong to the Gameplay application", async () => {
-  const coordinatorSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/domain/room-coordinator.ts"),
-    "utf8",
-  );
+  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
 
   assert.doesNotMatch(coordinatorSource, /class RecoveryError/);
   assert.match(
     coordinatorSource,
-    /contexts\/gameplay\/application\/gameplay-recovery-error\.js/,
+    /gameplay\/application\/gameplay-recovery-error\.js/,
   );
 });
 
@@ -320,10 +315,7 @@ test("the v1 routes depend on a behavioral coordinator port", async () => {
 });
 
 test("room persistence records are owned by the Rooms application", async () => {
-  const coordinatorSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/domain/room-coordinator.ts"),
-    "utf8",
-  );
+  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
   const storeSource = await readFile(
     path.join(
       repoRoot,
@@ -338,11 +330,22 @@ test("room persistence records are owned by the Rooms application", async () => 
 });
 
 test("the room coordinator depends on an application-owned store port", async () => {
-  const coordinatorSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/domain/room-coordinator.ts"),
-    "utf8",
-  );
+  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
 
   assert.doesNotMatch(coordinatorSource, /postgres-room-store\.js/);
   assert.match(coordinatorSource, /application\/room-coordinator-store\.js/);
+});
+
+test("room coordination belongs to a Rooms orchestration adapter", async () => {
+  const legacyDomainFiles = await collectSourceFiles(
+    "apps/game-service/src/domain",
+  );
+  assert.equal(
+    legacyDomainFiles.includes(
+      "apps/game-service/src/domain/room-coordinator.ts",
+    ),
+    false,
+  );
+  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
+  assert.match(coordinatorSource, /export class RoomCoordinator/);
 });
