@@ -2,7 +2,7 @@
 
 import type { RoomProjection } from "@three-zero-four/contracts";
 import { useState } from "react";
-import { readLobbyRoomView } from "../model/room-view";
+import { readLobbyRoomView } from "../model/lobby-view";
 
 export function RoomLobby({
   leave,

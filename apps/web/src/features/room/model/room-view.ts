@@ -3,6 +3,11 @@ import {
   GameActionSchema,
   type RoomProjection,
 } from "@three-zero-four/contracts";
+import {
+  isRecord,
+  nonNegativeInteger,
+  nullableString,
+} from "./projection-value";
 
 export interface ProjectedCard {
   cardId: string;
@@ -84,41 +89,13 @@ export interface GameRoomView {
   };
 }
 
-export interface LobbyRoomView {
-  kind: "lobby";
-  isHost: boolean;
-  lobby: {
-    ruleProfileId: string;
-    seats: Array<{
-      botDifficulty: string | null;
-      displayName: string | null;
-      occupantType: "bot" | "empty" | "human";
-      seatIndex: number;
-    }>;
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function integer(value: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) ? value : null;
-}
-
-function nonNegativeInteger(value: unknown): number | null {
-  const parsed = integer(value);
-  return parsed !== null && parsed >= 0 ? parsed : null;
 }
 
 function nullableInteger(value: unknown): number | null | undefined {
   if (value === null) return null;
   return integer(value) ?? undefined;
-}
-
-function nullableString(value: unknown): string | null | undefined {
-  if (value === null) return null;
-  return typeof value === "string" ? value : undefined;
 }
 
 function team(value: unknown): "A" | "B" | null {
@@ -420,49 +397,6 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
         suit,
       },
     },
-  };
-}
-
-export function readLobbyRoomView(
-  projection: RoomProjection,
-): LobbyRoomView | null {
-  if (projection.status !== "lobby" || !isRecord(projection.view)) return null;
-  const lobby = projection.view.lobby;
-  if (
-    !isRecord(lobby) ||
-    typeof lobby.ruleProfileId !== "string" ||
-    typeof projection.view.isHost !== "boolean"
-  ) {
-    return null;
-  }
-  if (!Array.isArray(lobby.seats)) return null;
-  const seats: LobbyRoomView["lobby"]["seats"] = [];
-  for (const item of lobby.seats) {
-    if (!isRecord(item)) return null;
-    const seatIndex = nonNegativeInteger(item.seatIndex);
-    const displayName = nullableString(item.displayName);
-    const botDifficulty = nullableString(item.botDifficulty);
-    if (
-      seatIndex === null ||
-      displayName === undefined ||
-      botDifficulty === undefined ||
-      (item.occupantType !== "human" &&
-        item.occupantType !== "bot" &&
-        item.occupantType !== "empty")
-    ) {
-      return null;
-    }
-    seats.push({
-      botDifficulty,
-      displayName,
-      occupantType: item.occupantType,
-      seatIndex,
-    });
-  }
-  return {
-    kind: "lobby",
-    isHost: projection.view.isHost,
-    lobby: { ruleProfileId: lobby.ruleProfileId, seats },
   };
 }
 
