@@ -21,6 +21,20 @@ export type {
 } from "./messages.js";
 export type { Rank, RuleProfile, TokenRule } from "./profile.js";
 export { getRuleProfile, RULE_PROFILES } from "./profile.js";
+export type {
+  LegalCardPlay,
+  PlayCardResult,
+  TrickContext,
+  TrickPlay,
+  TrickResolution,
+  TrickState,
+} from "./trick.js";
+export {
+  createTrick,
+  legalCardPlays,
+  playCard,
+  resolveTrick,
+} from "./trick.js";
 export type { TrumpMode, TrumpSelection } from "./trump.js";
 export { chooseTrumpMode, selectTrumpIndicator } from "./trump.js";
 export type {
