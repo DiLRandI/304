@@ -15,6 +15,14 @@ import {
   GameEngine,
 } from "@three-zero-four/game-engine";
 import { projectRoomForPlayer } from "../contexts/gameplay/adapters/delivery/gameplay-room-presenter.js";
+import {
+  activeRoomStatus,
+  activeSeatIndex,
+  automationSeatIndex,
+  completedTrickWinner,
+  isResultPhase,
+  phaseTimeoutMs,
+} from "../contexts/gameplay/application/gameplay-automation-policy.js";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { projectLobbyForViewer } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import type {
@@ -29,7 +37,6 @@ import type {
   PostgresRoomStore,
   Queryable,
   RoomSettings,
-  RoomStatus,
   StoredRoom,
   StoredSeat,
 } from "./room-store.js";
@@ -54,27 +61,10 @@ interface RoomCoordinatorDependencies {
 }
 
 type CommandRequest = JoinRoomRequest | StartRoomRequest | GameCommand;
-type ActiveRoomStatus = Extract<
-  RoomStatus,
-  "lobby" | "in_hand" | "hand_result"
->;
-
 const DEFAULT_AUTOMATION = {
   botActionDelayMs: 900,
-  turnTimeoutMs: 30_000,
   disconnectGraceSeconds: 120,
 };
-
-function activeStatusForEngine(engine: GameEngine): ActiveRoomStatus {
-  if (engine.state.phase === "setup") return "lobby";
-  if (
-    engine.state.phase === "hand_result" ||
-    engine.state.phase === "match_complete"
-  ) {
-    return "hand_result";
-  }
-  return "in_hand";
-}
 
 function seatCountForProfile(ruleProfileId: RuleProfileId): number {
   return ruleProfileId === "six_304_36" ? 6 : 4;
@@ -84,40 +74,6 @@ function tableModeForProfile(
   ruleProfileId: RuleProfileId,
 ): "classic_4" | "six_6" {
   return ruleProfileId === "six_304_36" ? "six_6" : "classic_4";
-}
-
-function activeSeatIndex(engine: GameEngine): number | null {
-  const activeSeat = engine.state.activeSeat;
-  return typeof activeSeat === "number" && Number.isInteger(activeSeat)
-    ? activeSeat
-    : null;
-}
-
-function isResultPhase(engine: GameEngine): boolean {
-  return (
-    engine.state.phase === "hand_result" ||
-    engine.state.phase === "match_complete"
-  );
-}
-
-function automationSeatIndex(engine: GameEngine): number | null {
-  if (isResultPhase(engine)) return null;
-  return activeSeatIndex(engine);
-}
-
-function completedTrickWinner(engine: GameEngine): number | null {
-  const currentTrick = engine.state.currentTrick;
-  if (!currentTrick || typeof currentTrick !== "object") return null;
-  const winnerSeat = (currentTrick as Record<string, unknown>).winnerSeat;
-  return typeof winnerSeat === "number" && Number.isInteger(winnerSeat)
-    ? winnerSeat
-    : null;
-}
-
-function phaseTimeoutMs(engine: GameEngine): number {
-  if (engine.state.phase === "trump_choice") return 15_000;
-  if (engine.state.phase === "hand_result") return 20_000;
-  return DEFAULT_AUTOMATION.turnTimeoutMs;
 }
 
 function isBotDifficulty(
@@ -534,7 +490,7 @@ export class RoomCoordinator {
             result.reason ?? "Action was rejected",
           );
         }
-        const status = activeStatusForEngine(engine);
+        const status = activeRoomStatus(engine.state);
         const eventVersion = await this.store.appendEventAndSnapshot(
           transaction,
           {
@@ -695,7 +651,7 @@ export class RoomCoordinator {
 
       const engine = await this.recoverLockedRoom(transaction, room);
       if (job.kind === "TRICK_ADVANCE") {
-        const winnerSeat = completedTrickWinner(engine);
+        const winnerSeat = completedTrickWinner(engine.state);
         if (
           engine.state.phase !== "trick_result" ||
           winnerSeat == null ||
@@ -711,7 +667,7 @@ export class RoomCoordinator {
             "Trick advancement was rejected",
           );
         }
-        const status = activeStatusForEngine(engine);
+        const status = activeRoomStatus(engine.state);
         const eventVersion = await this.store.appendEventAndSnapshot(
           transaction,
           {
@@ -733,8 +689,8 @@ export class RoomCoordinator {
         );
         return "completed";
       }
-      if (isResultPhase(engine)) return "stale";
-      const activeSeat = activeSeatIndex(engine);
+      if (isResultPhase(engine.state)) return "stale";
+      const activeSeat = activeSeatIndex(engine.state);
       if (
         job.kind !== "DISCONNECT_GRACE" &&
         activeSeat !== job.targetSeatIndex
@@ -774,14 +730,14 @@ export class RoomCoordinator {
             eventType: "AUTOPILOT_ENABLED",
             payload: { seatIndex: job.targetSeatIndex, reason: job.kind },
             snapshot: engine.getSnapshot(),
-            status: activeStatusForEngine(engine),
+            status: activeRoomStatus(engine.state),
             ruleProfileId: room.ruleProfileId,
           },
         );
         const updatedRoom = {
           ...room,
           eventVersion,
-          status: activeStatusForEngine(engine),
+          status: activeRoomStatus(engine.state),
         };
         await this.scheduleNextAutomation(transaction, updatedRoom, engine);
         return "completed";
@@ -799,7 +755,7 @@ export class RoomCoordinator {
           "Automation action was rejected",
         );
       }
-      const status = activeStatusForEngine(engine);
+      const status = activeRoomStatus(engine.state);
       const eventVersion = await this.store.appendEventAndSnapshot(
         transaction,
         {
@@ -844,7 +800,7 @@ export class RoomCoordinator {
       const engine = await this.recoverLockedRoom(transaction, room);
       applyConnectionState(engine, viewerSeatIndex, "online");
       await this.store.markSeatOnline(transaction, room.id, session.playerId);
-      const status = activeStatusForEngine(engine);
+      const status = activeRoomStatus(engine.state);
       const eventVersion = await this.store.appendEventAndSnapshot(
         transaction,
         {
@@ -889,7 +845,7 @@ export class RoomCoordinator {
       const engine = await this.recoverLockedRoom(transaction, room);
       applyConnectionState(engine, viewerSeatIndex, "disconnected");
       await this.store.markSeatOffline(transaction, room.id, session.playerId);
-      const status = activeStatusForEngine(engine);
+      const status = activeRoomStatus(engine.state);
       const eventVersion = await this.store.appendEventAndSnapshot(
         transaction,
         {
@@ -995,7 +951,7 @@ export class RoomCoordinator {
       await this.scheduleDisconnectGraceJobs(transaction, room);
     }
     if (engine.state.phase === "trick_result") {
-      const winnerSeat = completedTrickWinner(engine);
+      const winnerSeat = completedTrickWinner(engine.state);
       if (winnerSeat == null) return;
       await this.store.scheduleAutomation(transaction, {
         id: this.identities.nextAutomationJobId(),
@@ -1009,7 +965,7 @@ export class RoomCoordinator {
       });
       return;
     }
-    const targetSeatIndex = automationSeatIndex(engine);
+    const targetSeatIndex = automationSeatIndex(engine.state);
     if (targetSeatIndex == null) return;
     const seat = engine.state.seats[targetSeatIndex];
     if (!seat) return;
@@ -1027,7 +983,8 @@ export class RoomCoordinator {
       kind: isAutomated ? "BOT_ACTION" : "TURN_TIMEOUT",
       targetSeatIndex,
       dueAt: new Date(
-        Date.now() + (isAutomated ? botActionDelayMs : phaseTimeoutMs(engine)),
+        Date.now() +
+          (isAutomated ? botActionDelayMs : phaseTimeoutMs(engine.state)),
       ),
     });
   }
@@ -1101,7 +1058,7 @@ export class RoomCoordinator {
     const engine = GameEngine.hydrate(
       structuredClone(snapshot.state) as EngineState,
     );
-    const status = activeStatusForEngine(engine);
+    const status = activeRoomStatus(engine.state);
     const snapshotRoom = { ...room, eventVersion, status };
     if (status === "lobby") {
       return projectLobbyForViewer(
