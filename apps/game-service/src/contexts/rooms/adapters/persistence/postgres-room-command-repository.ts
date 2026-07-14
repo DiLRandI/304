@@ -13,6 +13,7 @@ import type {
 } from "../../application/execute-room-command.js";
 import {
   PostgresRoomCommandWriter,
+  type StartedRoomAutomationFactory,
   type StartedRoomSnapshotFactory,
 } from "./postgres-room-command-writer.js";
 import { PostgresRoomQueryRepository } from "./postgres-room-query-repository.js";
@@ -24,9 +25,14 @@ export class PostgresRoomCommandRepository implements RoomCommandRepository {
   constructor(
     database: Database,
     startedRoomSnapshots?: StartedRoomSnapshotFactory,
+    startedRoomAutomation?: StartedRoomAutomationFactory,
   ) {
     this.reader = new PostgresRoomQueryRepository(database);
-    this.writer = new PostgresRoomCommandWriter(database, startedRoomSnapshots);
+    this.writer = new PostgresRoomCommandWriter(
+      database,
+      startedRoomSnapshots,
+      startedRoomAutomation,
+    );
   }
 
   findByReference(reference: string): Promise<Room | null> {
