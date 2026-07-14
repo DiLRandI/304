@@ -318,3 +318,21 @@ test("the v1 routes depend on a behavioral coordinator port", async () => {
   assert.doesNotMatch(routesSource, /domain\/room-coordinator\.js/);
   assert.match(routesSource, /export interface V1RoomCoordinator/);
 });
+
+test("room persistence records are owned by the Rooms application", async () => {
+  const coordinatorSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/domain/room-coordinator.ts"),
+    "utf8",
+  );
+  const storeSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/persistence/postgres-room-store.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(coordinatorSource, /application\/room-persistence-model\.js/);
+  assert.doesNotMatch(storeSource, /export interface StoredRoom/);
+  assert.doesNotMatch(storeSource, /export interface StoredSeat/);
+});
