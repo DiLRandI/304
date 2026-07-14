@@ -32,4 +32,13 @@ describe("Node player access security", () => {
 
     expect(new NodeSessionSecrets(pepper).digest(secret)).toBe(expected);
   });
+
+  it("verifies matching digests without accepting malformed or wrong values", () => {
+    const secrets = new NodeSessionSecrets("test-pepper");
+    const digest = secrets.digest("expected-secret");
+
+    expect(secrets.matches("expected-secret", digest)).toBe(true);
+    expect(secrets.matches("wrong-secret", digest)).toBe(false);
+    expect(secrets.matches("expected-secret", "not-a-hex-digest")).toBe(false);
+  });
 });
