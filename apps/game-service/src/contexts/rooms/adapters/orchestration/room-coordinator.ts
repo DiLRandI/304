@@ -20,14 +20,13 @@ import {
   applyConnectionState,
   applyLobbySeat,
 } from "../../../gameplay/adapters/engine/legacy-engine-seat-mapper.js";
+import { LegacyGameplayAutomationScheduler } from "../../../gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayRecovery } from "../../../gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import {
   activeRoomStatus,
   activeSeatIndex,
-  automationSeatIndex,
   completedTrickWinner,
   isResultPhase,
-  phaseTimeoutMs,
 } from "../../../gameplay/application/gameplay-automation-policy.js";
 import { RecoveryError } from "../../../gameplay/application/gameplay-recovery-error.js";
 import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
@@ -64,10 +63,6 @@ interface RoomCoordinatorDependencies {
 }
 
 type CommandRequest = JoinRoomRequest | StartRoomRequest | GameCommand;
-const DEFAULT_AUTOMATION = {
-  botActionDelayMs: 900,
-  disconnectGraceSeconds: 120,
-};
 
 function roomNotFound(): ServiceError {
   return new ServiceError("ROOM_NOT_FOUND", 404, "Room was not found");
@@ -86,9 +81,9 @@ export class RoomCoordinator {
   private readonly store: RoomCoordinatorStore;
   private readonly lease: RoomLease;
   private readonly presence: RoomPresence;
-  private readonly automation: RoomCoordinatorDependencies["automation"];
   private readonly identities: RoomIdentityProvider;
   private readonly inviteCodes: RoomInviteCodeProvider;
+  private readonly gameplayAutomation: LegacyGameplayAutomationScheduler;
   private readonly gameplayRecovery: LegacyGameplayRecovery;
   private readonly roomQueries: LegacyRoomProjectionQueries;
 
@@ -103,9 +98,13 @@ export class RoomCoordinator {
     this.store = store;
     this.lease = lease;
     this.presence = presence;
-    this.automation = automation;
     this.identities = identities;
     this.inviteCodes = inviteCodes;
+    this.gameplayAutomation = new LegacyGameplayAutomationScheduler({
+      ...(automation ? { config: automation } : {}),
+      identities,
+      store,
+    });
     this.gameplayRecovery = new LegacyGameplayRecovery(store);
     this.roomQueries = new LegacyRoomProjectionQueries({
       gameplayRecovery: this.gameplayRecovery,
@@ -312,7 +311,11 @@ export class RoomCoordinator {
           eventVersion,
           status: "in_hand" as const,
         };
-        await this.scheduleNextAutomation(transaction, updatedRoom, engine);
+        await this.gameplayAutomation.schedule(
+          transaction,
+          updatedRoom,
+          engine,
+        );
         return projectRoomForPlayer(updatedRoom, engine, viewerSeatIndex);
       },
     );
@@ -389,7 +392,11 @@ export class RoomCoordinator {
           },
         );
         const updatedRoom = { ...room, eventVersion, status };
-        await this.scheduleNextAutomation(transaction, updatedRoom, engine);
+        await this.gameplayAutomation.schedule(
+          transaction,
+          updatedRoom,
+          engine,
+        );
         return projectRoomForPlayer(updatedRoom, engine, viewerSeatIndex);
       },
     );
@@ -513,7 +520,7 @@ export class RoomCoordinator {
           },
         );
         if (status !== "closed") {
-          await this.scheduleNextAutomation(
+          await this.gameplayAutomation.schedule(
             transaction,
             { ...room, eventVersion, hostPlayerId, status },
             engine,
@@ -569,7 +576,7 @@ export class RoomCoordinator {
             ruleProfileId: room.ruleProfileId,
           },
         );
-        await this.scheduleNextAutomation(
+        await this.gameplayAutomation.schedule(
           transaction,
           { ...room, eventVersion, status },
           engine,
@@ -626,7 +633,11 @@ export class RoomCoordinator {
           eventVersion,
           status: activeRoomStatus(engine.state),
         };
-        await this.scheduleNextAutomation(transaction, updatedRoom, engine);
+        await this.gameplayAutomation.schedule(
+          transaction,
+          updatedRoom,
+          engine,
+        );
         return "completed";
       }
 
@@ -658,7 +669,7 @@ export class RoomCoordinator {
         },
       );
       const updatedRoom = { ...room, eventVersion, status };
-      await this.scheduleNextAutomation(transaction, updatedRoom, engine);
+      await this.gameplayAutomation.schedule(transaction, updatedRoom, engine);
       return "completed";
     });
   }
@@ -705,7 +716,7 @@ export class RoomCoordinator {
           ruleProfileId: room.ruleProfileId,
         },
       );
-      await this.scheduleNextAutomation(
+      await this.gameplayAutomation.schedule(
         transaction,
         { ...room, eventVersion, status },
         engine,
@@ -748,7 +759,7 @@ export class RoomCoordinator {
         },
       );
       const updatedRoom = { ...room, eventVersion, status };
-      await this.scheduleNextAutomation(transaction, updatedRoom, engine);
+      await this.gameplayAutomation.schedule(transaction, updatedRoom, engine);
     });
     await this.presence.remove(roomId, session.playerId);
   }
@@ -818,91 +829,6 @@ export class RoomCoordinator {
         );
       }
       throw error;
-    }
-  }
-
-  private async scheduleNextAutomation(
-    transaction: RoomTransaction,
-    room: StoredRoom,
-    engine: GameEngine,
-  ): Promise<void> {
-    await this.store.cancelAutomationForRoom(transaction, room.id, [
-      "BOT_ACTION",
-      "TURN_TIMEOUT",
-      "TRICK_ADVANCE",
-    ]);
-    await this.store.cancelAutomationForRoom(transaction, room.id, [
-      "DISCONNECT_GRACE",
-    ]);
-    if (room.status === "in_hand") {
-      await this.scheduleDisconnectGraceJobs(transaction, room);
-    }
-    if (engine.state.phase === "trick_result") {
-      const winnerSeat = completedTrickWinner(engine.state);
-      if (winnerSeat == null) return;
-      await this.store.scheduleAutomation(transaction, {
-        id: this.identities.nextAutomationJobId(),
-        roomId: room.id,
-        expectedEventVersion: room.eventVersion,
-        kind: "TRICK_ADVANCE",
-        targetSeatIndex: winnerSeat,
-        dueAt: new Date(
-          Date.now() + (this.automation?.trickRevealDelayMs ?? 2_000),
-        ),
-      });
-      return;
-    }
-    const targetSeatIndex = automationSeatIndex(engine.state);
-    if (targetSeatIndex == null) return;
-    const seat = engine.state.seats[targetSeatIndex];
-    if (!seat) return;
-    const isAutomated = seat.type === "bot" || Boolean(seat.autopilot);
-    if (seat.type !== "human" && seat.type !== "bot") return;
-    if (seat.type === "human" && seat.connectionStatus === "disconnected") {
-      return;
-    }
-    const botActionDelayMs =
-      this.automation?.botActionDelayMs ?? DEFAULT_AUTOMATION.botActionDelayMs;
-    await this.store.scheduleAutomation(transaction, {
-      id: this.identities.nextAutomationJobId(),
-      roomId: room.id,
-      expectedEventVersion: room.eventVersion,
-      kind: isAutomated ? "BOT_ACTION" : "TURN_TIMEOUT",
-      targetSeatIndex,
-      dueAt: new Date(
-        Date.now() +
-          (isAutomated ? botActionDelayMs : phaseTimeoutMs(engine.state)),
-      ),
-    });
-  }
-
-  private async scheduleDisconnectGraceJobs(
-    transaction: RoomTransaction,
-    room: StoredRoom,
-  ): Promise<void> {
-    const disconnectGraceSeconds =
-      this.automation?.disconnectGraceSeconds ??
-      DEFAULT_AUTOMATION.disconnectGraceSeconds;
-    const seats = await this.store.loadSeats(room.id, transaction);
-    for (const seat of seats) {
-      if (
-        seat.occupantType !== "human" ||
-        !seat.playerId ||
-        seat.connectionStatus !== "disconnected"
-      ) {
-        continue;
-      }
-      await this.store.scheduleAutomation(transaction, {
-        id: this.identities.nextAutomationJobId(),
-        roomId: room.id,
-        expectedEventVersion: room.eventVersion,
-        kind: "DISCONNECT_GRACE",
-        targetSeatIndex: seat.seatIndex,
-        dueAt: new Date(
-          (seat.disconnectedAt?.getTime() ?? Date.now()) +
-            disconnectGraceSeconds * 1_000,
-        ),
-      });
     }
   }
 

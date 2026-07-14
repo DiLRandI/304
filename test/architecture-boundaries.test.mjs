@@ -268,6 +268,31 @@ test("legacy gameplay snapshot replay belongs to a Gameplay adapter", async () =
   assert.doesNotMatch(coordinatorSource, /private async recoverLockedRoom/);
 });
 
+test("legacy gameplay automation scheduling belongs to a Gameplay adapter", async () => {
+  const schedulerSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.ts",
+    ),
+    "utf8",
+  );
+  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
+
+  assert.match(
+    schedulerSource,
+    /export class LegacyGameplayAutomationScheduler/,
+  );
+  assert.match(coordinatorSource, /LegacyGameplayAutomationScheduler/);
+  assert.doesNotMatch(
+    coordinatorSource,
+    /private async scheduleNextAutomation/,
+  );
+  assert.doesNotMatch(
+    coordinatorSource,
+    /private async scheduleDisconnectGraceJobs/,
+  );
+});
+
 test("room projection reads use a dedicated query adapter", async () => {
   const querySource = await readFile(
     path.join(
