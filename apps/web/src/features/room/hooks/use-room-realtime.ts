@@ -1,7 +1,13 @@
 "use client";
 
 import type { RealtimeServerMessage } from "@three-zero-four/contracts";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 import { parseRealtimeServerMessage } from "../api/room-realtime";
 import {
   createBrowserRoomSocket,
@@ -39,8 +45,25 @@ export function useRoomRealtime(options: RoomRealtimeOptions) {
   const socketRef = useRef<RoomSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppedRef = useRef(false);
-  const optionsRef = useRef(options);
-  optionsRef.current = options;
+  const createSocketForRoom = useEffectEvent((roomId: string): RoomSocket => {
+    return (options.createSocket ?? createBrowserRoomSocket)(
+      options.socketUrl(roomId),
+    );
+  });
+  const reportConnectionError = useEffectEvent((message: string): void => {
+    options.onConnectionError(message);
+  });
+  const notifyConnected = useEffectEvent((): void => {
+    options.onConnected();
+  });
+  const handleMessage = useEffectEvent(
+    (message: RealtimeServerMessage, sender: RoomMessageSender): void => {
+      options.onMessage(message, sender);
+    },
+  );
+  const handleUnreadableMessage = useEffectEvent((roomId: string): void => {
+    options.onUnreadableMessage(roomId);
+  });
 
   const clearReconnectTimer = useCallback(() => {
     if (reconnectTimerRef.current !== null) {
@@ -98,13 +121,10 @@ export function useRoomRealtime(options: RoomRealtimeOptions) {
       setConnection(reconnectAttempt === 0 ? "connecting" : "reconnecting");
       let socket: RoomSocket;
       try {
-        const current = optionsRef.current;
-        socket = (current.createSocket ?? createBrowserRoomSocket)(
-          current.socketUrl(activeRoomId),
-        );
+        socket = createSocketForRoom(activeRoomId);
       } catch {
         socketRef.current = null;
-        optionsRef.current.onConnectionError(ROOM_SOCKET_CONNECT_ERROR);
+        reportConnectionError(ROOM_SOCKET_CONNECT_ERROR);
         scheduleReconnect();
         return;
       }
@@ -117,15 +137,15 @@ export function useRoomRealtime(options: RoomRealtimeOptions) {
         }
         reconnectAttempt = 0;
         setConnection("live");
-        optionsRef.current.onConnected();
+        notifyConnected();
       };
       socket.onmessage = (event) => {
         if (disposed || stoppedRef.current) return;
         try {
           const message = parseRealtimeServerMessage(JSON.parse(event.data));
-          optionsRef.current.onMessage(message, send);
+          handleMessage(message, send);
         } catch {
-          optionsRef.current.onUnreadableMessage(activeRoomId);
+          handleUnreadableMessage(activeRoomId);
         }
       };
       socket.onerror = () => {

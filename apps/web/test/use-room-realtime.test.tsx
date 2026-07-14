@@ -52,4 +52,32 @@ describe("useRoomRealtime", () => {
     act(() => recoveredSocket.onopen?.(new Event("open")));
     await waitFor(() => expect(result.current.connection).toBe("live"));
   });
+
+  it("uses current callbacks without reconnecting the socket", async () => {
+    const activeSocket = socket();
+    const createSocket = vi.fn(() => activeSocket);
+    const firstConnected = vi.fn();
+    const currentConnected = vi.fn();
+    const { rerender } = renderHook(
+      ({ onConnected }: { onConnected: () => void }) =>
+        useRoomRealtime({
+          createSocket,
+          onConnected,
+          onConnectionError: vi.fn(),
+          onMessage: vi.fn(),
+          onUnreadableMessage: vi.fn(),
+          roomId: ROOM_ID,
+          socketUrl: () => "wss://api.example.test/v1/realtime/rooms/room",
+        }),
+      { initialProps: { onConnected: firstConnected } },
+    );
+
+    await waitFor(() => expect(createSocket).toHaveBeenCalledOnce());
+    rerender({ onConnected: currentConnected });
+    expect(createSocket).toHaveBeenCalledOnce();
+
+    act(() => activeSocket.onopen?.(new Event("open")));
+    expect(firstConnected).not.toHaveBeenCalled();
+    expect(currentConnected).toHaveBeenCalledOnce();
+  });
 });

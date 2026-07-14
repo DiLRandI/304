@@ -400,6 +400,19 @@ test("the websocket hub separates snapshot queries from connection mutations", a
   assert.doesNotMatch(hubSource, /RoomSocketCoordinator/);
 });
 
+test("the web realtime hook uses React effect events for current callbacks", async () => {
+  const realtimeSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/web/src/features/room/hooks/use-room-realtime.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(realtimeSource, /useEffectEvent/);
+  assert.doesNotMatch(realtimeSource, /optionsRef/);
+});
+
 test("the v1 routes depend on application use cases instead of a coordinator", async () => {
   const routesSource = await readFile(
     path.join(repoRoot, "apps/game-service/src/routes/v1.ts"),
