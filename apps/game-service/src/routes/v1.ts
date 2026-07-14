@@ -10,11 +10,14 @@ import {
   commandId,
   eventVersion,
   playerId,
+  roomId,
 } from "@three-zero-four/room-domain";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { z } from "zod";
 import type { ServiceConfig } from "../config.js";
 import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
+import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
 import { DomainError } from "../domain/errors.js";
 import type { RoomCoordinator } from "../domain/room-coordinator.js";
 import type {
@@ -27,10 +30,13 @@ export interface GameRuntime {
   coordinator: RoomCoordinator;
   roomUseCases?: {
     readonly join: Pick<JoinRoomHandler, "execute">;
+    readonly leave: Pick<LeaveRoomHandler, "execute">;
   };
   sessions: SessionService;
   rateLimiter: RateLimiter;
 }
+
+const RoomIdPathSchema = z.uuid();
 
 async function requireSession(
   request: FastifyRequest,
@@ -176,6 +182,14 @@ export async function registerV1Routes(
         60,
       );
       const input = LeaveRoomRequestSchema.parse(request.body);
+      if (runtime.roomUseCases?.leave) {
+        return runtime.roomUseCases.leave.execute({
+          actor: playerId(session.playerId),
+          commandId: commandId(input.commandId),
+          expectedVersion: eventVersion(input.expectedVersion),
+          roomId: roomId(RoomIdPathSchema.parse(request.params.roomId)),
+        });
+      }
       return runtime.coordinator.leaveRoom(
         session,
         request.params.roomId,

@@ -2,6 +2,7 @@ import { buildApp, loadConfig } from "./app.js";
 import { PostgresRoomCommandRepository } from "./contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { ExecuteRoomCommandHandler } from "./contexts/rooms/application/execute-room-command.js";
 import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
+import { LeaveRoomHandler } from "./contexts/rooms/application/leave-room.js";
 import { RoomCoordinator } from "./domain/room-coordinator.js";
 import { PostgresRoomStore } from "./domain/room-store.js";
 import { SessionService } from "./domain/session-service.js";
@@ -44,7 +45,10 @@ const roomCommands = new ExecuteRoomCommandHandler(
 );
 const game = {
   coordinator,
-  roomUseCases: { join: new JoinRoomHandler(roomCommands, presence) },
+  roomUseCases: {
+    join: new JoinRoomHandler(roomCommands, presence),
+    leave: new LeaveRoomHandler(roomCommands, presence),
+  },
   sessions,
   rateLimiter: new RateLimiter(redis),
 };
