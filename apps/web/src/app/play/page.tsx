@@ -1,4 +1,4 @@
-import { PlayClient } from "../../components/play-client";
+import { PlayClient } from "../../features/room/ui/play-client";
 
 export const dynamic = "force-dynamic";
 
