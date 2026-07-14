@@ -6,6 +6,7 @@ import type {
   RoomCommandCommit,
   RoomCommandWriter,
 } from "../../application/execute-room-command.js";
+import type { NewAutomationJob } from "../../application/room-persistence-model.js";
 import { mapRoomEventForPersistence } from "./room-event-record-mapper.js";
 import { mapRoomSeatsForPersistence } from "./room-record-mapper.js";
 
@@ -22,6 +23,10 @@ type TransactionalDatabase = Pick<Database, "transaction">;
 
 export interface StartedRoomSnapshotFactory {
   create(room: Room): unknown;
+}
+
+export interface StartedRoomAutomationFactory {
+  create(room: Room, snapshot: unknown): NewAutomationJob | null;
 }
 
 type RoomCommandPersistenceErrorCode =
@@ -66,6 +71,7 @@ export class PostgresRoomCommandWriter implements RoomCommandWriter {
   constructor(
     private readonly database: TransactionalDatabase,
     private readonly startedRoomSnapshots?: StartedRoomSnapshotFactory,
+    private readonly startedRoomAutomation?: StartedRoomAutomationFactory,
   ) {}
 
   async commit(input: RoomCommandCommit): Promise<void> {
@@ -75,6 +81,13 @@ export class PostgresRoomCommandWriter implements RoomCommandWriter {
       event?.type === "ROOM_STARTED"
         ? this.startedRoomSnapshots?.create(input.room)
         : undefined;
+    const startedRoomAutomation =
+      startedRoomSnapshot === undefined
+        ? null
+        : (this.startedRoomAutomation?.create(
+            input.room,
+            startedRoomSnapshot,
+          ) ?? null);
     const persistedEvent = event
       ? mapRoomEventForPersistence(event, input.room, startedRoomSnapshot)
       : null;
@@ -174,6 +187,19 @@ export class PostgresRoomCommandWriter implements RoomCommandWriter {
               input.room.eventVersion,
               input.room.profileId,
               JSON.stringify(startedRoomSnapshot),
+            ],
+          );
+        }
+        if (startedRoomAutomation) {
+          await transaction.query(
+            "INSERT INTO room_automation_jobs (id, room_id, expected_event_version, kind, target_seat_index, due_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (room_id, kind, expected_event_version, target_seat_index) DO NOTHING",
+            [
+              startedRoomAutomation.id,
+              startedRoomAutomation.roomId,
+              startedRoomAutomation.expectedEventVersion,
+              startedRoomAutomation.kind,
+              startedRoomAutomation.targetSeatIndex,
+              startedRoomAutomation.dueAt,
             ],
           );
         }

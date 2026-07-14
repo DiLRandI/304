@@ -254,6 +254,59 @@ describe("PostgresRoomCommandWriter", () => {
     ]);
   });
 
+  it("persists initial room automation in the room-start transaction", async () => {
+    const room = lobby();
+    const result = executeRoomCommand(room, {
+      actor: hostId,
+      expectedVersion: room.eventVersion,
+      type: "START_ROOM",
+    });
+    if (!result.ok) throw new Error("Expected room start to succeed");
+    const snapshot = { activeSeat: 0, phase: "four_bidding" };
+    const dueAt = new Date("2030-01-01T00:00:30.000Z");
+    const database = new TransactionDatabase();
+    const writer = new PostgresRoomCommandWriter(
+      database,
+      { create: () => snapshot },
+      {
+        create: () => ({
+          dueAt,
+          expectedEventVersion: 2,
+          id: "83dd5df8-6036-463e-a7db-6d7f96fc3b52",
+          kind: "TURN_TIMEOUT",
+          roomId: aggregateId,
+          targetSeatIndex: 0,
+        }),
+      },
+    );
+
+    await writer.commit({
+      actorPlayerId: hostId,
+      commandId: aggregateCommandId,
+      events: result.events,
+      expectedVersion: room.eventVersion,
+      request: {
+        actor: hostId,
+        expectedVersion: room.eventVersion,
+        type: "START_ROOM",
+      },
+      response: projectRoom(result.room, hostId),
+      room: result.room,
+    });
+
+    const automationInsert = database.calls.find((call) =>
+      call.text.startsWith("INSERT INTO room_automation_jobs"),
+    );
+    expect(automationInsert?.values).toEqual([
+      "83dd5df8-6036-463e-a7db-6d7f96fc3b52",
+      aggregateId,
+      2,
+      "TURN_TIMEOUT",
+      0,
+      dueAt,
+    ]);
+  });
+
   it("rejects an optimistic version conflict before writing", async () => {
     const database = new TransactionDatabase();
     database.currentVersion = 2;
