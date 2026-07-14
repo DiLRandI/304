@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
+import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { RoomCoordinator } from "../src/domain/room-coordinator.js";
 import { PostgresRoomStore } from "../src/domain/room-store.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
@@ -53,6 +54,7 @@ let store: PostgresRoomStore;
 
 function coordinator(): RoomCoordinator {
   return new RoomCoordinator({
+    inviteCodes: new NodeRoomInviteCodeProvider(),
     store,
     lease: new RoomLease(redis, 5_000),
     presence: new Presence(redis, 60),

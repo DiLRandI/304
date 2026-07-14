@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { buildApp, loadConfig } from "../src/app.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
+import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { RoomCoordinator } from "../src/domain/room-coordinator.js";
 import { PostgresRoomStore } from "../src/domain/room-store.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
@@ -85,6 +86,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
     ttlDays: config.SESSION_TTL_DAYS,
   });
   const coordinator = new RoomCoordinator({
+    inviteCodes: new NodeRoomInviteCodeProvider(),
     store,
     lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
     presence: new Presence(redis, config.PRESENCE_TTL_SECONDS),
