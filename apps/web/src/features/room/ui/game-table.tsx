@@ -3,10 +3,8 @@
 import type { GameAction, RoomProjection } from "@three-zero-four/contracts";
 import { RulesDrawer } from "../../../components/rules-drawer";
 import { partitionCardActions } from "../model/card-action";
-import type { ProjectedCard } from "../model/card-view";
-import type { ProjectedHandResult } from "../model/hand-result-view";
 import { readActiveRoomView } from "../model/room-view";
-import { cardLabel } from "./card";
+import { CommandActions } from "./command-actions";
 import { CurrentTrick } from "./current-trick";
 import { HandResult } from "./hand-result";
 import { PlayerHand } from "./player-hand";
@@ -18,47 +16,6 @@ export type TableConnection =
   | "live"
   | "offline"
   | "reconnecting";
-
-function actionLabel(
-  action: GameAction,
-  handResult: ProjectedHandResult | null,
-  privateHand: readonly ProjectedCard[],
-): string {
-  switch (action.type) {
-    case "BID":
-      return `Bid ${action.amount}`;
-    case "PASS_BID":
-      return "Pass bid";
-    case "TRUMP_OPEN":
-      return "Open trump";
-    case "TRUMP_CLOSE":
-      return "Keep trump closed";
-    case "ACK_RESULT":
-      return handResult &&
-        !("noScore" in handResult) &&
-        handResult.matchComplete
-        ? "Play another match"
-        : "Next hand";
-    case "SELECT_TRUMP": {
-      const card = privateHand.find((item) => item.cardId === action.cardId);
-      return card ? `Choose ${cardLabel(card)} as trump` : "Choose trump";
-    }
-    case "PLAY_CARD": {
-      if (action.fromIndicator) {
-        return "Play hidden trump indicator face down";
-      }
-      const card = privateHand.find((item) => item.cardId === action.cardId);
-      if (!card) {
-        return action.faceDown
-          ? "Play a legal card face down"
-          : "Play a legal card";
-      }
-      return action.faceDown
-        ? `Play ${cardLabel(card)} face down`
-        : `Play ${cardLabel(card)}`;
-    }
-  }
-}
 
 function suitSymbol(suit: string | null): string {
   if (suit === "clubs") return "♣";
@@ -174,23 +131,12 @@ export function GameTable({
         />
       ) : null}
 
-      {commandActions.length > 0 ? (
-        <section aria-label="Legal actions" className="command-actions">
-          {commandActions.map((action) => (
-            <button
-              key={JSON.stringify(action)}
-              onClick={() => submit(action)}
-              type="button"
-            >
-              {actionLabel(
-                action,
-                publicState.handResult,
-                view.privateSeat.hand,
-              )}
-            </button>
-          ))}
-        </section>
-      ) : null}
+      <CommandActions
+        actions={commandActions}
+        hand={view.privateSeat.hand}
+        handResult={publicState.handResult}
+        onSelect={submit}
+      />
 
       <PlayerHand
         hand={view.privateSeat.hand}
