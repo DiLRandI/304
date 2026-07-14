@@ -1,4 +1,7 @@
 import { buildApp, loadConfig } from "./app.js";
+import { LegacyGameplayAutomationScheduler } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
+import { LegacyGameplayCommandExecutor } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
+import { LegacyGameplayRecovery } from "./contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "./contexts/gameplay/application/submit-gameplay-command.js";
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
 import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
@@ -76,10 +79,23 @@ const roomQueries = new LegacyRoomProjectionQueries({
 const roomPresence = {
   refresh: coordinator.markRealtimePresence.bind(coordinator),
 };
+const gameplayCommands = new LegacyGameplayCommandExecutor({
+  automation: new LegacyGameplayAutomationScheduler({
+    config: {
+      botActionDelayMs: config.BOT_ACTION_DELAY_MS,
+      disconnectGraceSeconds: config.DISCONNECT_GRACE_SECONDS,
+    },
+    identities,
+    store,
+  }),
+  lease: roomLease,
+  recovery: new LegacyGameplayRecovery(store),
+  store,
+});
 const getRoomSnapshot = new GetRoomSnapshotHandler(roomQueries, roomPresence);
 const game = {
   gameplayUseCases: {
-    submit: new SubmitGameplayCommandHandler(coordinator, roomPresence),
+    submit: new SubmitGameplayCommandHandler(gameplayCommands, roomPresence),
   },
   roomUseCases: {
     create: new CreateRoomHandler(

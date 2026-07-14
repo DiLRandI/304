@@ -21,6 +21,7 @@ import {
   applyLobbySeat,
 } from "../../../gameplay/adapters/engine/legacy-engine-seat-mapper.js";
 import { LegacyGameplayAutomationScheduler } from "../../../gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
+import { LegacyGameplayCommandExecutor } from "../../../gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
 import { LegacyGameplayRecovery } from "../../../gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import {
   activeRoomStatus,
@@ -84,6 +85,7 @@ export class RoomCoordinator {
   private readonly identities: RoomIdentityProvider;
   private readonly inviteCodes: RoomInviteCodeProvider;
   private readonly gameplayAutomation: LegacyGameplayAutomationScheduler;
+  private readonly gameplayCommands: LegacyGameplayCommandExecutor;
   private readonly gameplayRecovery: LegacyGameplayRecovery;
   private readonly roomQueries: LegacyRoomProjectionQueries;
 
@@ -106,6 +108,12 @@ export class RoomCoordinator {
       store,
     });
     this.gameplayRecovery = new LegacyGameplayRecovery(store);
+    this.gameplayCommands = new LegacyGameplayCommandExecutor({
+      automation: this.gameplayAutomation,
+      lease,
+      recovery: this.gameplayRecovery,
+      store,
+    });
     this.roomQueries = new LegacyRoomProjectionQueries({
       gameplayRecovery: this.gameplayRecovery,
       lease,
@@ -345,62 +353,7 @@ export class RoomCoordinator {
     session: AuthenticatedSession,
     command: GameCommand,
   ): Promise<RoomProjection> {
-    const projection = await this.withRoomCommand(
-      command.roomId,
-      session,
-      command,
-      async (transaction, room, viewerSeatIndex) => {
-        if (room.status !== "in_hand" && room.status !== "hand_result") {
-          throw new ServiceError("ROOM_NOT_ACTIVE", 409, "Room is not active");
-        }
-        if (
-          command.action.type === "ACK_RESULT" &&
-          room.hostPlayerId !== session.playerId
-        ) {
-          throw new ServiceError(
-            "HOST_REQUIRED",
-            403,
-            "Only the host can continue",
-          );
-        }
-        const engine = await this.gameplayRecovery.recover(transaction, room);
-        const result = engine.applyAction({
-          ...command.action,
-          seatIndex: viewerSeatIndex,
-          actorSeatIndex: viewerSeatIndex,
-        });
-        if (!result.ok) {
-          throw new ServiceError(
-            "ACTION_REJECTED",
-            409,
-            result.reason ?? "Action was rejected",
-          );
-        }
-        const status = activeRoomStatus(engine.state);
-        const eventVersion = await this.store.appendEventAndSnapshot(
-          transaction,
-          {
-            roomId: room.id,
-            expectedVersion: room.eventVersion,
-            commandId: command.commandId,
-            actorPlayerId: session.playerId,
-            eventType: "GAME_ACTION",
-            payload: { action: command.action },
-            snapshot: engine.getSnapshot(),
-            status,
-            ruleProfileId: room.ruleProfileId,
-          },
-        );
-        const updatedRoom = { ...room, eventVersion, status };
-        await this.gameplayAutomation.schedule(
-          transaction,
-          updatedRoom,
-          engine,
-        );
-        return projectRoomForPlayer(updatedRoom, engine, viewerSeatIndex);
-      },
-    );
-    return projection;
+    return this.gameplayCommands.submitCommand(session, command);
   }
 
   async leaveRoom(

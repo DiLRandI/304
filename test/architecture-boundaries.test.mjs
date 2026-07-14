@@ -293,6 +293,27 @@ test("legacy gameplay automation scheduling belongs to a Gameplay adapter", asyn
   );
 });
 
+test("legacy gameplay commands execute through a Gameplay adapter", async () => {
+  const executorSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.ts",
+    ),
+    "utf8",
+  );
+  const serverSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/server.ts"),
+    "utf8",
+  );
+
+  assert.match(executorSource, /export class LegacyGameplayCommandExecutor/);
+  assert.match(serverSource, /new LegacyGameplayCommandExecutor/);
+  assert.match(
+    serverSource,
+    /new SubmitGameplayCommandHandler\(gameplayCommands/,
+  );
+});
+
 test("room projection reads use a dedicated query adapter", async () => {
   const querySource = await readFile(
     path.join(

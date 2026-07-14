@@ -6,6 +6,9 @@ import { createClient, type RedisClientType } from "redis";
 import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { buildApp, loadConfig } from "../src/app.js";
+import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
+import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
+import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
@@ -126,12 +129,25 @@ async function buildRealApp(): Promise<TestRuntime> {
   const roomPresence = {
     refresh: coordinator.markRealtimePresence.bind(coordinator),
   };
+  const gameplayCommands = new LegacyGameplayCommandExecutor({
+    automation: new LegacyGameplayAutomationScheduler({
+      config: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
+      identities,
+      store,
+    }),
+    lease: roomLease,
+    recovery: new LegacyGameplayRecovery(store),
+    store,
+  });
   const app = await buildApp({
     config,
     readiness: { database: () => database.health(), redis: async () => true },
     game: {
       gameplayUseCases: {
-        submit: new SubmitGameplayCommandHandler(coordinator, roomPresence),
+        submit: new SubmitGameplayCommandHandler(
+          gameplayCommands,
+          roomPresence,
+        ),
       },
       roomUseCases: {
         create: new CreateRoomHandler(
