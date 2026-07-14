@@ -1,4 +1,5 @@
 import { buildApp, loadConfig } from "./app.js";
+import { SubmitGameplayCommandHandler } from "./contexts/gameplay/application/submit-gameplay-command.js";
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
 import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
 import { LegacyRoomProjectionQueries } from "./contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
@@ -77,7 +78,9 @@ const roomPresence = {
 };
 const getRoomSnapshot = new GetRoomSnapshotHandler(roomQueries, roomPresence);
 const game = {
-  coordinator,
+  gameplayUseCases: {
+    submit: new SubmitGameplayCommandHandler(coordinator),
+  },
   roomUseCases: {
     create: new CreateRoomHandler(
       new LegacyRoomCreationRepository(store),

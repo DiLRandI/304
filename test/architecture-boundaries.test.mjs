@@ -337,14 +337,15 @@ test("the websocket hub separates snapshot queries from connection mutations", a
   assert.doesNotMatch(hubSource, /RoomSocketCoordinator/);
 });
 
-test("the v1 routes depend on a behavioral coordinator port", async () => {
+test("the v1 routes depend on application use cases instead of a coordinator", async () => {
   const routesSource = await readFile(
     path.join(repoRoot, "apps/game-service/src/routes/v1.ts"),
     "utf8",
   );
 
   assert.doesNotMatch(routesSource, /domain\/room-coordinator\.js/);
-  assert.match(routesSource, /export interface V1RoomCoordinator/);
+  assert.doesNotMatch(routesSource, /V1RoomCoordinator/);
+  assert.match(routesSource, /SubmitGameplayCommandHandler/);
 });
 
 test("room persistence records are owned by the Rooms application", async () => {

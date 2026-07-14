@@ -1,11 +1,9 @@
 import {
   CreateRoomRequestSchema,
-  type GameCommand,
   GameCommandSchema,
   GuestSessionRequestSchema,
   JoinRoomRequestSchema,
   LeaveRoomRequestSchema,
-  type RoomProjection,
   StartRoomRequestSchema,
 } from "@three-zero-four/contracts";
 import {
@@ -17,6 +15,7 @@ import {
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { ServiceConfig } from "../config.js";
+import type { SubmitGameplayCommandHandler } from "../contexts/gameplay/application/submit-gameplay-command.js";
 import type { PlayerAccessService } from "../contexts/player-access/adapters/delivery/player-access-service.js";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
@@ -31,15 +30,10 @@ import type { StartRoomHandler } from "../contexts/rooms/application/start-room.
 import type { RateLimiter } from "../infra/redis-coordination.js";
 import { ServiceError } from "../shared/service-error.js";
 
-export interface V1RoomCoordinator {
-  submitCommand(
-    session: AuthenticatedSession,
-    command: GameCommand,
-  ): Promise<RoomProjection>;
-}
-
 export interface GameRuntime {
-  coordinator: V1RoomCoordinator;
+  gameplayUseCases: {
+    readonly submit: Pick<SubmitGameplayCommandHandler, "execute">;
+  };
   roomUseCases: {
     readonly create: Pick<CreateRoomHandler, "execute">;
     readonly get: Pick<GetRoomHandler, "execute">;
@@ -253,7 +247,10 @@ export async function registerV1Routes(
           "Room id does not match request path",
         );
       }
-      return runtime.coordinator.submitCommand(session, input);
+      return runtime.gameplayUseCases.submit.execute({
+        command: input,
+        session,
+      });
     },
   );
 }
