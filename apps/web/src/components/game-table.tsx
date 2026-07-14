@@ -6,7 +6,7 @@ import {
   type ProjectedCard,
   type ProjectedHandResult,
   readActiveRoomView,
-} from "../lib/room-view";
+} from "../features/room/model/room-view";
 import { CardButton, CardFace, cardLabel } from "./card";
 import { RulesDrawer } from "./rules-drawer";
 

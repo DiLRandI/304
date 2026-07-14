@@ -8,11 +8,11 @@ import {
   type RoomProjection,
 } from "@three-zero-four/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { applyProjection } from "../features/room/model/room-state";
 import {
   GameServiceError,
   parseRealtimeServerMessage,
 } from "../lib/game-client";
-import { applyProjection } from "../lib/room-state";
 
 const OPEN_SOCKET = 1;
 const PING_INTERVAL_MS = 15_000;
