@@ -15,13 +15,11 @@ import {
   type EngineState,
   GameEngine,
 } from "@three-zero-four/game-engine";
+import { projectRoomForPlayer } from "../contexts/gameplay/adapters/delivery/gameplay-room-presenter.js";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import type { Presence, RoomLease } from "../infra/redis-coordination.js";
 import { DomainError } from "./errors.js";
-import {
-  projectLobbyForViewer,
-  projectRoomForPlayer,
-} from "./room-projector.js";
+import { projectLobbyForViewer } from "./room-projector.js";
 import type {
   ClaimedAutomationJob,
   PostgresRoomStore,

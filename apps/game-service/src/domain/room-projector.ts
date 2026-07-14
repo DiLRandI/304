@@ -1,6 +1,4 @@
 import type { RoomProjection } from "@three-zero-four/contracts";
-import type { GameEngine } from "@three-zero-four/game-engine";
-import { presentGameAction } from "../contexts/gameplay/adapters/delivery/game-action-presenter.js";
 import { DomainError } from "./errors.js";
 import type { RoomStatus, StoredRoom, StoredSeat } from "./room-store.js";
 
@@ -42,41 +40,6 @@ export function projectLobbyForViewer(
           botDifficulty: seat.botDifficulty,
         })),
       },
-    },
-  };
-}
-
-export function projectRoomForPlayer(
-  room: StoredRoom,
-  engine: GameEngine,
-  viewerSeatIndex: number,
-): RoomProjection {
-  const privateSeat = engine.getSeatView(viewerSeatIndex);
-  if (!privateSeat) {
-    throw new DomainError(
-      "SEAT_REQUIRED",
-      403,
-      "You are not seated in this room",
-    );
-  }
-  const isHost =
-    engine.state.seats[viewerSeatIndex]?.userId === room.hostPlayerId;
-  const legalActions = engine
-    .getLegalActions(viewerSeatIndex)
-    .filter((action) => action.type !== "ACK_RESULT" || isHost)
-    .map(presentGameAction);
-  return {
-    roomId: room.id,
-    inviteCode: room.inviteCode,
-    eventVersion: room.eventVersion,
-    status: projectableStatus(room.status),
-    viewerSeatIndex,
-    view: {
-      isHost,
-      publicState: engine.getPublicState(viewerSeatIndex),
-      privateSeat,
-      legalActions,
-      prompt: engine.getPrompt(viewerSeatIndex),
     },
   };
 }
