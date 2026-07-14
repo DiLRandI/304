@@ -5,17 +5,20 @@ import type {
   LeaveRoomRequest,
   RoomExitResponse,
   RoomProjection,
-  RuleProfileId,
   StartRoomRequest,
 } from "@three-zero-four/contracts";
 import { RoomExitResponseSchema } from "@three-zero-four/contracts";
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
 import { projectRoomForPlayer } from "../contexts/gameplay/adapters/delivery/gameplay-room-presenter.js";
 import {
+  createLobbyEngine,
+  createStartedEngine,
+  seatCountForProfile,
+} from "../contexts/gameplay/adapters/engine/legacy-engine-factory.js";
+import {
   applyConnectionState,
   applyLobbySeat,
   isBotDifficulty,
-  toEngineSeat,
 } from "../contexts/gameplay/adapters/engine/legacy-engine-seat-mapper.js";
 import {
   activeRoomStatus,
@@ -62,51 +65,6 @@ const DEFAULT_AUTOMATION = {
   botActionDelayMs: 900,
   disconnectGraceSeconds: 120,
 };
-
-function seatCountForProfile(ruleProfileId: RuleProfileId): number {
-  return ruleProfileId === "six_304_36" ? 6 : 4;
-}
-
-function tableModeForProfile(
-  ruleProfileId: RuleProfileId,
-): "classic_4" | "six_6" {
-  return ruleProfileId === "six_304_36" ? "six_6" : "classic_4";
-}
-
-function createLobbyEngine(
-  host: AuthenticatedSession,
-  seats: readonly StoredSeat[],
-  ruleProfileId: RuleProfileId,
-  settings: RoomSettings,
-): GameEngine {
-  return new GameEngine({
-    playerName: host.displayName,
-    humanCount: seats.filter((seat) => seat.occupantType === "human").length,
-    tableMode: tableModeForProfile(ruleProfileId),
-    ruleProfile: ruleProfileId,
-    botDifficulty: settings.botDifficulty,
-    enableSecondBidding: settings.enableSecondBidding,
-    initialSeats: seats.map(toEngineSeat),
-  });
-}
-
-function createStartedEngine(
-  room: StoredRoom,
-  seats: readonly StoredSeat[],
-): GameEngine {
-  const host = seats.find((seat) => seat.playerId === room.hostPlayerId);
-  const engine = new GameEngine({
-    playerName: host?.displayName ?? "Host",
-    humanCount: seats.filter((seat) => seat.occupantType === "human").length,
-    tableMode: tableModeForProfile(room.ruleProfileId),
-    ruleProfile: room.ruleProfileId,
-    botDifficulty: room.settings.botDifficulty,
-    enableSecondBidding: room.settings.enableSecondBidding,
-    initialSeats: seats.map(toEngineSeat),
-  });
-  engine.startMatch();
-  return engine;
-}
 
 function roomNotFound(): DomainError {
   return new DomainError("ROOM_NOT_FOUND", 404, "Room was not found");
