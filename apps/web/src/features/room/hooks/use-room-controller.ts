@@ -10,6 +10,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameServiceError } from "../api/game-service-transport";
 import { parseRealtimeServerMessage } from "../api/room-realtime";
+import type { RoomGateway } from "../application/room-gateway";
 import { applyProjection } from "../model/room-state";
 
 const OPEN_SOCKET = 1;
@@ -30,23 +31,6 @@ export interface RoomSocket {
   send(data: string): void;
 }
 
-export interface RoomClient {
-  getRoom(roomReference: string): Promise<RoomProjection>;
-  getSnapshot(roomId: string): Promise<RoomProjection>;
-  joinRoom(
-    roomReference: string,
-    expectedVersion: number,
-  ): Promise<RoomProjection>;
-  leaveRoom(roomId: string, expectedVersion: number): Promise<RoomExitResponse>;
-  roomSocketUrl(roomId: string): string;
-  startRoom(roomId: string, expectedVersion: number): Promise<RoomProjection>;
-  submitCommand(
-    roomId: string,
-    expectedVersion: number,
-    action: GameAction,
-  ): Promise<RoomProjection>;
-}
-
 export interface RoomControllerOptions {
   createSocket?(url: string): RoomSocket;
 }
@@ -62,7 +46,7 @@ function safeErrorMessage(error: unknown): string {
 
 export function useRoomController(
   roomReference: string | undefined,
-  client: RoomClient,
+  client: RoomGateway,
   options: RoomControllerOptions = {},
 ) {
   const [connection, setConnection] = useState<RoomConnection>("connecting");
