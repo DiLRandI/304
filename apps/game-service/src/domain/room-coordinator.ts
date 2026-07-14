@@ -9,12 +9,14 @@ import type {
   StartRoomRequest,
 } from "@three-zero-four/contracts";
 import { RoomExitResponseSchema } from "@three-zero-four/contracts";
-import {
-  type EngineSeat,
-  type EngineState,
-  GameEngine,
-} from "@three-zero-four/game-engine";
+import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
 import { projectRoomForPlayer } from "../contexts/gameplay/adapters/delivery/gameplay-room-presenter.js";
+import {
+  applyConnectionState,
+  applyLobbySeat,
+  isBotDifficulty,
+  toEngineSeat,
+} from "../contexts/gameplay/adapters/engine/legacy-engine-seat-mapper.js";
 import {
   activeRoomStatus,
   activeSeatIndex,
@@ -71,27 +73,6 @@ function tableModeForProfile(
   return ruleProfileId === "six_304_36" ? "six_6" : "classic_4";
 }
 
-function isBotDifficulty(
-  value: unknown,
-): value is RoomSettings["botDifficulty"] {
-  return value === "easy" || value === "normal" || value === "strong";
-}
-
-function engineSeat(seat: StoredSeat): EngineSeat {
-  const result: EngineSeat = {
-    index: seat.seatIndex,
-    type: seat.occupantType,
-    connectionStatus:
-      seat.connectionStatus ??
-      (seat.occupantType === "bot" ? "online" : "disconnected"),
-  };
-  if (seat.displayName) result.displayName = seat.displayName;
-  if (seat.playerId) result.userId = seat.playerId;
-  if (seat.botDifficulty) result.difficulty = seat.botDifficulty;
-  if (seat.connectionStatus === "autopilot") result.autopilot = true;
-  return result;
-}
-
 function createLobbyEngine(
   host: AuthenticatedSession,
   seats: readonly StoredSeat[],
@@ -105,7 +86,7 @@ function createLobbyEngine(
     ruleProfile: ruleProfileId,
     botDifficulty: settings.botDifficulty,
     enableSecondBidding: settings.enableSecondBidding,
-    initialSeats: seats.map(engineSeat),
+    initialSeats: seats.map(toEngineSeat),
   });
 }
 
@@ -121,38 +102,10 @@ function createStartedEngine(
     ruleProfile: room.ruleProfileId,
     botDifficulty: room.settings.botDifficulty,
     enableSecondBidding: room.settings.enableSecondBidding,
-    initialSeats: seats.map(engineSeat),
+    initialSeats: seats.map(toEngineSeat),
   });
   engine.startMatch();
   return engine;
-}
-
-function applyLobbySeat(engine: GameEngine, seat: StoredSeat): void {
-  const target = engine.state.seats[seat.seatIndex];
-  if (!target) throw new RecoveryError("unknown");
-  target.type = seat.occupantType;
-  target.displayName =
-    seat.displayName ?? (seat.occupantType === "bot" ? "Bot" : "Open seat");
-  if (seat.playerId) target.userId = seat.playerId;
-  else delete target.userId;
-  if (seat.botDifficulty) target.difficulty = seat.botDifficulty;
-  else delete target.difficulty;
-  target.connectionStatus = seat.connectionStatus ?? "online";
-  target.autopilot = seat.connectionStatus === "autopilot";
-  engine.state.humanCount = engine.state.seats.filter(
-    (candidate) => candidate.type === "human",
-  ).length;
-}
-
-function applyConnectionState(
-  engine: GameEngine,
-  seatIndex: number,
-  connectionStatus: "online" | "disconnected" | "autopilot",
-): void {
-  const target = engine.state.seats[seatIndex];
-  if (!target) throw new RecoveryError("unknown");
-  target.connectionStatus = connectionStatus;
-  target.autopilot = connectionStatus === "autopilot";
 }
 
 function roomNotFound(): DomainError {
