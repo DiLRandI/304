@@ -244,3 +244,16 @@ test("room coordination depends on application-owned lease and presence ports", 
     /contexts\/rooms\/application\/room-coordination-ports\.js/,
   );
 });
+
+test("gameplay recovery errors belong to the Gameplay application", async () => {
+  const coordinatorSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/domain/room-coordinator.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(coordinatorSource, /class RecoveryError/);
+  assert.match(
+    coordinatorSource,
+    /contexts\/gameplay\/application\/gameplay-recovery-error\.js/,
+  );
+});

@@ -23,6 +23,7 @@ import {
   isResultPhase,
   phaseTimeoutMs,
 } from "../contexts/gameplay/application/gameplay-automation-policy.js";
+import { RecoveryError } from "../contexts/gameplay/application/gameplay-recovery-error.js";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { projectLobbyForViewer } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import type {
@@ -40,12 +41,6 @@ import type {
   StoredRoom,
   StoredSeat,
 } from "./room-store.js";
-
-class RecoveryError extends Error {
-  constructor(readonly roomId: string) {
-    super("Room recovery failed");
-  }
-}
 
 interface RoomCoordinatorDependencies {
   identities: RoomIdentityProvider;
