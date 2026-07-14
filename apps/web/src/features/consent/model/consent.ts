@@ -5,6 +5,8 @@ import {
 
 export const CONSENT_STORAGE_KEY = "g304.analytics-consent";
 
+const CONSENT_CHANGE_EVENT = "g304:analytics-consent-change";
+
 export type ConsentState = "unknown" | "essential_only" | "optional_analytics";
 
 export type AnalyticsEvent =
@@ -97,7 +99,27 @@ export function readConsent(): ConsentState {
 }
 
 export function writeConsent(consent: Exclude<ConsentState, "unknown">): void {
-  writeBrowserStorage(CONSENT_STORAGE_KEY, consent);
+  if (writeBrowserStorage(CONSENT_STORAGE_KEY, consent)) {
+    window.dispatchEvent(new Event(CONSENT_CHANGE_EVENT));
+  }
+}
+
+export function subscribeToConsent(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === null || event.key === CONSENT_STORAGE_KEY) onChange();
+  };
+  window.addEventListener(CONSENT_CHANGE_EVENT, onChange);
+  window.addEventListener("storage", handleStorage);
+  return () => {
+    window.removeEventListener(CONSENT_CHANGE_EVENT, onChange);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+export function readServerConsent(): ConsentState {
+  return "unknown";
 }
 
 export function track(

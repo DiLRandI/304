@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -52,6 +52,28 @@ describe("public analytics consent", () => {
     );
     expect(track("page_view", { cardId: "private-card" }, options)).toBe(false);
     expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("reflects consent changes made in another browser document", () => {
+    render(<ConsentBanner />);
+
+    expect(
+      screen.getByRole("complementary", { name: "Privacy choices" }),
+    ).toBeTruthy();
+
+    localStorage.setItem(CONSENT_STORAGE_KEY, "essential_only");
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: CONSENT_STORAGE_KEY,
+          newValue: "essential_only",
+        }),
+      );
+    });
+
+    expect(
+      screen.queryByRole("complementary", { name: "Privacy choices" }),
+    ).toBe(null);
   });
 
   it("keeps the choice usable when storage writes fail", async () => {

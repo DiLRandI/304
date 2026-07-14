@@ -1,22 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { type ConsentState, readConsent, writeConsent } from "../model/consent";
+import { useState, useSyncExternalStore } from "react";
+import {
+  type ConsentState,
+  readConsent,
+  readServerConsent,
+  subscribeToConsent,
+  writeConsent,
+} from "../model/consent";
 
 export function ConsentBanner({
   onChoice,
 }: {
   onChoice?(choice: Exclude<ConsentState, "unknown">): void;
 }) {
-  const [consent, setConsent] = useState<ConsentState>("unknown");
-
-  useEffect(() => {
-    setConsent(readConsent());
-  }, []);
+  const storedConsent = useSyncExternalStore(
+    subscribeToConsent,
+    readConsent,
+    readServerConsent,
+  );
+  const [sessionConsent, setSessionConsent] = useState<ConsentState>("unknown");
+  const consent = sessionConsent === "unknown" ? storedConsent : sessionConsent;
 
   function choose(choice: Exclude<ConsentState, "unknown">): void {
     writeConsent(choice);
-    setConsent(choice);
+    setSessionConsent(choice);
     onChoice?.(choice);
   }
 
