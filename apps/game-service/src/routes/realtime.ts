@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { ServiceConfig } from "../config.js";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import type { RoomSocketHub } from "../realtime/room-socket-hub.js";
-import { DomainError } from "../shared/service-error.js";
+import { ServiceError } from "../shared/service-error.js";
 import type { GameRuntime } from "./v1.js";
 
 async function validateRealtimeSeat(
@@ -16,7 +16,7 @@ async function validateRealtimeSeat(
       return;
     } catch (error) {
       if (
-        !(error instanceof DomainError) ||
+        !(error instanceof ServiceError) ||
         error.code !== "ROOM_BUSY" ||
         attempt >= 3
       ) {
@@ -47,7 +47,7 @@ export async function registerRealtimeRoutes(
       preValidation: async (request) => {
         const origin = request.headers.origin;
         if (!origin || !config.corsOrigins.has(origin)) {
-          throw new DomainError(
+          throw new ServiceError(
             "ORIGIN_DENIED",
             403,
             "Request origin is not allowed",

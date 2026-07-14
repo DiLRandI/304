@@ -28,7 +28,7 @@ import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-proje
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
 import type { RateLimiter } from "../infra/redis-coordination.js";
-import { DomainError } from "../shared/service-error.js";
+import { ServiceError } from "../shared/service-error.js";
 
 export interface V1RoomCoordinator {
   createRoom(
@@ -258,7 +258,7 @@ export async function registerV1Routes(
       );
       const input = GameCommandSchema.parse(request.body);
       if (input.roomId !== request.params.roomId) {
-        throw new DomainError(
+        throw new ServiceError(
           "ROOM_ID_MISMATCH",
           400,
           "Room id does not match request path",

@@ -15,7 +15,7 @@ import { createMetrics, type ServiceMetrics } from "./metrics.js";
 import type { RoomSocketHub } from "./realtime/room-socket-hub.js";
 import { registerRealtimeRoutes } from "./routes/realtime.js";
 import { type GameRuntime, registerV1Routes } from "./routes/v1.js";
-import { DomainError } from "./shared/service-error.js";
+import { ServiceError } from "./shared/service-error.js";
 
 export { loadConfig } from "./config.js";
 
@@ -144,7 +144,7 @@ export async function buildApp({
       }
       const origin = request.headers.origin;
       if (!origin || !config.corsOrigins.has(origin)) {
-        throw new DomainError(
+        throw new ServiceError(
           "ORIGIN_DENIED",
           403,
           "Request origin is not allowed",
@@ -190,7 +190,7 @@ export async function buildApp({
         .code(error.statusCode)
         .send({ error: { code: error.code, message: error.message } });
     }
-    if (error instanceof DomainError) {
+    if (error instanceof ServiceError) {
       return reply
         .code(error.statusCode)
         .send({ error: { code: error.code, message: error.message } });
