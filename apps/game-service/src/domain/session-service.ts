@@ -5,6 +5,10 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import type { QueryResultRow } from "pg";
+import {
+  InvalidDisplayNameError,
+  normalizeDisplayName,
+} from "../contexts/player-access/domain/display-name.js";
 import type { Database } from "../infra/database.js";
 import { DomainError } from "./errors.js";
 
@@ -72,8 +76,11 @@ export class SessionService {
   }
 
   async create(displayName: string): Promise<CreatedSession> {
-    const normalizedDisplayName = displayName.trim();
-    if (!normalizedDisplayName || normalizedDisplayName.length > 48) {
+    let normalizedDisplayName: string;
+    try {
+      normalizedDisplayName = normalizeDisplayName(displayName);
+    } catch (error) {
+      if (!(error instanceof InvalidDisplayNameError)) throw error;
       throw new DomainError(
         "INVALID_DISPLAY_NAME",
         400,
