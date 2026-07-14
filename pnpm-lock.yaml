@@ -120,6 +120,8 @@ importers:
 
   packages/gameplay: {}
 
+  packages/room-domain: {}
+
 packages:
 
   '@asamuzakjp/css-color@5.1.11':
