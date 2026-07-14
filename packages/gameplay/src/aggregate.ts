@@ -18,9 +18,16 @@ import {
   type CancelledHand,
   cancelHand,
   type HandScore,
+  scoreHand,
   type TokenBalance,
+  teamForSeat,
 } from "./scoring.js";
-import { createTrick, type TrickState } from "./trick.js";
+import {
+  createTrick,
+  playCard,
+  type TrickContext,
+  type TrickState,
+} from "./trick.js";
 import { chooseTrumpMode } from "./trump.js";
 import { type SeatIndex, type Suit, seatIndex } from "./values.js";
 
@@ -45,6 +52,7 @@ export interface TrumpState {
 export interface GameplayHand {
   readonly activeSeat: SeatIndex | null;
   readonly bidding: BiddingState;
+  readonly capturedCards: readonly (readonly Card[])[];
   readonly completedTricks: readonly TrickState[];
   readonly currentTrick: TrickState | null;
   readonly deal: DealState;
@@ -95,6 +103,7 @@ export function startGameplayHand(input: StartGameplayHandInput): GameplayHand {
   return {
     activeSeat: bidding.activeSeat,
     bidding,
+    capturedCards: Array.from({ length: input.profile.seatCount }, () => []),
     completedTricks: [],
     currentTrick: null,
     deal,
@@ -320,6 +329,151 @@ function applyTrumpChoice(
   };
 }
 
+function trickContext(hand: GameplayHand): TrickContext | null {
+  const { maker, suit } = hand.trump;
+  if (maker === null || suit === null) return null;
+  return {
+    completedTrickCount: hand.completedTricks.length,
+    forceOpenOnCompletion:
+      !hand.trump.open &&
+      hand.completedTricks.length === 0 &&
+      (hand.bidding.currentBid ?? 0) >=
+        hand.profile.revealTrumpAfterFirstTrickAtBidAtLeast,
+    indicator: hand.trump.indicator,
+    maker,
+    profile: hand.profile,
+    trumpOpen: hand.trump.open,
+    trumpSuit: suit,
+  };
+}
+
+function applyCardPlay(
+  hand: GameplayHand,
+  command: Extract<GameplayCommand, { type: "PLAY_CARD" }>,
+): AggregateCommandResult {
+  const context = trickContext(hand);
+  if (!context || !hand.currentTrick) {
+    return rejected("INVALID_STATE", "Trick state is not available");
+  }
+  const played = playCard(
+    context,
+    hand.currentTrick,
+    hand.deal.hands[command.actor] ?? [],
+    command.actor,
+    command,
+  );
+  if (!played.ok) return played;
+
+  const hands = hand.deal.hands.map((cards, actor) =>
+    actor === command.actor ? played.hand : cards,
+  );
+  let deal: DealState = { ...hand.deal, hands };
+  let indicator = played.indicator;
+  if (!hand.trump.open && played.trumpOpen && indicator) {
+    deal = returnIndicatorToMaker({
+      ...hand,
+      deal,
+      trump: { ...hand.trump, indicator },
+    });
+    indicator = null;
+  }
+
+  const trump = {
+    ...hand.trump,
+    indicator,
+    open: played.trumpOpen,
+  };
+  if (played.trick.status === "active") {
+    return {
+      hand: {
+        ...hand,
+        activeSeat: played.trick.activeSeat,
+        currentTrick: played.trick,
+        deal,
+        trump,
+      },
+      ok: true,
+    };
+  }
+
+  const winner = played.trick.winnerSeat;
+  if (winner === null) {
+    return rejected("INVALID_STATE", "Completed trick has no winner");
+  }
+  const capturedCards = hand.capturedCards.map((cards, actor) =>
+    actor === winner
+      ? [...cards, ...played.trick.plays.map((item) => item.card)]
+      : cards,
+  );
+  return {
+    hand: {
+      ...hand,
+      activeSeat: null,
+      capturedCards,
+      completedTricks: [...hand.completedTricks, played.trick],
+      currentTrick: played.trick,
+      deal,
+      phase: "trick-result",
+      trump,
+    },
+    ok: true,
+  };
+}
+
+function applyAdvanceTrick(hand: GameplayHand): AggregateCommandResult {
+  const winner = hand.currentTrick?.winnerSeat;
+  if (
+    hand.currentTrick?.status !== "complete" ||
+    winner === null ||
+    winner === undefined
+  ) {
+    return rejected(
+      "INVALID_STATE",
+      "No completed trick is waiting to advance",
+    );
+  }
+  const trickCount = hand.profile.cardBatch[0] + hand.profile.cardBatch[1];
+  if (hand.completedTricks.length < trickCount) {
+    const currentTrick = createTrick(winner);
+    return {
+      hand: {
+        ...hand,
+        activeSeat: winner,
+        currentTrick,
+        phase: "trick-play",
+      },
+      ok: true,
+    };
+  }
+
+  const maker = hand.trump.maker;
+  const bid = hand.bidding.currentBid;
+  if (maker === null || bid === null) {
+    return rejected("INVALID_STATE", "Scoring requires a maker and bid");
+  }
+  const teamPoints = { A: 0, B: 0 };
+  for (const [actor, cards] of hand.capturedCards.entries()) {
+    const team = teamForSeat(seatIndex(actor, hand.profile.seatCount));
+    teamPoints[team] += cards.reduce((total, card) => total + card.points, 0);
+  }
+  const result = scoreHand(hand.profile, {
+    bid,
+    bidderTeam: teamForSeat(maker),
+    teamPoints,
+    tokens: hand.tokens,
+  });
+  return {
+    hand: {
+      ...hand,
+      activeSeat: null,
+      phase: result.matchComplete ? "match-complete" : "hand-result",
+      result,
+      tokens: result.tokens,
+    },
+    ok: true,
+  };
+}
+
 export function applyGameplayCommand(
   hand: GameplayHand,
   command: GameplayCommand,
@@ -335,6 +489,12 @@ export function applyGameplayCommand(
     (command.type === "TRUMP_CLOSE" || command.type === "TRUMP_OPEN")
   ) {
     return applyTrumpChoice(hand, command);
+  }
+  if (hand.phase === "trick-play" && command.type === "PLAY_CARD") {
+    return applyCardPlay(hand, command);
+  }
+  if (hand.phase === "trick-result" && command.type === "ADVANCE_TRICK") {
+    return applyAdvanceTrick(hand);
   }
   return rejected("ACTION_NOT_ALLOWED", "Command is not allowed in this phase");
 }

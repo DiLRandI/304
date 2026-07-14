@@ -25,6 +25,7 @@ export interface RuleProfile {
   readonly name: string;
   readonly playersPerTeam: number;
   readonly rankOrderHighToLow: readonly Rank[];
+  readonly revealTrumpAfterFirstTrickAtBidAtLeast: number;
   readonly seatCount: 4 | 6;
   readonly tokenProfile: readonly TokenRule[];
 }
@@ -38,6 +39,7 @@ const sharedRules = {
   maxBid: 304,
   minEightCardBid: 250,
   minFourCardBid: 160,
+  revealTrumpAfterFirstTrickAtBidAtLeast: 250,
   tokenProfile: [
     {
       failureTokens: 2,

@@ -22,6 +22,7 @@ export interface TrickState {
 
 export interface TrickContext {
   readonly completedTrickCount: number;
+  readonly forceOpenOnCompletion?: boolean;
   readonly indicator: Card | null;
   readonly maker: SeatIndex;
   readonly profile: RuleProfile;
@@ -209,6 +210,8 @@ export function playCard(
       context.trumpSuit,
       context.trumpOpen,
     );
+    const openedTrump =
+      resolution.openedTrump || Boolean(context.forceOpenOnCompletion);
     return {
       hand: handAfterPlay,
       indicator,
@@ -216,13 +219,13 @@ export function playCard(
       trick: {
         ...trick,
         activeSeat: null,
-        openedTrump: resolution.openedTrump,
+        openedTrump,
         plays,
         points: resolution.points,
         status: "complete",
         winnerSeat: resolution.winnerSeat,
       },
-      trumpOpen: context.trumpOpen || resolution.openedTrump,
+      trumpOpen: context.trumpOpen || openedTrump,
     };
   }
 
