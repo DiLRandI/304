@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   GameClient,
-  type GameServiceError,
   parseRealtimeServerMessage,
   toRoomSocketUrl,
 } from "../src/features/room/api/game-service-client.js";
+import type { GameServiceError } from "../src/features/room/api/game-service-transport.js";
 
 const roomProjection = {
   roomId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",

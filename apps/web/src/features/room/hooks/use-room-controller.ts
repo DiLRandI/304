@@ -8,10 +8,8 @@ import {
   type RoomProjection,
 } from "@three-zero-four/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  GameServiceError,
-  parseRealtimeServerMessage,
-} from "../api/game-service-client";
+import { parseRealtimeServerMessage } from "../api/game-service-client";
+import { GameServiceError } from "../api/game-service-transport";
 import { applyProjection } from "../model/room-state";
 
 const OPEN_SOCKET = 1;

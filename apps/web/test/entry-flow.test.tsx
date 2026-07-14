@@ -3,7 +3,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GameServiceError } from "../src/features/room/api/game-service-client.js";
+import { GameServiceError } from "../src/features/room/api/game-service-transport.js";
 import { EntryFlow } from "../src/features/room/ui/entry-flow.js";
 import {
   activeProjection,

@@ -2,11 +2,11 @@
 
 import type { RoomProjection } from "@three-zero-four/contracts";
 import { useRef, useState } from "react";
-import {
-  type CreateRoomOptions,
-  GameServiceError,
-  type GuestSession,
+import type {
+  CreateRoomOptions,
+  GuestSession,
 } from "../api/game-service-client";
+import { GameServiceError } from "../api/game-service-transport";
 
 export interface EntryClient {
   createGuest(displayName: string): Promise<GuestSession>;

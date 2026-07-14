@@ -12,11 +12,15 @@ import {
   type RoomProjection,
   RoomProjectionSchema,
   type RuleProfileId,
-  ServiceErrorResponseSchema,
   type SessionResponse,
   SessionResponseSchema,
   StartRoomRequestSchema,
 } from "@three-zero-four/contracts";
+import {
+  type ClientFetcher,
+  GameServiceTransport,
+  parseGameServiceOrigin,
+} from "./game-service-transport";
 
 export type GuestSession = SessionResponse;
 
@@ -25,74 +29,31 @@ export interface CreateRoomOptions {
   ruleProfileId: RuleProfileId;
 }
 
-export type ClientFetcher = (
-  input: string,
-  init?: RequestInit,
-) => Promise<Response>;
-
-export class GameServiceError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "GameServiceError";
-  }
-}
-
-function serviceError(body: unknown, status: number): GameServiceError {
-  const parsed = ServiceErrorResponseSchema.safeParse(body);
-  if (parsed.success) {
-    return new GameServiceError(
-      parsed.data.error.code,
-      status,
-      parsed.data.error.message,
-    );
-  }
-  return new GameServiceError(
-    "GAME_SERVICE_ERROR",
-    status,
-    "The game service could not complete this request.",
-  );
-}
-
 export function parseRealtimeServerMessage(
   value: unknown,
 ): RealtimeServerMessage {
   return RealtimeServerMessageSchema.parse(value);
 }
 
-function serviceUrl(value: string): URL {
-  const url = new URL(value);
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("Game service URL must use HTTP or HTTPS");
-  }
-  return url;
-}
-
 export function toRoomSocketUrl(serviceOrigin: string, roomId: string): string {
   const url = new URL(
     `/v1/realtime/rooms/${encodeURIComponent(roomId)}`,
-    serviceUrl(serviceOrigin),
+    parseGameServiceOrigin(serviceOrigin),
   );
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return url.toString();
 }
 
 export class GameClient {
-  private readonly origin: URL;
+  private readonly transport: GameServiceTransport;
 
-  constructor(
-    serviceOrigin: string,
-    private readonly fetcher: ClientFetcher = globalThis.fetch.bind(globalThis),
-  ) {
-    this.origin = serviceUrl(serviceOrigin);
+  constructor(serviceOrigin: string, fetcher?: ClientFetcher) {
+    this.transport = new GameServiceTransport(serviceOrigin, fetcher);
   }
 
   async createGuest(displayName: string): Promise<GuestSession> {
     const input = GuestSessionRequestSchema.parse({ displayName });
-    return this.request(
+    return this.transport.request(
       "/v1/guest-sessions",
       "POST",
       input,
@@ -101,7 +62,7 @@ export class GameClient {
   }
 
   async getSession(): Promise<GuestSession> {
-    return this.request(
+    return this.transport.request(
       "/v1/session",
       "GET",
       undefined,
@@ -114,11 +75,16 @@ export class GameClient {
       commandId: crypto.randomUUID(),
       ...options,
     });
-    return this.request("/v1/rooms", "POST", input, RoomProjectionSchema.parse);
+    return this.transport.request(
+      "/v1/rooms",
+      "POST",
+      input,
+      RoomProjectionSchema.parse,
+    );
   }
 
   async getRoom(roomReference: string): Promise<RoomProjection> {
-    return this.request(
+    return this.transport.request(
       `/v1/rooms/${encodeURIComponent(roomReference)}`,
       "GET",
       undefined,
@@ -127,7 +93,7 @@ export class GameClient {
   }
 
   async getSnapshot(roomId: string): Promise<RoomProjection> {
-    return this.request(
+    return this.transport.request(
       `/v1/rooms/${encodeURIComponent(roomId)}/snapshot`,
       "GET",
       undefined,
@@ -143,7 +109,7 @@ export class GameClient {
       commandId: crypto.randomUUID(),
       expectedVersion,
     });
-    return this.request(
+    return this.transport.request(
       `/v1/rooms/${encodeURIComponent(roomReference)}/join`,
       "POST",
       input,
@@ -159,7 +125,7 @@ export class GameClient {
       commandId: crypto.randomUUID(),
       expectedVersion,
     });
-    return this.request(
+    return this.transport.request(
       `/v1/rooms/${encodeURIComponent(roomId)}/start`,
       "POST",
       input,
@@ -175,7 +141,7 @@ export class GameClient {
       commandId: crypto.randomUUID(),
       expectedVersion,
     });
-    return this.request(
+    return this.transport.request(
       `/v1/rooms/${encodeURIComponent(roomId)}/leave`,
       "POST",
       input,
@@ -194,7 +160,7 @@ export class GameClient {
       expectedVersion,
       roomId,
     });
-    return this.request(
+    return this.transport.request(
       `/v1/rooms/${encodeURIComponent(roomId)}/commands`,
       "POST",
       input,
@@ -203,45 +169,6 @@ export class GameClient {
   }
 
   roomSocketUrl(roomId: string): string {
-    return toRoomSocketUrl(this.origin.toString(), roomId);
-  }
-
-  private async request<T>(
-    path: string,
-    method: "GET" | "POST",
-    payload: unknown,
-    parse: (value: unknown) => T,
-  ): Promise<T> {
-    const init: RequestInit = {
-      method,
-      credentials: "include",
-    };
-    if (payload !== undefined) {
-      init.headers = { "content-type": "application/json" };
-      init.body = JSON.stringify(payload);
-    }
-    let response: Response;
-    try {
-      response = await this.fetcher(
-        new URL(path, this.origin).toString(),
-        init,
-      );
-    } catch {
-      throw new GameServiceError(
-        "NETWORK_ERROR",
-        0,
-        "The game service could not be reached. Please check your connection.",
-      );
-    }
-
-    let body: unknown;
-    try {
-      body = await response.json();
-    } catch {
-      if (!response.ok) throw serviceError(undefined, response.status);
-      throw new Error("Game service returned an invalid response");
-    }
-    if (!response.ok) throw serviceError(body, response.status);
-    return parse(body);
+    return toRoomSocketUrl(this.transport.origin.toString(), roomId);
   }
 }
