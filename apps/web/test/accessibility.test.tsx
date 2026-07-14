@@ -4,7 +4,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccessibilityPreferences } from "../src/components/accessibility-preferences.js";
-import { GameTable } from "../src/components/game-table.js";
+import { GameTable } from "../src/features/room/ui/game-table.js";
 import { activeProjection, jackOfSpades } from "./browser-fixtures.js";
 
 describe("browser accessibility", () => {

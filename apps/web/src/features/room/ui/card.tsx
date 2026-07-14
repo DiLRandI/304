@@ -1,7 +1,7 @@
 "use client";
 
 import type { GameAction } from "@three-zero-four/contracts";
-import type { ProjectedCard } from "../features/room/model/room-view";
+import type { ProjectedCard } from "../model/room-view";
 
 const SUIT_SYMBOLS: Record<string, string> = {
   clubs: "♣",

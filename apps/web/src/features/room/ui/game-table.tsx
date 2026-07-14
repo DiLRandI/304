@@ -1,14 +1,14 @@
 "use client";
 
 import type { GameAction, RoomProjection } from "@three-zero-four/contracts";
+import { RulesDrawer } from "../../../components/rules-drawer";
 import {
   type GameRoomView,
   type ProjectedCard,
   type ProjectedHandResult,
   readActiveRoomView,
-} from "../features/room/model/room-view";
+} from "../model/room-view";
 import { CardButton, CardFace, cardLabel } from "./card";
-import { RulesDrawer } from "./rules-drawer";
 
 function isNoScoreResult(
   result: ProjectedHandResult,

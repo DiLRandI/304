@@ -3,7 +3,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GameTable } from "../src/components/game-table.js";
+import { GameTable } from "../src/features/room/ui/game-table.js";
 import {
   activeProjection,
   jackOfSpades,
