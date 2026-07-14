@@ -119,12 +119,18 @@ describe("full-hand automated rule-profile simulations", () => {
 
       let actionsApplied = 0;
       while (
-        stateOf(engine).completedTricks.length <
-          (ruleProfileId === "six_304_36" ? 6 : 8) &&
+        stateOf(engine).phase !== "hand_result" &&
+        stateOf(engine).phase !== "match_complete" &&
         actionsApplied < 1_000
       ) {
         const state = stateOf(engine);
         expect(state.phase).not.toBe("match_complete");
+        if (state.phase === "trick_result") {
+          expect(engine.advanceTrick()).toEqual({ ok: true });
+          assertNoPrivateCardLeaks(engine);
+          actionsApplied += 1;
+          continue;
+        }
         const seatIndex = state.activeSeat ?? 0;
         if (state.phase !== "hand_result") {
           expect(

@@ -287,7 +287,7 @@ test("room events hide a selected trump indicator from seated opponents", async 
 });
 
 test("completed room responses expose only the public hand result", async (t) => {
-  const app = await startServer();
+  const app = await startServer({ env: { TRICK_REVEAL_DELAY_MS: "25" } });
   t.after(() => app.close());
 
   const sessions = [];
@@ -347,6 +347,18 @@ test("completed room responses expose only the public hand result", async (t) =>
     state.body.phase !== "match_complete" &&
     actionCount < 100
   ) {
+    if (state.body.phase === "trick_result") {
+      const deadline = Date.now() + 1_000;
+      do {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        state = await requestJson(
+          `${app.baseUrl}/api/rooms/${room.body.roomId}/state`,
+          { headers: sessions[0].headers },
+        );
+      } while (state.body.phase === "trick_result" && Date.now() < deadline);
+      assert.notEqual(state.body.phase, "trick_result");
+      continue;
+    }
     const activeSeat = state.body.publicState.activeSeat;
     const activeSession = sessionsBySeat.get(activeSeat);
     assert.ok(activeSession, `expected session for active seat ${activeSeat}`);

@@ -26,7 +26,7 @@ interface ClaimedAutomationJob {
   id: string;
   roomId: string;
   expectedEventVersion: number;
-  kind: "BOT_ACTION" | "TURN_TIMEOUT" | "DISCONNECT_GRACE";
+  kind: "BOT_ACTION" | "TURN_TIMEOUT" | "DISCONNECT_GRACE" | "TRICK_ADVANCE";
   targetSeatIndex: number;
 }
 
@@ -246,5 +246,36 @@ describeIntegration("realtime room store", () => {
         last_presence_at: expect.any(Date),
       }),
     ]);
+  });
+
+  it("stores durable trick-advance automation jobs", async () => {
+    const { roomId } = await createRoom();
+    const jobId = randomUUID();
+    await store.transaction((transaction) =>
+      realtimeStore().scheduleAutomation(transaction, {
+        id: jobId,
+        roomId,
+        expectedEventVersion: 1,
+        kind: "TRICK_ADVANCE",
+        targetSeatIndex: 2,
+        dueAt: new Date(Date.now() - 1),
+      }),
+    );
+
+    const jobs = await realtimeStore().claimDueAutomationJobs(
+      randomUUID(),
+      new Date(),
+      1_000,
+      roomId,
+    );
+    expect(jobs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: jobId,
+          kind: "TRICK_ADVANCE",
+          targetSeatIndex: 2,
+        }),
+      ]),
+    );
   });
 });

@@ -120,6 +120,12 @@ const BOT_THINKING_DELAY_MS = {
   },
 };
 const BOT_AUTOPILOT_DELAY_FACTOR = parseIntegerSetting(process.env.BOT_AUTOPILOT_DELAY_FACTOR, 130, 70, 220) / 100;
+const TRICK_REVEAL_DELAY_MS = parseIntegerSetting(
+  process.env.TRICK_REVEAL_DELAY_MS,
+  2000,
+  10,
+  10000,
+);
 const BOT_DISPLAY_NAMES = [
   "Bot Nimal",
   "Bot Kavindi",
@@ -1037,6 +1043,20 @@ function runBotsUntilStable(room) {
     return;
   }
   if (room.botRunner.schedulePending || room.botRunner.running) {
+    return;
+  }
+  if (room.engine.state.phase === "trick_result") {
+    room.botRunner.schedulePending = true;
+    room.botRunner.timerId = setTimeout(() => {
+      room.botRunner.timerId = null;
+      room.botRunner.schedulePending = false;
+      if (room.engine?.state?.phase !== "trick_result") return;
+      const advanced = room.engine.advanceTrick();
+      if (!advanced.ok) return;
+      room.updatedAt = nowIsoString();
+      room.version = room.engine.state.version;
+      runBotsUntilStable(room);
+    }, TRICK_REVEAL_DELAY_MS);
     return;
   }
   const slot = getCurrentBotSeat(room);

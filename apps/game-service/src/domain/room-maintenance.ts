@@ -5,6 +5,7 @@ const ALL_AUTOMATION_KINDS = [
   "BOT_ACTION",
   "TURN_TIMEOUT",
   "DISCONNECT_GRACE",
+  "TRICK_ADVANCE",
 ] as const;
 
 export interface MaintenanceResult {

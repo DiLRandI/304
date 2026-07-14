@@ -14,7 +14,8 @@ export type ConnectionStatus = "online" | "disconnected" | "autopilot";
 export type AutomationJobKind =
   | "BOT_ACTION"
   | "TURN_TIMEOUT"
-  | "DISCONNECT_GRACE";
+  | "DISCONNECT_GRACE"
+  | "TRICK_ADVANCE";
 
 export interface RoomSettings {
   botDifficulty: "easy" | "normal" | "strong";
@@ -204,6 +205,7 @@ const automationJobKinds = new Set<AutomationJobKind>([
   "BOT_ACTION",
   "TURN_TIMEOUT",
   "DISCONNECT_GRACE",
+  "TRICK_ADVANCE",
 ]);
 const ruleProfileIds = new Set<RuleProfileId>(["classic_304_4p", "six_304_36"]);
 

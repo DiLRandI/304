@@ -10,6 +10,8 @@ import { RoomCoordinator } from "../src/domain/room-coordinator.js";
 import {
   type ClaimedAutomationJob,
   PostgresRoomStore,
+  type Queryable,
+  type StoredRoom,
 } from "../src/domain/room-store.js";
 import { SessionService } from "../src/domain/session-service.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
@@ -26,6 +28,14 @@ const migrationsDir = path.resolve(
 
 interface AutomationCoordinator {
   runAutomation(job: ClaimedAutomationJob): Promise<"completed" | "stale">;
+}
+
+interface AutomationScheduler {
+  scheduleNextAutomation(
+    transaction: Queryable,
+    room: StoredRoom,
+    engine: GameEngine,
+  ): Promise<void>;
 }
 
 interface PresenceCoordinator {
@@ -47,11 +57,16 @@ let redis: RedisClientType;
 let store: PostgresRoomStore;
 let sessions: SessionService;
 
-function coordinator(): RoomCoordinator {
+function coordinator(
+  automationOptions?: ConstructorParameters<
+    typeof RoomCoordinator
+  >[0]["automation"],
+): RoomCoordinator {
   return new RoomCoordinator({
     store,
     lease: new RoomLease(redis, 5_000),
     presence: new Presence(redis, 60),
+    automation: automationOptions,
   });
 }
 
@@ -59,6 +74,10 @@ function automation(
   coordinatorInstance: RoomCoordinator,
 ): AutomationCoordinator {
   return coordinatorInstance as unknown as AutomationCoordinator;
+}
+
+function scheduler(coordinatorInstance: RoomCoordinator): AutomationScheduler {
+  return coordinatorInstance as unknown as AutomationScheduler;
 }
 
 function presence(coordinatorInstance: RoomCoordinator): PresenceCoordinator {
@@ -112,6 +131,12 @@ function completeClassicHandSnapshot(): Record<string, unknown> {
   engine.startMatch();
   for (let actionsApplied = 0; actionsApplied < 100; actionsApplied += 1) {
     if (engine.state.phase === "hand_result") return engine.getSnapshot();
+    if (engine.state.phase === "trick_result") {
+      if (!engine.advanceTrick().ok) {
+        throw new Error("Expected a completed trick to advance");
+      }
+      continue;
+    }
     const seatIndex = engine.state.activeSeat;
     if (typeof seatIndex !== "number") {
       throw new Error(`Expected an active seat during ${engine.state.phase}`);
@@ -151,6 +176,77 @@ function completeClassicHandSnapshot(): Record<string, unknown> {
     }
   }
   throw new Error("Classic hand did not complete within the action limit");
+}
+
+function pausedClassicTrickSnapshot(): Record<string, unknown> {
+  const engine = new GameEngine({
+    ruleProfile: "classic_304_4p",
+    tableMode: "classic_4",
+    initialSeats: Array.from({ length: 4 }, (_, index) => ({
+      index,
+      type: "human",
+      displayName: `Player ${index + 1}`,
+    })),
+  });
+  engine.startMatch();
+  const cards = [
+    { cardId: "clubs-J", points: 30, rank: "J", suit: "clubs" },
+    { cardId: "clubs-9", points: 20, rank: "9", suit: "clubs" },
+    { cardId: "clubs-7", points: 0, rank: "7", suit: "clubs" },
+    { cardId: "clubs-Q", points: 2, rank: "Q", suit: "clubs" },
+  ];
+  engine.state.phase = "trick_play";
+  engine.state.activeSeat = 3;
+  engine.state.currentLedSuit = "clubs";
+  engine.state.completedTricks = [];
+  engine.state.currentTrick = {
+    leaderSeat: 0,
+    plays: cards.slice(0, 3).map((card, seatIndex) => ({
+      card,
+      faceDown: false,
+      fromIndicator: false,
+      seatIndex,
+      source: "hand",
+    })),
+    points: 50,
+    trickIndex: 0,
+  };
+  engine.state.seats.forEach((seat, seatIndex) => {
+    seat.hand =
+      seatIndex === 3
+        ? [cards[3]]
+        : [
+            {
+              cardId: `spades-${seatIndex + 6}`,
+              points: 0,
+              rank: String(seatIndex + 6),
+              suit: "spades",
+            },
+          ];
+    seat.wonCards = [];
+    seat.trickPoints = 0;
+  });
+  engine.state.trump = {
+    card: null,
+    indicatorVisible: true,
+    isOpen: true,
+    maker: 0,
+    suit: "hearts",
+  };
+  engine.state.trumpClosed = false;
+  engine.state.trumpSuit = "hearts";
+  const result = engine.applyAction({
+    actorSeatIndex: 3,
+    cardId: cards[3]?.cardId,
+    faceDown: false,
+    fromIndicator: false,
+    seatIndex: 3,
+    type: "PLAY_CARD",
+  });
+  if (!result.ok || engine.state.phase !== "trick_result") {
+    throw new Error("Expected a paused completed trick snapshot");
+  }
+  return engine.getSnapshot();
 }
 
 describeIntegration("durable room automation", () => {
@@ -529,6 +625,99 @@ describeIntegration("durable room automation", () => {
     expect(
       await store.loadEventsAfter(created.roomId, started.eventVersion),
     ).toEqual([]);
+  });
+
+  it("durably advances a completed trick after the configured reveal delay", async () => {
+    const game = coordinator({
+      botActionDelayMs: 0,
+      trickRevealDelayMs: 2_000,
+    });
+    const { created, host, started } = await createStartedClassicRoom(
+      game,
+      "Pause Host",
+      ["Pause North", "Pause East", "Pause West"],
+    );
+    const paused = pausedClassicTrickSnapshot();
+    await database.query(
+      "UPDATE game_snapshots SET state = $3::jsonb WHERE room_id = $1 AND event_version = $2",
+      [created.roomId, started.eventVersion, JSON.stringify(paused)],
+    );
+    const room = await store.loadRoom(created.roomId);
+    if (!room) throw new Error("Expected the paused room");
+    const pausedEngine = GameEngine.hydrate(
+      paused as Parameters<typeof GameEngine.hydrate>[0],
+    );
+    const scheduledAt = Date.now();
+    await store.transaction((transaction) =>
+      scheduler(game).scheduleNextAutomation(transaction, room, pausedEngine),
+    );
+
+    const pending = await database.query<{
+      due_at: Date;
+      expected_event_version: string;
+      kind: string;
+      target_seat_index: number;
+    }>(
+      "SELECT due_at, expected_event_version::text, kind, target_seat_index FROM room_automation_jobs WHERE room_id = $1 AND state = 'pending' ORDER BY created_at DESC LIMIT 1",
+      [created.roomId],
+    );
+    const jobRow = pending.rows[0];
+    expect(jobRow).toMatchObject({
+      expected_event_version: String(started.eventVersion),
+      kind: "TRICK_ADVANCE",
+      target_seat_index: 0,
+    });
+    expect(jobRow?.due_at.getTime() - scheduledAt).toBeGreaterThanOrEqual(
+      1_900,
+    );
+    expect(jobRow?.due_at.getTime() - scheduledAt).toBeLessThanOrEqual(2_100);
+
+    await database.query(
+      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'TRICK_ADVANCE'",
+      [created.roomId],
+    );
+    const owner = randomUUID();
+    const trickJob = (
+      await store.claimDueAutomationJobs(
+        owner,
+        new Date(),
+        1_000,
+        created.roomId,
+      )
+    ).find((candidate) => candidate.kind === "TRICK_ADVANCE");
+    if (!trickJob) throw new Error("Expected a due trick-advance job");
+    await expect(automation(game).runAutomation(trickJob)).resolves.toBe(
+      "completed",
+    );
+    await store.completeAutomationJob(trickJob.id, owner);
+    await expect(automation(game).runAutomation(trickJob)).resolves.toBe(
+      "stale",
+    );
+
+    const projection = await game.getSnapshot(host, created.roomId);
+    const publicState = (
+      projection.view as { publicState: Record<string, unknown> }
+    ).publicState;
+    expect(publicState.phase).toBe("trick_play");
+    expect(publicState.completedTricks).toHaveLength(1);
+    expect(
+      await store.loadEventsAfter(created.roomId, started.eventVersion),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ eventType: "TRICK_ADVANCED" }),
+      ]),
+    );
+
+    await database.query(
+      "DELETE FROM game_snapshots WHERE room_id = $1 AND event_version = $2",
+      [created.roomId, projection.eventVersion],
+    );
+    const recovered = await coordinator().getSnapshot(host, created.roomId);
+    const recoveredPublicState = (
+      recovered.view as { publicState: Record<string, unknown> }
+    ).publicState;
+    expect(recoveredPublicState.phase).toBe("trick_play");
+    expect(recoveredPublicState.completedTricks).toHaveLength(1);
   });
 
   it("persists a disconnect grace job and cancels it on timely reconnect", async () => {

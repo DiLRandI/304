@@ -87,7 +87,7 @@ async function buildRealApp(): Promise<TestRuntime> {
     store,
     lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
     presence: new Presence(redis, config.PRESENCE_TTL_SECONDS),
-    automation: { botActionDelayMs: 0 },
+    automation: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
   });
   const app = await buildApp({
     config,

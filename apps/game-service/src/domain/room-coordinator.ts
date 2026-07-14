@@ -45,6 +45,7 @@ interface RoomCoordinatorDependencies {
   automation?: {
     botActionDelayMs: number;
     disconnectGraceSeconds?: number;
+    trickRevealDelayMs?: number;
   };
 }
 
@@ -102,6 +103,15 @@ function isResultPhase(engine: GameEngine): boolean {
 function automationSeatIndex(engine: GameEngine): number | null {
   if (isResultPhase(engine)) return null;
   return activeSeatIndex(engine);
+}
+
+function completedTrickWinner(engine: GameEngine): number | null {
+  const currentTrick = engine.state.currentTrick;
+  if (!currentTrick || typeof currentTrick !== "object") return null;
+  const winnerSeat = (currentTrick as Record<string, unknown>).winnerSeat;
+  return typeof winnerSeat === "number" && Number.isInteger(winnerSeat)
+    ? winnerSeat
+    : null;
 }
 
 function phaseTimeoutMs(engine: GameEngine): number {
@@ -619,6 +629,7 @@ export class RoomCoordinator {
           "BOT_ACTION",
           "TURN_TIMEOUT",
           "DISCONNECT_GRACE",
+          "TRICK_ADVANCE",
         ]);
         const status = nextHostPlayerId ? room.status : "closed";
         const hostPlayerId =
@@ -677,6 +688,45 @@ export class RoomCoordinator {
       }
 
       const engine = await this.recoverLockedRoom(transaction, room);
+      if (job.kind === "TRICK_ADVANCE") {
+        const winnerSeat = completedTrickWinner(engine);
+        if (
+          engine.state.phase !== "trick_result" ||
+          winnerSeat == null ||
+          winnerSeat !== job.targetSeatIndex
+        ) {
+          return "stale";
+        }
+        const result = engine.advanceTrick();
+        if (!result.ok) {
+          throw new DomainError(
+            "AUTOMATION_ACTION_REJECTED",
+            500,
+            "Trick advancement was rejected",
+          );
+        }
+        const status = activeStatusForEngine(engine);
+        const eventVersion = await this.store.appendEventAndSnapshot(
+          transaction,
+          {
+            roomId: room.id,
+            expectedVersion: room.eventVersion,
+            commandId: job.id,
+            actorPlayerId: null,
+            eventType: "TRICK_ADVANCED",
+            payload: { winnerSeat },
+            snapshot: engine.getSnapshot(),
+            status,
+            ruleProfileId: room.ruleProfileId,
+          },
+        );
+        await this.scheduleNextAutomation(
+          transaction,
+          { ...room, eventVersion, status },
+          engine,
+        );
+        return "completed";
+      }
       if (isResultPhase(engine)) return "stale";
       const activeSeat = activeSeatIndex(engine);
       if (
@@ -930,12 +980,28 @@ export class RoomCoordinator {
     await this.store.cancelAutomationForRoom(transaction, room.id, [
       "BOT_ACTION",
       "TURN_TIMEOUT",
+      "TRICK_ADVANCE",
     ]);
     await this.store.cancelAutomationForRoom(transaction, room.id, [
       "DISCONNECT_GRACE",
     ]);
     if (room.status === "in_hand") {
       await this.scheduleDisconnectGraceJobs(transaction, room);
+    }
+    if (engine.state.phase === "trick_result") {
+      const winnerSeat = completedTrickWinner(engine);
+      if (winnerSeat == null) return;
+      await this.store.scheduleAutomation(transaction, {
+        id: randomUUID(),
+        roomId: room.id,
+        expectedEventVersion: room.eventVersion,
+        kind: "TRICK_ADVANCE",
+        targetSeatIndex: winnerSeat,
+        dueAt: new Date(
+          Date.now() + (this.automation?.trickRevealDelayMs ?? 2_000),
+        ),
+      });
+      return;
     }
     const targetSeatIndex = automationSeatIndex(engine);
     if (targetSeatIndex == null) return;
@@ -1161,6 +1227,11 @@ export class RoomCoordinator {
             seatIndex,
             actorSeatIndex: seatIndex,
           });
+          if (!result.ok) throw new RecoveryError(room.id);
+          continue;
+        }
+        if (event.eventType === "TRICK_ADVANCED") {
+          const result = engine.advanceTrick();
           if (!result.ok) throw new RecoveryError(room.id);
           continue;
         }
