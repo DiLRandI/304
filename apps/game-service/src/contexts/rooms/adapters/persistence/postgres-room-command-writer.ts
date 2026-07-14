@@ -1,11 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
-import type { RoomEvent } from "@three-zero-four/room-domain";
 import type { QueryResultRow } from "pg";
 import type { Database } from "../../../../infra/database.js";
 import type {
   RoomCommandCommit,
   RoomCommandWriter,
 } from "../../application/execute-room-command.js";
+import { mapRoomEventForPersistence } from "./room-event-record-mapper.js";
 import { mapRoomSeatsForPersistence } from "./room-record-mapper.js";
 
 interface LockedRoomRow extends QueryResultRow {
@@ -57,16 +57,15 @@ function validateCommit(input: RoomCommandCommit): void {
   }
 }
 
-function eventPayload(event: RoomEvent): object {
-  const { type: _type, version: _version, ...payload } = event;
-  return payload;
-}
-
 export class PostgresRoomCommandWriter implements RoomCommandWriter {
   constructor(private readonly database: TransactionalDatabase) {}
 
   async commit(input: RoomCommandCommit): Promise<void> {
     validateCommit(input);
+    const event = input.events[0];
+    const persistedEvent = event
+      ? mapRoomEventForPersistence(event, input.room)
+      : null;
     await this.database.transaction(async (transaction) => {
       const locked = await transaction.query<LockedRoomRow>(
         "SELECT event_version FROM rooms WHERE id = $1 FOR UPDATE",
@@ -105,8 +104,7 @@ export class PostgresRoomCommandWriter implements RoomCommandWriter {
         );
       }
 
-      const event = input.events[0];
-      if (event) {
+      if (event && persistedEvent) {
         const updatedRoom = await transaction.query<{ id: string }>(
           "UPDATE rooms SET event_version = $2, status = $3, host_player_id = $4, settings = $5::jsonb, recovery_error = NULL, updated_at = now() WHERE id = $1 AND event_version = $6 RETURNING id",
           [
@@ -152,8 +150,8 @@ export class PostgresRoomCommandWriter implements RoomCommandWriter {
             event.version,
             input.commandId,
             input.actorPlayerId,
-            event.type,
-            JSON.stringify(eventPayload(event)),
+            persistedEvent.eventType,
+            JSON.stringify(persistedEvent.payload),
           ],
         );
         await transaction.query(

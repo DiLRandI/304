@@ -116,6 +116,10 @@ describe("PostgresRoomCommandWriter", () => {
       guestId,
       "PLAYER_JOINED",
     ]);
+    expect(JSON.parse(String(eventInsert?.values[5]))).toEqual({
+      displayName: "Bimal",
+      seatIndex: 1,
+    });
     expect(
       database.calls.some((call) =>
         call.text.startsWith("INSERT INTO room_outbox"),
@@ -173,6 +177,35 @@ describe("PostgresRoomCommandWriter", () => {
         call.text.startsWith("INSERT INTO command_deduplications"),
       ),
     ).toBe(true);
+  });
+
+  it("refuses to persist room start without an atomic gameplay snapshot", async () => {
+    const room = lobby();
+    const result = executeRoomCommand(room, {
+      actor: hostId,
+      expectedVersion: room.eventVersion,
+      type: "START_ROOM",
+    });
+    if (!result.ok) throw new Error("Expected room start to succeed");
+    const database = new TransactionDatabase();
+    const writer = new PostgresRoomCommandWriter(database);
+
+    await expect(
+      writer.commit({
+        actorPlayerId: hostId,
+        commandId: aggregateCommandId,
+        events: result.events,
+        expectedVersion: room.eventVersion,
+        request: {
+          actor: hostId,
+          expectedVersion: room.eventVersion,
+          type: "START_ROOM",
+        },
+        response: projectRoom(result.room, hostId),
+        room: result.room,
+      }),
+    ).rejects.toMatchObject({ code: "GAMEPLAY_STATE_REQUIRED" });
+    expect(database.calls).toEqual([]);
   });
 
   it("rejects an optimistic version conflict before writing", async () => {
