@@ -268,6 +268,21 @@ test("legacy gameplay snapshot replay belongs to a Gameplay adapter", async () =
   assert.doesNotMatch(coordinatorSource, /private async recoverLockedRoom/);
 });
 
+test("room projection reads use a dedicated query adapter", async () => {
+  const querySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.ts",
+    ),
+    "utf8",
+  );
+  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
+
+  assert.match(querySource, /export class LegacyRoomProjectionQueries/);
+  assert.match(coordinatorSource, /LegacyRoomProjectionQueries/);
+  assert.doesNotMatch(coordinatorSource, /private async projectCurrent/);
+});
+
 test("the PostgreSQL room store is a Rooms persistence adapter", async () => {
   const legacyDomainFiles = await collectSourceFiles(
     "apps/game-service/src/domain",

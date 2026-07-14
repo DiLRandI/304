@@ -48,6 +48,7 @@ import type {
   StoredSeat,
 } from "../../application/room-persistence-model.js";
 import { projectLobbyForViewer } from "../delivery/lobby-room-presenter.js";
+import { LegacyRoomProjectionQueries } from "./legacy-room-projection-queries.js";
 
 interface RoomCoordinatorDependencies {
   identities: RoomIdentityProvider;
@@ -89,6 +90,7 @@ export class RoomCoordinator {
   private readonly identities: RoomIdentityProvider;
   private readonly inviteCodes: RoomInviteCodeProvider;
   private readonly gameplayRecovery: LegacyGameplayRecovery;
+  private readonly roomQueries: LegacyRoomProjectionQueries;
 
   constructor({
     store,
@@ -105,6 +107,11 @@ export class RoomCoordinator {
     this.identities = identities;
     this.inviteCodes = inviteCodes;
     this.gameplayRecovery = new LegacyGameplayRecovery(store);
+    this.roomQueries = new LegacyRoomProjectionQueries({
+      gameplayRecovery: this.gameplayRecovery,
+      lease,
+      store,
+    });
   }
 
   async createRoom(
@@ -194,7 +201,11 @@ export class RoomCoordinator {
           session.playerId,
         );
         if (existingSeatIndex != null) {
-          return this.projectCurrent(transaction, room, existingSeatIndex);
+          return this.roomQueries.projectCurrent(
+            transaction,
+            room,
+            existingSeatIndex,
+          );
         }
         if (room.status !== "lobby") {
           throw new ServiceError(
@@ -313,51 +324,14 @@ export class RoomCoordinator {
     roomId: string,
   ): Promise<RoomProjection> {
     await this.markRealtimePresence(session, roomId);
-    const projection = await this.withRoomLease(
-      roomId,
-      async (transaction, room) => {
-        const viewerSeatIndex = await this.store.requireHumanSeat(
-          transaction,
-          room.id,
-          session.playerId,
-        );
-        return this.projectCurrent(transaction, room, viewerSeatIndex);
-      },
-    );
-    return projection;
+    return this.roomQueries.getSnapshot(session, roomId);
   }
 
   async getRoom(
     session: AuthenticatedSession,
     roomReference: string,
   ): Promise<RoomProjection> {
-    const referencedRoom = await this.store.loadRoomByReference(roomReference);
-    if (!referencedRoom) throw roomNotFound();
-    const projection = await this.withRoomLease(
-      referencedRoom.id,
-      async (transaction, room) => {
-        const viewerSeatIndex = await this.store.findSeatIndex(
-          transaction,
-          room.id,
-          session.playerId,
-        );
-        if (viewerSeatIndex != null) {
-          return this.projectCurrent(transaction, room, viewerSeatIndex);
-        }
-        if (room.status !== "lobby") {
-          throw new ServiceError(
-            "SEAT_REQUIRED",
-            403,
-            "You are not seated in this room",
-          );
-        }
-        return projectLobbyForViewer(
-          room,
-          await this.store.loadSeats(room.id, transaction),
-          null,
-        );
-      },
-    );
+    const projection = await this.roomQueries.getRoom(session, roomReference);
     if (projection.viewerSeatIndex != null) {
       return this.getSnapshot(session, projection.roomId);
     }
@@ -931,22 +905,6 @@ export class RoomCoordinator {
         ),
       });
     }
-  }
-
-  private async projectCurrent(
-    transaction: RoomTransaction,
-    room: StoredRoom,
-    viewerSeatIndex: number,
-  ): Promise<RoomProjection> {
-    if (room.status === "lobby") {
-      return projectLobbyForViewer(
-        room,
-        await this.store.loadSeats(room.id, transaction),
-        viewerSeatIndex,
-      );
-    }
-    const engine = await this.gameplayRecovery.recover(transaction, room);
-    return projectRoomForPlayer(room, engine, viewerSeatIndex);
   }
 
   private async projectAtVersion(
