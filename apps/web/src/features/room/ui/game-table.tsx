@@ -2,13 +2,14 @@
 
 import type { GameAction, RoomProjection } from "@three-zero-four/contracts";
 import { RulesDrawer } from "../../../components/rules-drawer";
-import { cardAction, partitionCardActions } from "../model/card-action";
+import { partitionCardActions } from "../model/card-action";
 import type { ProjectedCard } from "../model/card-view";
 import type { ProjectedHandResult } from "../model/hand-result-view";
 import { readActiveRoomView } from "../model/room-view";
-import { CardButton, cardLabel } from "./card";
+import { cardLabel } from "./card";
 import { CurrentTrick } from "./current-trick";
 import { HandResult } from "./hand-result";
+import { PlayerHand } from "./player-hand";
 import { TableMetrics } from "./table-metrics";
 import { TableSeats } from "./table-seats";
 
@@ -101,9 +102,6 @@ export function GameTable({
     view.legalActions,
   );
   const isPlayersTurn = publicState.activeSeat === view.privateSeat.index;
-  const cardLegalityNote = isPlayersTurn
-    ? "This card is not legal for this turn. Use the highlighted legal cards or action buttons."
-    : "Wait for your turn. The table will highlight legal cards when you can act.";
   const trumpLabel = publicState.trump.suit
     ? `${suitSymbol(publicState.trump.suit)} ${publicState.trump.suit}`
     : "Hidden";
@@ -194,20 +192,12 @@ export function GameTable({
         </section>
       ) : null}
 
-      <section aria-label="Your hand" className="player-hand">
-        {view.privateSeat.hand.map((card) => (
-          <CardButton
-            action={cardAction(card, view.legalActions)}
-            card={card}
-            key={card.cardId}
-            onSelect={submit}
-            unavailableReason={cardLegalityNote}
-          />
-        ))}
-      </section>
-      <p className="card-legality-note" id="card-legality-note">
-        {cardLegalityNote}
-      </p>
+      <PlayerHand
+        hand={view.privateSeat.hand}
+        isPlayersTurn={isPlayersTurn}
+        legalActions={view.legalActions}
+        onSelect={submit}
+      />
       <RulesDrawer profileId={publicState.profileId} />
       <div className="table-exit">
         {projection.status === "hand_result" ? (
