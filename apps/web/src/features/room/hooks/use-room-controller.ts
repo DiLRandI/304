@@ -1,19 +1,24 @@
 "use client";
 
-import {
-  type GameAction,
-  RealtimeClientMessageSchema,
-  type RealtimeServerMessage,
-  type RoomExitResponse,
-  type RoomProjection,
+import type {
+  GameAction,
+  RealtimeServerMessage,
+  RoomExitResponse,
+  RoomProjection,
 } from "@three-zero-four/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameServiceError } from "../api/game-service-transport";
 import { parseRealtimeServerMessage } from "../api/room-realtime";
+import {
+  createBrowserRoomSocket,
+  encodeRoomClientMessage,
+  ROOM_SOCKET_OPEN,
+  type RoomSocket,
+  type RoomSocketFactory,
+} from "../api/room-socket";
 import type { RoomGateway } from "../application/room-gateway";
 import { applyProjection } from "../model/room-state";
 
-const OPEN_SOCKET = 1;
 const PING_INTERVAL_MS = 15_000;
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 5_000, 10_000] as const;
 const SOCKET_CONNECT_ERROR =
@@ -21,22 +26,8 @@ const SOCKET_CONNECT_ERROR =
 
 export type RoomConnection = "connecting" | "live" | "offline" | "reconnecting";
 
-export interface RoomSocket {
-  close(): void;
-  onclose: ((event: CloseEvent) => void) | null;
-  onerror: ((event: Event) => void) | null;
-  onmessage: ((event: MessageEvent<string>) => void) | null;
-  onopen: ((event: Event) => void) | null;
-  readyState: number;
-  send(data: string): void;
-}
-
 export interface RoomControllerOptions {
-  createSocket?(url: string): RoomSocket;
-}
-
-function browserSocket(url: string): RoomSocket {
-  return new WebSocket(url);
+  createSocket?: RoomSocketFactory;
 }
 
 function safeErrorMessage(error: unknown): string {
@@ -58,7 +49,7 @@ export function useRoomController(
   const socketRef = useRef<RoomSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bootstrapRef = useRef<(() => Promise<void>) | null>(null);
-  const createSocket = options.createSocket ?? browserSocket;
+  const createSocket = options.createSocket ?? createBrowserRoomSocket;
 
   const commitProjection = useCallback((next: RoomProjection): boolean => {
     const transition = applyProjection(projectionRef.current, next);
@@ -89,8 +80,8 @@ export function useRoomController(
       message: { roomId: string; type: "RESYNC" } | { type: "PING" },
     ): boolean => {
       const socket = socketRef.current;
-      if (!socket || socket.readyState !== OPEN_SOCKET) return false;
-      socket.send(JSON.stringify(RealtimeClientMessageSchema.parse(message)));
+      if (!socket || socket.readyState !== ROOM_SOCKET_OPEN) return false;
+      socket.send(encodeRoomClientMessage(message));
       return true;
     },
     [],
