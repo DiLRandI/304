@@ -1,7 +1,5 @@
 import { CardValues } from "../../components/rules-drawer";
 
-export const dynamic = "force-dynamic";
-
 export default function RulesPage() {
   return (
     <main aria-labelledby="rules-title" className="public-page">

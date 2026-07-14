@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 export default function PrivacyPage() {
   return (
     <main aria-labelledby="privacy-title" className="public-page">

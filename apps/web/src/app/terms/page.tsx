@@ -1,7 +1,5 @@
 const supportContact = process.env.NEXT_PUBLIC_SUPPORT_CONTACT?.trim();
 
-export const dynamic = "force-dynamic";
-
 export default function TermsPage() {
   return (
     <main aria-labelledby="terms-title" className="public-page">

@@ -1,7 +1,5 @@
 import { PlayClient } from "../../features/room/ui/play-client";
 
-export const dynamic = "force-dynamic";
-
 export default function PlayPage() {
   return (
     <main className="play-page">
