@@ -298,3 +298,13 @@ test("the outbox publisher depends on a behavioral store port", async () => {
   assert.match(publisherSource, /export interface OutboxStore/);
   assert.match(publisherSource, /export interface PendingRoomNotification/);
 });
+
+test("the websocket hub depends on a behavioral coordinator port", async () => {
+  const hubSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/realtime/room-socket-hub.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(hubSource, /domain\/room-coordinator\.js/);
+  assert.match(hubSource, /export interface RoomSocketCoordinator/);
+});

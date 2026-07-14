@@ -6,8 +6,22 @@ import {
 import type WebSocket from "ws";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { DomainError } from "../domain/errors.js";
-import type { RoomCoordinator } from "../domain/room-coordinator.js";
 import type { RoomChangedNotice } from "./room-change-bus.js";
+
+export interface RoomSocketCoordinator {
+  getSnapshot(
+    session: AuthenticatedSession,
+    roomId: string,
+  ): Promise<RoomProjection>;
+  markRealtimeDisconnected(
+    session: AuthenticatedSession,
+    roomId: string,
+  ): Promise<void>;
+  markRealtimePresence(
+    session: AuthenticatedSession,
+    roomId: string,
+  ): Promise<void>;
+}
 
 interface RoomSocketConnection {
   detached: boolean;
@@ -35,7 +49,7 @@ export class RoomSocketHub {
 
   constructor(
     private readonly dependencies: {
-      coordinator: RoomCoordinator;
+      coordinator: RoomSocketCoordinator;
       onConnectionCount?: (count: number) => void;
     },
   ) {}
