@@ -103,6 +103,25 @@ function assertAllowedImport(filename, specifier) {
       false,
       `${normalized} must consume wire projections instead of ${specifier}`,
     );
+
+    const featureCore = normalized.match(
+      /^apps\/web\/src\/features\/[^/]+\/(model|application)\//,
+    );
+    if (featureCore) {
+      const layer = featureCore[1];
+      const outwardLayer = new RegExp(
+        `(^|/)(api|hooks|ui${layer === "model" ? "|application" : ""})(/|$)`,
+      );
+      const frameworkImport = ["next", "react"].some(
+        (framework) =>
+          specifier === framework || specifier.startsWith(`${framework}/`),
+      );
+      assert.equal(
+        outwardLayer.test(specifier) || frameworkImport,
+        false,
+        `${normalized} ${layer} core cannot depend outward on ${specifier}`,
+      );
+    }
   }
 }
 
@@ -150,6 +169,7 @@ test("documents and enforces the DDD dependency direction", async () => {
     "Room Management",
     "Player Access",
     "adapters → application → domain",
+    "Frontend feature cores",
   ]) {
     assert.match(documentation, new RegExp(requiredText));
   }
@@ -158,6 +178,14 @@ test("documents and enforces the DDD dependency direction", async () => {
     await Promise.all(sourceRoots.map((root) => collectSourceFiles(root)))
   ).flat();
   const knownFiles = new Set(files.map((filename) => path.normalize(filename)));
+  const genericWebComponents = files.filter((filename) =>
+    filename.startsWith("apps/web/src/components/"),
+  );
+  assert.deepEqual(
+    genericWebComponents,
+    [],
+    `web components need an owning feature: ${genericWebComponents.join(", ")}`,
+  );
   const graph = new Map();
 
   for (const filename of knownFiles) {
