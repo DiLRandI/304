@@ -1,17 +1,26 @@
 import { randomUUID } from "node:crypto";
-import type {
-  PendingRoomNotification,
-  PostgresRoomStore,
-} from "../contexts/rooms/adapters/persistence/postgres-room-store.js";
 import type { RoomChangePublisher } from "./room-change-bus.js";
 
-type OutboxStore = Pick<
-  PostgresRoomStore,
-  | "claimRoomNotifications"
-  | "countPendingRoomNotifications"
-  | "markRoomNotificationPublished"
-  | "releaseRoomNotification"
->;
+export interface PendingRoomNotification {
+  readonly eventVersion: number;
+  readonly id: number;
+  readonly roomId: string;
+}
+
+export interface OutboxStore {
+  claimRoomNotifications(
+    owner: string,
+    limit: number,
+    roomId?: string,
+  ): Promise<PendingRoomNotification[]>;
+  countPendingRoomNotifications(): Promise<number>;
+  markRoomNotificationPublished(id: number, owner: string): Promise<void>;
+  releaseRoomNotification(
+    id: number,
+    owner: string,
+    error: string,
+  ): Promise<void>;
+}
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;

@@ -287,3 +287,14 @@ test("the automation worker depends on behavioral ports", async () => {
   assert.match(workerSource, /export interface AutomationStore/);
   assert.match(workerSource, /export interface AutomationCoordinator/);
 });
+
+test("the outbox publisher depends on a behavioral store port", async () => {
+  const publisherSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/realtime/outbox-publisher.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(publisherSource, /postgres-room-store\.js/);
+  assert.match(publisherSource, /export interface OutboxStore/);
+  assert.match(publisherSource, /export interface PendingRoomNotification/);
+});
