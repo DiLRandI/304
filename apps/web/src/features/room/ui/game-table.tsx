@@ -6,12 +6,7 @@ import type { ProjectedCard } from "../model/card-view";
 import type { ProjectedHandResult } from "../model/hand-result-view";
 import { type GameRoomView, readActiveRoomView } from "../model/room-view";
 import { CardButton, CardFace, cardLabel } from "./card";
-
-function isNoScoreResult(
-  result: ProjectedHandResult,
-): result is Extract<ProjectedHandResult, { noScore: true }> {
-  return "noScore" in result && result.noScore === true;
-}
+import { HandResult } from "./hand-result";
 
 export type TableConnection =
   | "connecting"
@@ -35,7 +30,7 @@ function actionLabel(
       return "Keep trump closed";
     case "ACK_RESULT":
       return handResult &&
-        !isNoScoreResult(handResult) &&
+        !("noScore" in handResult) &&
         handResult.matchComplete
         ? "Play another match"
         : "Next hand";
@@ -264,79 +259,12 @@ export function GameTable({
       </p>
 
       {publicState.handResult ? (
-        <section
-          aria-label="Hand result"
-          aria-live="polite"
-          className="hand-result"
-        >
-          <p className="eyebrow">
-            Hand {publicState.handResult.handNumber} result
-          </p>
-          {isNoScoreResult(publicState.handResult) ? (
-            <>
-              <h2>No score movement</h2>
-              <p>{publicState.handResult.reason}</p>
-              <p>
-                Tokens A {publicState.handResult.tokens[0]} · B{" "}
-                {publicState.handResult.tokens[1]}
-              </p>
-            </>
-          ) : (
-            <>
-              <h2>Team {publicState.handResult.winningTeam} wins the hand</h2>
-              <div className="hand-result-summary">
-                <p>
-                  {bidderSeat &&
-                  bidderSeat.team === publicState.handResult.bidderTeam
-                    ? bidderOwner
-                    : `Team ${publicState.handResult.bidderTeam}`}{" "}
-                  bid {publicState.handResult.bid}
-                </p>
-                <p>
-                  Team {publicState.handResult.bidderTeam}{" "}
-                  {publicState.handResult.success
-                    ? `met the ${publicState.handResult.bid} bid by ${publicState.handResult.bidderTeamPoints - publicState.handResult.bid}`
-                    : `scored ${publicState.handResult.bidderTeamPoints} and missed by ${publicState.handResult.bid - publicState.handResult.bidderTeamPoints}`}
-                </p>
-              </div>
-              <dl>
-                <div>
-                  <dt>Bid</dt>
-                  <dd>{publicState.handResult.bid}</dd>
-                </div>
-                <div>
-                  <dt>Bidder points</dt>
-                  <dd>{publicState.handResult.bidderTeamPoints}</dd>
-                </div>
-                <div>
-                  <dt>Bid outcome</dt>
-                  <dd>
-                    {publicState.handResult.success ? "Bid met" : "Bid missed"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Trump</dt>
-                  <dd>{trumpLabel}</dd>
-                </div>
-                <div>
-                  <dt>Other team points</dt>
-                  <dd>{publicState.handResult.otherTeamPoints}</dd>
-                </div>
-                <div>
-                  <dt>Token movement</dt>
-                  <dd>{publicState.handResult.movement}</dd>
-                </div>
-                <div>
-                  <dt>Team tokens</dt>
-                  <dd>
-                    A {publicState.handResult.tokens[0]} · B{" "}
-                    {publicState.handResult.tokens[1]}
-                  </dd>
-                </div>
-              </dl>
-            </>
-          )}
-        </section>
+        <HandResult
+          bidderOwner={bidderOwner}
+          bidderSeatTeam={bidderSeat?.team ?? null}
+          result={publicState.handResult}
+          trumpLabel={trumpLabel}
+        />
       ) : null}
 
       {commandActions.length > 0 ? (
