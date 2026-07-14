@@ -9,13 +9,8 @@ import { CurrentTrick } from "./current-trick";
 import { HandResult } from "./hand-result";
 import { PlayerHand } from "./player-hand";
 import { TableMetrics } from "./table-metrics";
+import { type TableConnection, TablePrompt } from "./table-prompt";
 import { TableSeats } from "./table-seats";
-
-export type TableConnection =
-  | "connecting"
-  | "live"
-  | "offline"
-  | "reconnecting";
 
 function suitSymbol(suit: string | null): string {
   if (suit === "clubs") return "♣";
@@ -62,13 +57,6 @@ export function GameTable({
   const trumpLabel = publicState.trump.suit
     ? `${suitSymbol(publicState.trump.suit)} ${publicState.trump.suit}`
     : "Hidden";
-  const trumpAnnouncement = publicState.trump.suit
-    ? `Trump ${publicState.trump.isOpen ? "open" : "set"} to ${publicState.trump.suit}.`
-    : "Trump hidden.";
-  const trickAnnouncement = `${view.publicState.trick.length} ${
-    view.publicState.trick.length === 1 ? "card" : "cards"
-  } in current trick.`;
-
   return (
     <section
       aria-label="304 game table"
@@ -110,17 +98,13 @@ export function GameTable({
         </div>
       </div>
 
-      <section aria-live="polite" className="turn-prompt">
-        <p className="eyebrow">
-          {isPlayersTurn ? "Your turn" : "Table update"}
-        </p>
-        <p>{view.prompt}</p>
-      </section>
-      <p className="sr-only" role="status">
-        {connection === "live" ? "Live table." : `${connection} connection.`}{" "}
-        {isPlayersTurn ? "Your turn." : "Waiting for the table."}{" "}
-        {trumpAnnouncement} {trickAnnouncement} {view.prompt}
-      </p>
+      <TablePrompt
+        connection={connection}
+        isPlayersTurn={isPlayersTurn}
+        prompt={view.prompt}
+        trickCardCount={view.publicState.trick.length}
+        trump={publicState.trump}
+      />
 
       {publicState.handResult ? (
         <HandResult
