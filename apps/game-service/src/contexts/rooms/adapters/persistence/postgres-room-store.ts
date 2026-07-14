@@ -1,7 +1,7 @@
 import type { RuleProfileId } from "@three-zero-four/contracts";
 import type { QueryResultRow } from "pg";
 import type { Database } from "../../../../infra/database.js";
-import { DomainError } from "../../../../shared/service-error.js";
+import { ServiceError } from "../../../../shared/service-error.js";
 import type {
   AutomationJobKind,
   ClaimedAutomationJob,
@@ -177,14 +177,14 @@ const ruleProfileIds = new Set<RuleProfileId>(["classic_304_4p", "six_304_36"]);
 function toSafeNumber(value: string | number, field: string): number {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
-    throw new DomainError("ROOM_DATA_INVALID", 500, `Invalid ${field}`);
+    throw new ServiceError("ROOM_DATA_INVALID", 500, `Invalid ${field}`);
   }
   return parsed;
 }
 
 function parseSettings(value: unknown): RoomSettings {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new DomainError("ROOM_DATA_INVALID", 500, "Invalid room settings");
+    throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid room settings");
   }
   const settings = value as Record<string, unknown>;
   const enableSecondBidding = settings.enableSecondBidding;
@@ -192,7 +192,7 @@ function parseSettings(value: unknown): RoomSettings {
     !["easy", "normal", "strong"].includes(settings.botDifficulty as string) ||
     typeof enableSecondBidding !== "boolean"
   ) {
-    throw new DomainError("ROOM_DATA_INVALID", 500, "Invalid room settings");
+    throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid room settings");
   }
   return {
     botDifficulty: settings.botDifficulty as RoomSettings["botDifficulty"],
@@ -202,10 +202,10 @@ function parseSettings(value: unknown): RoomSettings {
 
 function mapRoom(row: RoomRow): StoredRoom {
   if (!roomStatuses.has(row.status as RoomStatus)) {
-    throw new DomainError("ROOM_DATA_INVALID", 500, "Invalid room status");
+    throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid room status");
   }
   if (!ruleProfileIds.has(row.rule_profile_id as RuleProfileId)) {
-    throw new DomainError(
+    throw new ServiceError(
       "ROOM_DATA_INVALID",
       500,
       "Invalid room rule profile",
@@ -226,10 +226,10 @@ function mapRoom(row: RoomRow): StoredRoom {
 
 function mapSeat(row: SeatRow): StoredSeat {
   if (!seatTypes.has(row.occupant_type as StoredSeat["occupantType"])) {
-    throw new DomainError("ROOM_DATA_INVALID", 500, "Invalid room seat");
+    throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid room seat");
   }
   if (!connectionStatuses.has(row.connection_status as ConnectionStatus)) {
-    throw new DomainError(
+    throw new ServiceError(
       "ROOM_DATA_INVALID",
       500,
       "Invalid room connection status",
@@ -250,7 +250,7 @@ function mapSeat(row: SeatRow): StoredSeat {
 
 function mapSnapshot(row: SnapshotRow): StoredSnapshot {
   if (!ruleProfileIds.has(row.rule_profile_id as RuleProfileId)) {
-    throw new DomainError(
+    throw new ServiceError(
       "ROOM_DATA_INVALID",
       500,
       "Invalid snapshot rule profile",
@@ -284,7 +284,7 @@ function mapRoomNotification(row: OutboxRow): PendingRoomNotification {
 
 function mapAutomationJob(row: AutomationJobRow): ClaimedAutomationJob {
   if (!automationJobKinds.has(row.kind as AutomationJobKind)) {
-    throw new DomainError("ROOM_DATA_INVALID", 500, "Invalid automation job");
+    throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid automation job");
   }
   return {
     id: row.id,
@@ -310,7 +310,7 @@ export class PostgresRoomStore {
   async createRoom(input: NewRoomInput): Promise<StoredRoom> {
     const expectedSeatCount = input.ruleProfileId === "six_304_36" ? 6 : 4;
     if (input.seats.length !== expectedSeatCount) {
-      throw new DomainError(
+      throw new ServiceError(
         "ROOM_DATA_INVALID",
         500,
         "Room seat count does not match its rule profile",
@@ -323,7 +323,7 @@ export class PostgresRoomStore {
           [input.sessionId],
         );
         if (!lockedSession.rows[0]) {
-          throw new DomainError(
+          throw new ServiceError(
             "SESSION_REQUIRED",
             401,
             "A guest session is required",
@@ -337,7 +337,7 @@ export class PostgresRoomStore {
         if (duplicate) {
           const existing = await this.loadRoom(duplicate.roomId, transaction);
           if (existing) return existing;
-          throw new DomainError(
+          throw new ServiceError(
             "ROOM_DATA_INVALID",
             500,
             "Duplicate room command has no room",
@@ -491,7 +491,7 @@ export class PostgresRoomStore {
         (seat) => seat.seatIndex === existingSeatIndex,
       );
       if (existing) return existing;
-      throw new DomainError(
+      throw new ServiceError(
         "ROOM_DATA_INVALID",
         500,
         "Existing room seat is missing",
@@ -503,7 +503,7 @@ export class PostgresRoomStore {
     );
     const row = openSeat.rows[0];
     if (!row) {
-      throw new DomainError("ROOM_FULL", 409, "Room is full");
+      throw new ServiceError("ROOM_FULL", 409, "Room is full");
     }
     await transaction.query(
       "UPDATE room_seats SET player_id = $3, occupant_type = 'human', bot_difficulty = NULL, joined_at = now(), connection_status = 'online', last_presence_at = now(), disconnected_at = NULL, autopilot_started_at = NULL WHERE room_id = $1 AND seat_index = $2",
@@ -512,7 +512,7 @@ export class PostgresRoomStore {
     const seats = await this.loadSeats(roomId, transaction);
     const assigned = seats.find((seat) => seat.seatIndex === row.seat_index);
     if (!assigned) {
-      throw new DomainError(
+      throw new ServiceError(
         "ROOM_DATA_INVALID",
         500,
         "Assigned room seat is missing",
@@ -542,7 +542,7 @@ export class PostgresRoomStore {
       [roomId, seatIndex],
     );
     if (updated.rows.length !== 1) {
-      throw new DomainError(
+      throw new ServiceError(
         "SEAT_REQUIRED",
         403,
         "You are not seated in this room",
@@ -551,7 +551,7 @@ export class PostgresRoomStore {
     const seats = await this.loadSeats(roomId, transaction);
     const seat = seats.find((candidate) => candidate.seatIndex === seatIndex);
     if (!seat) {
-      throw new DomainError(
+      throw new ServiceError(
         "ROOM_DATA_INVALID",
         500,
         "Cleared room seat is missing",
@@ -571,7 +571,7 @@ export class PostgresRoomStore {
       [roomId, seatIndex, botDifficulty],
     );
     if (updated.rows.length !== 1) {
-      throw new DomainError(
+      throw new ServiceError(
         "SEAT_REQUIRED",
         403,
         "You are not seated in this room",
@@ -580,7 +580,7 @@ export class PostgresRoomStore {
     const seats = await this.loadSeats(roomId, transaction);
     const seat = seats.find((candidate) => candidate.seatIndex === seatIndex);
     if (!seat) {
-      throw new DomainError(
+      throw new ServiceError(
         "ROOM_DATA_INVALID",
         500,
         "Replaced room seat is missing",
@@ -610,7 +610,7 @@ export class PostgresRoomStore {
       [roomId, playerId],
     );
     if (updated.rows.length !== 1) {
-      throw new DomainError(
+      throw new ServiceError(
         "ROOM_DATA_INVALID",
         500,
         "New room host is not seated",
@@ -666,7 +666,7 @@ export class PostgresRoomStore {
     const row = result.rows[0];
     if (!row) return null;
     if (row.actor_player_id !== actorPlayerId) {
-      throw new DomainError(
+      throw new ServiceError(
         "COMMAND_ID_CONFLICT",
         409,
         "Command id belongs to another player",
@@ -703,7 +703,7 @@ export class PostgresRoomStore {
     );
     const row = result.rows[0];
     if (!row) {
-      throw new DomainError(
+      throw new ServiceError(
         "SEAT_REQUIRED",
         403,
         "You are not seated in this room",
@@ -722,7 +722,7 @@ export class PostgresRoomStore {
       [input.roomId, nextVersion, input.status, input.expectedVersion],
     );
     if (updated.rows.length !== 1) {
-      throw new DomainError(
+      throw new ServiceError(
         "VERSION_CONFLICT",
         409,
         "Room state changed; refresh and retry",
@@ -794,7 +794,7 @@ export class PostgresRoomStore {
       [id, owner],
     );
     if (updated.rows.length !== 1) {
-      throw new DomainError("OUTBOX_CLAIM_LOST", 409, "Outbox claim was lost");
+      throw new ServiceError("OUTBOX_CLAIM_LOST", 409, "Outbox claim was lost");
     }
   }
 
@@ -808,7 +808,7 @@ export class PostgresRoomStore {
       [id, owner, error.slice(0, 500)],
     );
     if (updated.rows.length !== 1) {
-      throw new DomainError("OUTBOX_CLAIM_LOST", 409, "Outbox claim was lost");
+      throw new ServiceError("OUTBOX_CLAIM_LOST", 409, "Outbox claim was lost");
     }
   }
 
@@ -855,7 +855,7 @@ export class PostgresRoomStore {
       [id, owner],
     );
     if (updated.rows.length !== 1) {
-      throw new DomainError(
+      throw new ServiceError(
         "AUTOMATION_CLAIM_LOST",
         409,
         "Automation job claim was lost",
@@ -873,7 +873,7 @@ export class PostgresRoomStore {
       [id, owner, error.slice(0, 500)],
     );
     if (updated.rows.length !== 1) {
-      throw new DomainError(
+      throw new ServiceError(
         "AUTOMATION_CLAIM_LOST",
         409,
         "Automation job claim was lost",

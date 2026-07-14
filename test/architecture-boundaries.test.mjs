@@ -269,6 +269,7 @@ test("the PostgreSQL room store is a Rooms persistence adapter", async () => {
     "utf8",
   );
   assert.match(adapterSource, /export class PostgresRoomStore/);
+  assert.doesNotMatch(adapterSource, /DomainError/);
 });
 
 test("the automation worker depends on behavioral ports", async () => {
