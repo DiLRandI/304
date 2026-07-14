@@ -1,4 +1,9 @@
-import type { RoomSeat, RoomSettings, RoomStatus } from "./room.js";
+import type {
+  ConnectionStatus,
+  RoomSeat,
+  RoomSettings,
+  RoomStatus,
+} from "./room.js";
 import {
   type EventVersion,
   eventVersion,
@@ -69,6 +74,20 @@ export type LeaveRoomResult =
   | {
       readonly error: {
         readonly code: "ROOM_LEAVE_NOT_ALLOWED" | "SEAT_REQUIRED";
+        readonly message: string;
+      };
+      readonly ok: false;
+    };
+
+export type PlayerConnectionResult =
+  | {
+      readonly changed: boolean;
+      readonly ok: true;
+      readonly room: Room;
+    }
+  | {
+      readonly error: {
+        readonly code: "AUTOPILOT_NOT_ALLOWED" | "SEAT_REQUIRED";
         readonly message: string;
       };
       readonly ok: false;
@@ -276,5 +295,51 @@ export function leaveRoom(room: Room, actor: PlayerId): LeaveRoomResult {
       status: closed ? "closed" : room.status,
     },
     status: closed ? "closed" : "left",
+  };
+}
+
+export function setPlayerConnection(
+  room: Room,
+  actor: PlayerId,
+  connectionStatus: ConnectionStatus,
+): PlayerConnectionResult {
+  const playerSeat = room.seats.find(
+    (seat) =>
+      seat.occupant.kind === "human" && seat.occupant.playerId === actor,
+  );
+  if (!playerSeat) {
+    return {
+      error: {
+        code: "SEAT_REQUIRED",
+        message: "You are not seated in this room",
+      },
+      ok: false,
+    };
+  }
+  if (connectionStatus === "autopilot" && room.status !== "in_hand") {
+    return {
+      error: {
+        code: "AUTOPILOT_NOT_ALLOWED",
+        message: "Autopilot requires an active room",
+      },
+      ok: false,
+    };
+  }
+  if (playerSeat.connectionStatus === connectionStatus) {
+    return { changed: false, ok: true, room };
+  }
+  const seats = room.seats.map((seat) =>
+    seat.position === playerSeat.position
+      ? { ...seat, connectionStatus }
+      : seat,
+  );
+  return {
+    changed: true,
+    ok: true,
+    room: {
+      ...room,
+      eventVersion: eventVersion(room.eventVersion + 1),
+      seats,
+    },
   };
 }
