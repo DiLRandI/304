@@ -30,7 +30,7 @@ export interface RoomCreationCommit {
 }
 
 export interface RoomCreationRepository {
-  create(commit: RoomCreationCommit): Promise<void>;
+  create(commit: RoomCreationCommit): Promise<RoomProjection>;
   findDuplicate(
     sessionId: string,
     commandId: CommandId,
@@ -62,13 +62,13 @@ export class CreateRoomHandler {
       settings: input.settings,
     });
     const response = projectRoom(room, input.host.playerId);
-    await this.repository.create({
+    const persistedResponse = await this.repository.create({
       commandId: input.commandId,
       response,
       room,
       sessionId: input.sessionId,
     });
-    await this.presence.touch(response.id, input.host.playerId);
-    return response;
+    await this.presence.touch(persistedResponse.id, input.host.playerId);
+    return persistedResponse;
   }
 }

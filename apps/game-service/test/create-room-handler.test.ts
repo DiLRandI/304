@@ -1,7 +1,11 @@
 import {
   commandId,
+  createLobby,
+  inviteCode,
   playerId,
+  projectRoom,
   type RoomProjection,
+  roomId,
 } from "@three-zero-four/room-domain";
 import { describe, expect, it } from "vitest";
 import {
@@ -20,15 +24,27 @@ const input = {
   sessionId: "b8fc339d-ee47-45f9-826c-b3477bdb8d51",
   settings: { botDifficulty: "easy" as const, enableSecondBidding: true },
 };
+const winningResponse = projectRoom(
+  createLobby({
+    host: input.host,
+    id: roomId("f63f4748-bf45-488e-a09e-c47c27b26df5"),
+    inviteCode: inviteCode("304-ZyXwVuTsRqPo_987"),
+    profileId: input.profileId,
+    settings: input.settings,
+  }),
+  hostId,
+);
 
 class CreationRepository implements RoomCreationRepository {
   readonly commits: RoomCreationCommit[] = [];
+  createdResponse: RoomProjection | null = null;
   duplicate: RoomProjection | null = null;
   error: Error | null = null;
 
-  async create(commit: RoomCreationCommit): Promise<void> {
+  async create(commit: RoomCreationCommit): Promise<RoomProjection> {
     if (this.error) throw this.error;
     this.commits.push(commit);
+    return this.createdResponse ?? commit.response;
   }
 
   async findDuplicate(): Promise<RoomProjection | null> {
@@ -99,6 +115,17 @@ describe("CreateRoomHandler", () => {
     expect(repository.commits).toEqual([]);
     expect(first.presence.touched).toEqual([
       { playerId: hostId, roomId: repository.duplicate.id },
+    ]);
+  });
+
+  it("returns the persistence-confirmed winner of a concurrent create", async () => {
+    const repository = new CreationRepository();
+    repository.createdResponse = winningResponse;
+    const runtime = handler(repository);
+
+    await expect(runtime.handler.execute(input)).resolves.toBe(winningResponse);
+    expect(runtime.presence.touched).toEqual([
+      { playerId: hostId, roomId: winningResponse.id },
     ]);
   });
 
