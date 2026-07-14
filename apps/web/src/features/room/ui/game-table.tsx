@@ -2,6 +2,7 @@
 
 import type { GameAction, RoomProjection } from "@three-zero-four/contracts";
 import { RulesDrawer } from "../../../components/rules-drawer";
+import { cardAction, partitionCardActions } from "../model/card-action";
 import type { ProjectedCard } from "../model/card-view";
 import type { ProjectedHandResult } from "../model/hand-result-view";
 import { readActiveRoomView } from "../model/room-view";
@@ -58,24 +59,6 @@ function actionLabel(
   }
 }
 
-function cardAction(
-  card: ProjectedCard,
-  actions: readonly GameAction[],
-): GameAction | null {
-  const matching = actions.filter(
-    (action) =>
-      (action.type === "PLAY_CARD" || action.type === "SELECT_TRUMP") &&
-      action.cardId === card.cardId,
-  );
-  return (
-    matching.find(
-      (action) => action.type !== "PLAY_CARD" || action.faceDown === false,
-    ) ??
-    matching[0] ??
-    null
-  );
-}
-
 function suitSymbol(suit: string | null): string {
   if (suit === "clubs") return "♣";
   if (suit === "diamonds") return "♦";
@@ -113,13 +96,9 @@ export function GameTable({
   const bidderOwner = bidderSeat
     ? `Team ${bidderSeat.team} · ${bidderSeat.displayName} (${bidderSeat.seatLabel})`
     : null;
-  const primaryCardActions = new Set(
-    view.privateSeat.hand
-      .map((card) => cardAction(card, view.legalActions))
-      .filter((action): action is GameAction => action !== null),
-  );
-  const commandActions = view.legalActions.filter(
-    (action) => !primaryCardActions.has(action),
+  const { commandActions } = partitionCardActions(
+    view.privateSeat.hand,
+    view.legalActions,
   );
   const isPlayersTurn = publicState.activeSeat === view.privateSeat.index;
   const cardLegalityNote = isPlayersTurn
