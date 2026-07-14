@@ -9,20 +9,12 @@ import type {
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { LegacyGameplayAutomationExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.js";
-import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
-import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
-import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
-import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
-import { RoomCoordinator } from "../src/contexts/rooms/adapters/orchestration/room-coordinator.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
-import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/security/node-room-identity-provider.js";
-import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
-import { Presence, RoomLease } from "../src/infra/redis-coordination.js";
 import { AutomationWorker } from "../src/worker/automation-worker.js";
+import { RoomTestRuntime } from "./support/room-test-runtime.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
@@ -57,86 +49,13 @@ let database: Database;
 let redis: RedisClientType;
 let sessions: PlayerAccessService;
 let store: PostgresRoomStore;
-const connectionsByCoordinator = new WeakMap<
-  RoomCoordinator,
-  LegacyGameplayConnections
->();
-const automationByCoordinator = new WeakMap<
-  RoomCoordinator,
-  LegacyGameplayAutomationExecutor
->();
 
-function coordinator(): RoomCoordinator {
-  const identities = new NodeRoomIdentityProvider();
-  const lease = new RoomLease(redis, 5_000);
-  const presence = new Presence(redis, 60);
-  const game = new RoomCoordinator({
-    identities,
-    inviteCodes: new NodeRoomInviteCodeProvider(),
-    store,
-    lease,
-    presence,
+function createRuntime(): RoomTestRuntime {
+  return new RoomTestRuntime(database, redis, {
     automation: {
       botActionDelayMs: 250,
       disconnectGraceSeconds: 90,
     },
-  });
-  const recovery = new LegacyGameplayRecovery(store);
-  const automation = new LegacyGameplayAutomationScheduler({
-    config: {
-      botActionDelayMs: 250,
-      disconnectGraceSeconds: 90,
-    },
-    identities,
-    store,
-  });
-  connectionsByCoordinator.set(
-    game,
-    new LegacyGameplayConnections({
-      automation,
-      identities,
-      lease,
-      presence,
-      recovery,
-      store,
-    }),
-  );
-  automationByCoordinator.set(
-    game,
-    new LegacyGameplayAutomationExecutor({
-      automation,
-      lease,
-      presence,
-      recovery,
-      store,
-    }),
-  );
-  return game;
-}
-
-function connections(game: RoomCoordinator): LegacyGameplayConnections {
-  const value = connectionsByCoordinator.get(game);
-  if (!value) throw new Error("Expected realtime connections");
-  return value;
-}
-
-function automation(game: RoomCoordinator): LegacyGameplayAutomationExecutor {
-  const value = automationByCoordinator.get(game);
-  if (!value) throw new Error("Expected automation executor");
-  return value;
-}
-
-function gameplayCommands(): LegacyGameplayCommandExecutor {
-  const identities = new NodeRoomIdentityProvider();
-  return new LegacyGameplayCommandExecutor({
-    automation: new LegacyGameplayAutomationScheduler({
-      config: { botActionDelayMs: 250, disconnectGraceSeconds: 90 },
-      identities,
-      store,
-    }),
-    lease: new RoomLease(redis, 5_000),
-    recovery: new LegacyGameplayRecovery(store),
-    store,
   });
 }
 
@@ -146,10 +65,10 @@ function viewOf(projection: RoomProjection): GameView {
 
 async function createStartedHumanRoom(ruleProfileId: RuleProfileId): Promise<{
   created: RoomProjection;
-  game: RoomCoordinator;
+  game: RoomTestRuntime;
   players: AuthenticatedSession[];
 }> {
-  const game = coordinator();
+  const game = createRuntime();
   const seatCount = ruleProfileId === "six_304_36" ? 6 : 4;
   const host = await sessions.create(`Host ${randomUUID().slice(0, 8)}`);
   const created = await game.createRoom(host, {
@@ -177,7 +96,7 @@ async function createStartedHumanRoom(ruleProfileId: RuleProfileId): Promise<{
 }
 
 async function activePlayer(
-  game: RoomCoordinator,
+  game: RoomTestRuntime,
   players: readonly AuthenticatedSession[],
   roomId: string,
 ): Promise<{
@@ -195,7 +114,7 @@ async function activePlayer(
 }
 
 async function applyHumanCommands(
-  game: RoomCoordinator,
+  game: RoomTestRuntime,
   players: readonly AuthenticatedSession[],
   roomId: string,
   count: number,
@@ -204,7 +123,7 @@ async function applyHumanCommands(
     const active = await activePlayer(game, players, roomId);
     const action = viewOf(active.projection).legalActions?.[0];
     if (!action) throw new Error("Expected a legal human action");
-    await gameplayCommands().submitCommand(active.player, {
+    await game.gameplayCommands.submitCommand(active.player, {
       action,
       commandId: randomUUID(),
       expectedVersion: active.projection.eventVersion,
@@ -214,18 +133,18 @@ async function applyHumanCommands(
 }
 
 async function applyWorkerAction(
-  game: RoomCoordinator,
+  game: RoomTestRuntime,
   players: readonly AuthenticatedSession[],
   roomId: string,
 ): Promise<void> {
   const active = await activePlayer(game, players, roomId);
-  await connections(game).markRealtimeDisconnected(active.player, roomId);
+  await game.connections.markRealtimeDisconnected(active.player, roomId);
   await database.query(
     "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'DISCONNECT_GRACE' AND state = 'pending'",
     [roomId],
   );
   const worker = new AutomationWorker({
-    executor: automation(game),
+    executor: game.automation,
     ownerId: randomUUID(),
     pollIntervalMs: 500,
     roomId,
@@ -240,12 +159,12 @@ async function applyWorkerAction(
 }
 
 async function currentSnapshots(
-  game: RoomCoordinator,
+  game: RoomTestRuntime,
   players: readonly AuthenticatedSession[],
   roomId: string,
 ): Promise<Map<string, RoomProjection>> {
   for (const player of players) {
-    await connections(game).markRealtimePresence(player, roomId);
+    await game.connections.markRealtimePresence(player, roomId);
   }
   const snapshots = new Map<string, RoomProjection>();
   for (const player of players) {
@@ -352,7 +271,7 @@ describeIntegration("durable room recovery variance", () => {
           [created.roomId, snapshot.event_version],
         );
         try {
-          const restarted = coordinator();
+          const restarted = createRuntime();
           for (const player of players) {
             await expect(
               restarted.getSnapshot(player, created.roomId),
@@ -385,7 +304,7 @@ describeIntegration("durable room recovery variance", () => {
     const firstPlayer = players[0];
     if (!firstPlayer) throw new Error("Expected a room host");
     await expect(
-      coordinator().getSnapshot(firstPlayer, created.roomId),
+      createRuntime().getSnapshot(firstPlayer, created.roomId),
     ).rejects.toMatchObject({
       code: "ROOM_RECOVERY_FAILED",
       statusCode: 503,
