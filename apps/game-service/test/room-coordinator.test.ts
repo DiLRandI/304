@@ -5,6 +5,9 @@ import type { GameAction } from "@three-zero-four/contracts";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
+import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
+import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
+import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { RoomCoordinator } from "../src/contexts/rooms/adapters/orchestration/room-coordinator.js";
@@ -39,6 +42,17 @@ function createCoordinator(): RoomCoordinator {
     store: new PostgresRoomStore(database),
     lease: new RoomLease(redis, 5_000),
     presence: new Presence(redis, 60),
+  });
+}
+
+function createGameplayCommands(): LegacyGameplayCommandExecutor {
+  const store = new PostgresRoomStore(database);
+  const identities = new NodeRoomIdentityProvider();
+  return new LegacyGameplayCommandExecutor({
+    automation: new LegacyGameplayAutomationScheduler({ identities, store }),
+    lease: new RoomLease(redis, 5_000),
+    recovery: new LegacyGameplayRecovery(store),
+    store,
   });
 }
 
@@ -168,13 +182,20 @@ describeIntegration("durable room coordinator", () => {
       expectedVersion: active.projection.eventVersion,
       action,
     };
+    const gameplayCommands = createGameplayCommands();
 
-    const applied = await coordinator.submitCommand(active.player, command);
-    const duplicate = await coordinator.submitCommand(active.player, command);
+    const applied = await gameplayCommands.submitCommand(
+      active.player,
+      command,
+    );
+    const duplicate = await gameplayCommands.submitCommand(
+      active.player,
+      command,
+    );
     expect(duplicate.eventVersion).toBe(applied.eventVersion);
 
     await expect(
-      coordinator.submitCommand(active.player, {
+      gameplayCommands.submitCommand(active.player, {
         ...command,
         commandId: randomUUID(),
         expectedVersion: started.eventVersion,

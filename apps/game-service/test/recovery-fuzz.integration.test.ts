@@ -9,6 +9,9 @@ import type {
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
+import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
+import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
+import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { RoomCoordinator } from "../src/contexts/rooms/adapters/orchestration/room-coordinator.js";
@@ -64,6 +67,20 @@ function coordinator(): RoomCoordinator {
       botActionDelayMs: 250,
       disconnectGraceSeconds: 90,
     },
+  });
+}
+
+function gameplayCommands(): LegacyGameplayCommandExecutor {
+  const identities = new NodeRoomIdentityProvider();
+  return new LegacyGameplayCommandExecutor({
+    automation: new LegacyGameplayAutomationScheduler({
+      config: { botActionDelayMs: 250, disconnectGraceSeconds: 90 },
+      identities,
+      store,
+    }),
+    lease: new RoomLease(redis, 5_000),
+    recovery: new LegacyGameplayRecovery(store),
+    store,
   });
 }
 
@@ -131,7 +148,7 @@ async function applyHumanCommands(
     const active = await activePlayer(game, players, roomId);
     const action = viewOf(active.projection).legalActions?.[0];
     if (!action) throw new Error("Expected a legal human action");
-    await game.submitCommand(active.player, {
+    await gameplayCommands().submitCommand(active.player, {
       action,
       commandId: randomUUID(),
       expectedVersion: active.projection.eventVersion,

@@ -1,6 +1,5 @@
 import type {
   CreateRoomRequest,
-  GameCommand,
   JoinRoomRequest,
   LeaveRoomRequest,
   RoomExitResponse,
@@ -21,7 +20,6 @@ import {
   applyLobbySeat,
 } from "../../../gameplay/adapters/engine/legacy-engine-seat-mapper.js";
 import { LegacyGameplayAutomationScheduler } from "../../../gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
-import { LegacyGameplayCommandExecutor } from "../../../gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
 import { LegacyGameplayRecovery } from "../../../gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import {
   activeRoomStatus,
@@ -63,7 +61,7 @@ interface RoomCoordinatorDependencies {
   };
 }
 
-type CommandRequest = JoinRoomRequest | StartRoomRequest | GameCommand;
+type CommandRequest = JoinRoomRequest | StartRoomRequest;
 
 function roomNotFound(): ServiceError {
   return new ServiceError("ROOM_NOT_FOUND", 404, "Room was not found");
@@ -85,7 +83,6 @@ export class RoomCoordinator {
   private readonly identities: RoomIdentityProvider;
   private readonly inviteCodes: RoomInviteCodeProvider;
   private readonly gameplayAutomation: LegacyGameplayAutomationScheduler;
-  private readonly gameplayCommands: LegacyGameplayCommandExecutor;
   private readonly gameplayRecovery: LegacyGameplayRecovery;
   private readonly roomQueries: LegacyRoomProjectionQueries;
 
@@ -108,12 +105,6 @@ export class RoomCoordinator {
       store,
     });
     this.gameplayRecovery = new LegacyGameplayRecovery(store);
-    this.gameplayCommands = new LegacyGameplayCommandExecutor({
-      automation: this.gameplayAutomation,
-      lease,
-      recovery: this.gameplayRecovery,
-      store,
-    });
     this.roomQueries = new LegacyRoomProjectionQueries({
       gameplayRecovery: this.gameplayRecovery,
       lease,
@@ -347,13 +338,6 @@ export class RoomCoordinator {
       return this.getSnapshot(session, projection.roomId);
     }
     return projection;
-  }
-
-  async submitCommand(
-    session: AuthenticatedSession,
-    command: GameCommand,
-  ): Promise<RoomProjection> {
-    return this.gameplayCommands.submitCommand(session, command);
   }
 
   async leaveRoom(

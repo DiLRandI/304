@@ -305,6 +305,7 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
     path.join(repoRoot, "apps/game-service/src/server.ts"),
     "utf8",
   );
+  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
 
   assert.match(executorSource, /export class LegacyGameplayCommandExecutor/);
   assert.match(serverSource, /new LegacyGameplayCommandExecutor/);
@@ -312,6 +313,7 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
     serverSource,
     /new SubmitGameplayCommandHandler\(gameplayCommands/,
   );
+  assert.doesNotMatch(coordinatorSource, /async submitCommand/);
 });
 
 test("room projection reads use a dedicated query adapter", async () => {
