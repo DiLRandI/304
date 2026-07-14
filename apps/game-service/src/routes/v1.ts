@@ -4,9 +4,7 @@ import {
   GameCommandSchema,
   GuestSessionRequestSchema,
   JoinRoomRequestSchema,
-  type LeaveRoomRequest,
   LeaveRoomRequestSchema,
-  type RoomExitResponse,
   type RoomProjection,
   StartRoomRequestSchema,
 } from "@three-zero-four/contracts";
@@ -38,11 +36,6 @@ export interface V1RoomCoordinator {
     session: AuthenticatedSession,
     roomId: string,
   ): Promise<RoomProjection>;
-  leaveRoom(
-    session: AuthenticatedSession,
-    roomId: string,
-    request: LeaveRoomRequest,
-  ): Promise<RoomExitResponse>;
   submitCommand(
     session: AuthenticatedSession,
     command: GameCommand,
@@ -54,7 +47,7 @@ export interface GameRuntime {
   roomUseCases: {
     readonly create: Pick<CreateRoomHandler, "execute">;
     readonly join: Pick<JoinRoomHandler, "execute">;
-    readonly leave?: Pick<LeaveRoomHandler, "execute">;
+    readonly leave: Pick<LeaveRoomHandler, "execute">;
     readonly start: Pick<StartRoomHandler, "execute">;
   };
   sessions: PlayerAccessService;
@@ -216,19 +209,12 @@ export async function registerV1Routes(
         60,
       );
       const input = LeaveRoomRequestSchema.parse(request.body);
-      if (runtime.roomUseCases?.leave) {
-        return runtime.roomUseCases.leave.execute({
-          actor: playerId(session.playerId),
-          commandId: commandId(input.commandId),
-          expectedVersion: eventVersion(input.expectedVersion),
-          roomId: roomId(RoomIdPathSchema.parse(request.params.roomId)),
-        });
-      }
-      return runtime.coordinator.leaveRoom(
-        session,
-        request.params.roomId,
-        input,
-      );
+      return runtime.roomUseCases.leave.execute({
+        actor: playerId(session.playerId),
+        commandId: commandId(input.commandId),
+        expectedVersion: eventVersion(input.expectedVersion),
+        roomId: roomId(RoomIdPathSchema.parse(request.params.roomId)),
+      });
     },
   );
 

@@ -18,6 +18,7 @@ import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/secur
 import { CreateRoomHandler } from "../src/contexts/rooms/application/create-room.js";
 import { ExecuteRoomCommandHandler } from "../src/contexts/rooms/application/execute-room-command.js";
 import { JoinRoomHandler } from "../src/contexts/rooms/application/join-room.js";
+import { LeaveRoomHandler } from "../src/contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
 import {
@@ -140,6 +141,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
           inviteCodes,
         ),
         join: new JoinRoomHandler(roomCommands, presence),
+        leave: new LeaveRoomHandler(roomCommands, presence),
         start: new StartRoomHandler(roomCommands, presence),
       },
       sessions,

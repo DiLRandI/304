@@ -14,9 +14,9 @@ const config = loadConfig({
 const playerId = "28fc47b6-e8ef-4de7-8c43-7e027a41d70f";
 const roomId = "12f8e3e8-6729-4c46-b78a-d1a0e804c55a";
 
-function runtime(execute: ReturnType<typeof vi.fn>, legacyLeave = vi.fn()) {
+function runtime(execute: ReturnType<typeof vi.fn>) {
   return {
-    coordinator: { leaveRoom: legacyLeave },
+    coordinator: {},
     rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
     roomUseCases: { join: { execute: vi.fn() }, leave: { execute } },
     sessions: {
@@ -37,10 +37,9 @@ describe("leave room route cutover", () => {
       roomId,
       status: "left",
     });
-    const legacyLeave = vi.fn();
     const app = await buildApp({
       config,
-      game: runtime(execute, legacyLeave),
+      game: runtime(execute),
       readiness: { database: async () => true, redis: async () => true },
     });
 
@@ -66,7 +65,6 @@ describe("leave room route cutover", () => {
       expectedVersion: 2,
       roomId,
     });
-    expect(legacyLeave).not.toHaveBeenCalled();
     await app.close();
   });
 
