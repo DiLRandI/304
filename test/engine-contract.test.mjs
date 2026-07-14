@@ -85,6 +85,11 @@ test("a complete classic hand resolves eight tricks and all 304 card points", ()
 
   let actionsApplied = 0;
   while (engine.state.phase !== "hand_result" && actionsApplied < 80) {
+    if (engine.state.phase === "trick_result") {
+      assert.deepEqual(engine.advanceTrick(), { ok: true });
+      actionsApplied += 1;
+      continue;
+    }
     const seatIndex = engine.state.activeSeat;
     const legalActions = engine.getLegalActions(seatIndex);
     let action;
@@ -133,6 +138,11 @@ test("a complete six-seat hand resolves six tricks and all 304 card points", () 
 
   let actionsApplied = 0;
   while (engine.state.phase !== "hand_result" && actionsApplied < 100) {
+    if (engine.state.phase === "trick_result") {
+      assert.deepEqual(engine.advanceTrick(), { ok: true });
+      actionsApplied += 1;
+      continue;
+    }
     const seatIndex = engine.state.activeSeat;
     const legalActions = engine.getLegalActions(seatIndex);
     let action;

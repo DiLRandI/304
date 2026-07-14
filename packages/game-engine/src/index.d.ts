@@ -57,6 +57,7 @@ export class GameEngine {
     ok: boolean;
     reason?: string;
   };
+  advanceTrick(): { ok: boolean; reason?: string };
   static hydrate(snapshot: EngineState): GameEngine;
 }
 

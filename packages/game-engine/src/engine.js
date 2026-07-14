@@ -17,6 +17,7 @@ const PHASE = {
   SECOND_BIDDING: "second_bidding",
   TRUMP_CHOICE: "trump_choice",
   TRICK_PLAY: "trick_play",
+  TRICK_RESULT: "trick_result",
   HAND_RESULT: "hand_result",
   MATCH_COMPLETE: "match_complete",
 };
@@ -712,6 +713,8 @@ export class GameEngine {
         return state.currentTrick.leaderSeat === state.activeSeat
           ? `${formatSeat(state.activeSeat)} leads the trick.`
           : `${formatSeat(state.activeSeat)} to play.`;
+      case PHASE.TRICK_RESULT:
+        return `${formatSeat(state.currentTrick?.winnerSeat)} wins the trick. Next trick starts shortly.`;
       case PHASE.HAND_RESULT:
         return "Hand complete. Continue to next hand.";
       case PHASE.MATCH_COMPLETE:
@@ -1561,23 +1564,38 @@ export class GameEngine {
       points: trick.pointValue,
       openTrump: shouldOpen,
     });
-    if (
+    this.state.phase = PHASE.TRICK_RESULT;
+    this.state.activeSeat = null;
+    this.state.gameMessage = `${formatSeat(expectedLeader)} wins the trick. Next trick starts shortly.`;
+  }
+
+  advanceTrick() {
+    if (this.state.phase !== PHASE.TRICK_RESULT || !this.state.currentTrick) {
+      this.state.error = "No completed trick is waiting to advance.";
+      return { ok: false, reason: this.state.error };
+    }
+    const winnerSeat = this.state.currentTrick.winnerSeat;
+    const handIsComplete =
       this.state.seats.every((seat) => seat.hand.length === 0) ||
       this.state.completedTricks.length >=
-        this.state.profile.cardBatch[0] + this.state.profile.cardBatch[1]
-    ) {
+        this.state.profile.cardBatch[0] + this.state.profile.cardBatch[1];
+    this.state.error = null;
+    if (handIsComplete) {
       this._finishHand();
-      return;
+      return { ok: true };
     }
+    this.state.phase = PHASE.TRICK_PLAY;
     this.state.currentTrick = {
       trickIndex: this.state.completedTricks.length,
-      leaderSeat: expectedLeader,
+      leaderSeat: winnerSeat,
       plays: [],
       points: 0,
     };
     this.state.currentLedSuit = null;
-    this.state.activeSeat = expectedLeader;
-    this.state.gameMessage = `Trick ${trick.trickIndex + 1} done. Next trick led by ${formatSeat(expectedLeader, false)}.`;
+    this.state.activeSeat = winnerSeat;
+    this.state.gameMessage = `Next trick led by ${formatSeat(winnerSeat, false)}.`;
+    this._appendLog("TRICK_STARTED");
+    return { ok: true };
   }
 
   _resolveTrickWinner(plays, ledSuit, trumpOpen) {

@@ -134,7 +134,15 @@ test("a new second-round winner reselects trump and completes all eight tricks",
   );
 
   let plays = 0;
-  while (engine.state.phase === "trick_play" && plays < 40) {
+  while (
+    (engine.state.phase === "trick_play" ||
+      engine.state.phase === "trick_result") &&
+    plays < 40
+  ) {
+    if (engine.state.phase === "trick_result") {
+      assert.deepEqual(engine.advanceTrick(), { ok: true });
+      continue;
+    }
     const action = engine
       .getLegalActions(engine.state.activeSeat)
       .find((candidate) => candidate.type === "PLAY_CARD");

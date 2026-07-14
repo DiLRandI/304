@@ -279,6 +279,129 @@ test("a closed-trump maker can lead the final trick with only the indicator", ()
   assert.equal(engine.state.activeSeat, 0);
 });
 
+function engineAwaitingCompletedTrick({ final = false } = {}) {
+  const engine = new GameEngine({
+    humanCount: 4,
+    ruleProfile: "classic_304_4p",
+  });
+  engine.startMatch();
+  const cards = [
+    { cardId: "clubs-J", points: 30, rank: "J", suit: "clubs" },
+    { cardId: "clubs-9", points: 20, rank: "9", suit: "clubs" },
+    { cardId: "clubs-7", points: 0, rank: "7", suit: "clubs" },
+    { cardId: "clubs-Q", points: 2, rank: "Q", suit: "clubs" },
+  ];
+  engine.state.phase = "trick_play";
+  engine.state.activeSeat = 3;
+  engine.state.currentLedSuit = "clubs";
+  engine.state.completedTricks = final
+    ? Array.from({ length: 7 }, (_, trickIndex) => ({
+        leaderSeat: 0,
+        plays: [],
+        pointValue: 0,
+        trickIndex,
+        winnerSeat: 0,
+      }))
+    : [];
+  engine.state.currentTrick = {
+    leaderSeat: 0,
+    plays: cards.slice(0, 3).map((card, seatIndex) => ({
+      card,
+      faceDown: false,
+      fromIndicator: false,
+      seatIndex,
+      source: "hand",
+    })),
+    points: 50,
+    trickIndex: final ? 7 : 0,
+  };
+  engine.state.seats.forEach((seat, seatIndex) => {
+    seat.hand =
+      seatIndex === 3
+        ? [cards[3]]
+        : final
+          ? []
+          : [
+              {
+                cardId: `spades-${seatIndex + 6}`,
+                points: 0,
+                rank: String(seatIndex + 6),
+                suit: "spades",
+              },
+            ];
+    seat.wonCards = [];
+    seat.trickPoints = 0;
+  });
+  engine.state.trump = {
+    card: null,
+    indicatorVisible: true,
+    isOpen: true,
+    maker: 0,
+    suit: "hearts",
+  };
+  engine.state.trumpClosed = false;
+  engine.state.trumpSuit = "hearts";
+  engine.state.bidding.currentBid = 160;
+  engine.state.bidding.currentBidSeat = 0;
+  return { card: cards[3], engine };
+}
+
+test("a completed trick pauses with every played card before the next trick", () => {
+  const { card, engine } = engineAwaitingCompletedTrick();
+
+  assert.deepEqual(
+    engine.applyAction({
+      actorSeatIndex: 3,
+      cardId: card.cardId,
+      faceDown: false,
+      fromIndicator: false,
+      seatIndex: 3,
+      type: "PLAY_CARD",
+    }),
+    { ok: true },
+  );
+
+  assert.equal(engine.state.phase, "trick_result");
+  assert.equal(engine.state.activeSeat, null);
+  assert.equal(engine.state.currentTrick.plays.length, 4);
+  assert.equal(engine.state.currentTrick.winnerSeat, 0);
+  assert.deepEqual(engine.getLegalActions(0), []);
+  assert.match(engine.getPrompt(0), /Seat 1 wins the trick/i);
+
+  assert.deepEqual(engine.advanceTrick(), { ok: true });
+  assert.equal(engine.state.phase, "trick_play");
+  assert.equal(engine.state.currentTrick.plays.length, 0);
+  assert.equal(engine.state.currentTrick.leaderSeat, 0);
+  assert.equal(engine.state.activeSeat, 0);
+});
+
+test("the final completed trick pauses before hand scoring", () => {
+  const { card, engine } = engineAwaitingCompletedTrick({ final: true });
+
+  assert.deepEqual(
+    engine.applyAction({
+      actorSeatIndex: 3,
+      cardId: card.cardId,
+      faceDown: false,
+      fromIndicator: false,
+      seatIndex: 3,
+      type: "PLAY_CARD",
+    }),
+    { ok: true },
+  );
+
+  assert.equal(engine.state.phase, "trick_result");
+  assert.equal(engine.state.currentTrick.plays.length, 4);
+  assert.equal(engine.state.handResult, null);
+
+  assert.deepEqual(engine.advanceTrick(), { ok: true });
+  assert.ok(["hand_result", "match_complete"].includes(engine.state.phase));
+  assert.equal(engine.state.handResult.trickCount, 8);
+  const result = engine.state.handResult;
+  assert.equal(engine.advanceTrick().ok, false);
+  assert.equal(engine.state.handResult, result);
+});
+
 function faceDownPrivacyEngine() {
   const engine = new GameEngine({
     humanCount: 4,
