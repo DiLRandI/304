@@ -1,5 +1,5 @@
 import { roomClosureReason } from "@three-zero-four/room-domain";
-import type { PostgresRoomStore } from "./room-store.js";
+import type { RoomMaintenanceStore } from "../contexts/rooms/application/room-maintenance-ports.js";
 
 const ALL_AUTOMATION_KINDS = [
   "BOT_ACTION",
@@ -14,19 +14,7 @@ export interface MaintenanceResult {
   revokedSessions: number;
 }
 
-type MaintenanceStore = Pick<
-  PostgresRoomStore,
-  | "appendEventAndSnapshot"
-  | "cancelAutomationForRoom"
-  | "findStaleRoomIds"
-  | "loadRoomForUpdate"
-  | "loadSnapshot"
-  | "purgeClosedRooms"
-  | "revokeExpiredSessions"
-  | "transaction"
->;
-
-interface RoomMaintenanceDependencies {
+interface RoomMaintenanceDependencies<Transaction> {
   batchSize: number;
   closedRetentionDays: number;
   commandIds: {
@@ -34,7 +22,7 @@ interface RoomMaintenanceDependencies {
   };
   expiredSessionRevokeHours: number;
   lobbyIdleHours: number;
-  store: MaintenanceStore;
+  store: RoomMaintenanceStore<Transaction>;
   terminalRetentionDays: number;
 }
 
@@ -46,10 +34,10 @@ function subtractDays(now: Date, days: number): Date {
   return subtractHours(now, days * 24);
 }
 
-export class RoomMaintenance {
-  private readonly dependencies: RoomMaintenanceDependencies;
+export class RoomMaintenance<Transaction> {
+  private readonly dependencies: RoomMaintenanceDependencies<Transaction>;
 
-  constructor(dependencies: RoomMaintenanceDependencies) {
+  constructor(dependencies: RoomMaintenanceDependencies<Transaction>) {
     this.dependencies = dependencies;
   }
 
@@ -101,7 +89,10 @@ export class RoomMaintenance {
         roomId,
       );
       if (!room) return false;
-      const reason = roomClosureReason(room, { lobbyCutoff, terminalCutoff });
+      const reason =
+        room.status === "recovery_failed"
+          ? null
+          : roomClosureReason(room, { lobbyCutoff, terminalCutoff });
       if (!reason) return false;
       const snapshot = await this.dependencies.store.loadSnapshot(
         room.id,

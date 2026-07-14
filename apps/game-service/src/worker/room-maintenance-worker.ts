@@ -1,9 +1,8 @@
-import type {
-  MaintenanceResult,
-  RoomMaintenance,
-} from "../domain/room-maintenance.js";
+import type { MaintenanceResult } from "../domain/room-maintenance.js";
 
-type MaintenanceRunner = Pick<RoomMaintenance, "runOnce">;
+export interface MaintenanceRunner {
+  runOnce(now?: Date): Promise<MaintenanceResult>;
+}
 
 export class RoomMaintenanceWorker {
   private active: Promise<void> | undefined;

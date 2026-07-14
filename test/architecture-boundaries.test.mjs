@@ -39,7 +39,9 @@ async function collectSourceFiles(relativeDirectory) {
 }
 
 function importsOf(source, filename) {
-  const scriptKind = filename.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const scriptKind = filename.endsWith("x")
+    ? ts.ScriptKind.TSX
+    : ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(
     filename,
     source,
@@ -98,7 +100,8 @@ function assertAllowedImport(filename, specifier) {
         "@three-zero-four/room-domain",
       ].some(
         (domainPackage) =>
-          specifier === domainPackage || specifier.startsWith(`${domainPackage}/`),
+          specifier === domainPackage ||
+          specifier.startsWith(`${domainPackage}/`),
       ),
       false,
       `${normalized} must consume wire projections instead of ${specifier}`,
@@ -191,14 +194,31 @@ test("documents and enforces the DDD dependency direction", async () => {
   for (const filename of knownFiles) {
     const source = await readFile(path.join(repoRoot, filename), "utf8");
     const imports = importsOf(source, filename);
-    imports.forEach((specifier) => assertAllowedImport(filename, specifier));
+    for (const specifier of imports) {
+      assertAllowedImport(filename, specifier);
+    }
     graph.set(
       filename,
       imports
-        .map((specifier) => resolveRelativeImport(filename, specifier, knownFiles))
+        .map((specifier) =>
+          resolveRelativeImport(filename, specifier, knownFiles),
+        )
         .filter(Boolean),
     );
   }
 
   assertAcyclic(graph);
+});
+
+test("room maintenance depends on an application-owned persistence port", async () => {
+  const maintenanceSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/domain/room-maintenance.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(maintenanceSource, /from ["'].+room-store\.js["']/);
+  assert.match(
+    maintenanceSource,
+    /contexts\/rooms\/application\/room-maintenance-ports\.js/,
+  );
 });

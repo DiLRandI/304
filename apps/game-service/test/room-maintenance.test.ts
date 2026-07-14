@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { RoomMaintenanceStore } from "../src/contexts/rooms/application/room-maintenance-ports.js";
 import { RoomMaintenance } from "../src/domain/room-maintenance.js";
 
 describe("RoomMaintenance", () => {
@@ -25,14 +26,14 @@ describe("RoomMaintenance", () => {
       transaction: async <T>(
         callback: (value: typeof transaction) => Promise<T>,
       ) => callback(transaction),
-    };
+    } satisfies RoomMaintenanceStore<typeof transaction>;
     const maintenance = new RoomMaintenance({
       batchSize: 100,
       closedRetentionDays: 30,
       commandIds: { next: () => "maintenance-command-1" },
       expiredSessionRevokeHours: 24,
       lobbyIdleHours: 24,
-      store: store as never,
+      store,
       terminalRetentionDays: 14,
     });
 

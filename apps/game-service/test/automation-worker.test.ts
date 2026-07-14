@@ -3,10 +3,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { RoomCoordinator } from "../src/domain/room-coordinator.js";
-import type { RoomMaintenance } from "../src/domain/room-maintenance.js";
 import type { ClaimedAutomationJob } from "../src/domain/room-store.js";
 import { AutomationWorker } from "../src/worker/automation-worker.js";
-import { RoomMaintenanceWorker } from "../src/worker/room-maintenance-worker.js";
+import {
+  type MaintenanceRunner,
+  RoomMaintenanceWorker,
+} from "../src/worker/room-maintenance-worker.js";
 
 function claimedJob(id: string, roomId: string): ClaimedAutomationJob {
   return {
@@ -234,7 +236,7 @@ describe("room maintenance worker", () => {
     }>();
     const maintenance = {
       runOnce: vi.fn().mockReturnValue(firstRun.promise),
-    } as unknown as RoomMaintenance;
+    } satisfies MaintenanceRunner;
     const reported = vi.fn().mockResolvedValue(undefined);
     const worker = new RoomMaintenanceWorker({
       maintenance,
