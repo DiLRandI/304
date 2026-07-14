@@ -1,12 +1,23 @@
 "use client";
 
 import type { GameAction } from "@three-zero-four/contracts";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { GameClient } from "../api/game-service-client";
 import { useRoomController } from "../hooks/use-room-controller";
-import { GameTable } from "./game-table";
 import { RoomLobby } from "./room-lobby";
+
+const GameTable = dynamic(
+  () => import("./game-table").then(({ GameTable }) => GameTable),
+  {
+    loading: () => (
+      <section aria-live="polite" className="safe-table-state">
+        Loading the game table…
+      </section>
+    ),
+  },
+);
 
 export function RoomClient({
   roomReference,

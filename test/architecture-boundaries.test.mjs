@@ -413,6 +413,20 @@ test("the web realtime hook uses React effect events for current callbacks", asy
   assert.doesNotMatch(realtimeSource, /optionsRef/);
 });
 
+test("the room client loads gameplay UI only after the lobby", async () => {
+  const roomClientSource = await readFile(
+    path.join(repoRoot, "apps/web/src/features/room/ui/room-client.tsx"),
+    "utf8",
+  );
+
+  assert.match(roomClientSource, /dynamic\(/);
+  assert.match(roomClientSource, /import\(["']\.\/game-table["']\)/);
+  assert.doesNotMatch(
+    roomClientSource,
+    /import \{ GameTable \} from ["']\.\/game-table["']/,
+  );
+});
+
 test("the v1 routes depend on application use cases instead of a coordinator", async () => {
   const routesSource = await readFile(
     path.join(repoRoot, "apps/game-service/src/routes/v1.ts"),
