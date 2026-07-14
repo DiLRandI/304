@@ -9,12 +9,12 @@ import {
   InvalidDisplayNameError,
   normalizeDisplayName,
 } from "../contexts/player-access/domain/display-name.js";
+import {
+  formatSessionCredential,
+  parseSessionCredential,
+} from "../contexts/player-access/domain/session-credential.js";
 import type { Database } from "../infra/database.js";
 import { DomainError } from "./errors.js";
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export interface AuthenticatedSession {
   sessionId: string;
@@ -38,23 +38,6 @@ interface SessionRow extends QueryResultRow {
   display_name: string;
   secret_hash: string;
   expires_at: Date;
-}
-
-function parseCookieValue(
-  cookieValue: string | undefined,
-): { sessionId: string; secret: string } | null {
-  const parts = cookieValue?.split(".");
-  if (parts?.length !== 2) return null;
-  const [sessionId, secret] = parts;
-  if (
-    !sessionId ||
-    !secret ||
-    !UUID_PATTERN.test(sessionId) ||
-    !SECRET_PATTERN.test(secret)
-  ) {
-    return null;
-  }
-  return { sessionId, secret };
 }
 
 function sessionRequired(): DomainError {
@@ -111,14 +94,14 @@ export class SessionService {
       playerId,
       displayName: normalizedDisplayName,
       expiresAt,
-      cookieValue: `${sessionId}.${secret}`,
+      cookieValue: formatSessionCredential({ secret, sessionId }),
     };
   }
 
   async require(
     cookieValue: string | undefined,
   ): Promise<AuthenticatedSession> {
-    const parsed = parseCookieValue(cookieValue);
+    const parsed = parseSessionCredential(cookieValue);
     if (!parsed) throw sessionRequired();
     const result = await this.database.query<SessionRow>(
       "SELECT sessions.id AS session_id, sessions.player_id, players.display_name, sessions.secret_hash, sessions.expires_at FROM sessions JOIN players ON players.id = sessions.player_id WHERE sessions.id = $1 AND sessions.revoked_at IS NULL AND sessions.expires_at > now()",
