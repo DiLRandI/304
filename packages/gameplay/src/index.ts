@@ -1,10 +1,15 @@
 export type {
+  AggregateCommandResult,
   GameplayHand,
   GameplayPhase,
   StartGameplayHandInput,
   TrumpState,
 } from "./aggregate.js";
-export { nextDealer, startGameplayHand } from "./aggregate.js";
+export {
+  applyGameplayCommand,
+  nextDealer,
+  startGameplayHand,
+} from "./aggregate.js";
 export type { BiddingState } from "./bidding.js";
 export {
   createFourCardBidding,

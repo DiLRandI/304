@@ -99,6 +99,29 @@ describe("second bidding and trump", () => {
     ]);
   });
 
+  it("gives every seat one action before an all-pass second round ends", () => {
+    let state = startSecondBidding(
+      profile,
+      seatIndex(0, 4),
+      bidAmount(160),
+      seatIndex(0, 4),
+    );
+    for (const actor of [0, 1, 2]) {
+      state = apply(state, {
+        actor: seatIndex(actor, 4),
+        type: "PASS_BID",
+      });
+    }
+    expect(state.status).toBe("active");
+    expect(state.activeSeat).toBe(3);
+
+    state = apply(state, {
+      actor: seatIndex(3, 4),
+      type: "PASS_BID",
+    });
+    expect(state.status).toBe("complete");
+  });
+
   it("selects an eligible indicator and enforces maker-only trump mode", () => {
     const hand = buildDeck(profile).slice(0, 4);
     const selected = selectTrumpIndicator(
