@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { loadConfig } from "./config.js";
 import { RoomCoordinator } from "./domain/room-coordinator.js";
 import { RoomMaintenance } from "./domain/room-maintenance.js";
@@ -54,6 +55,7 @@ const worker = new AutomationWorker({
 const maintenance = new RoomMaintenance({
   batchSize: config.MAINTENANCE_BATCH_SIZE,
   closedRetentionDays: config.ROOM_CLOSED_RETENTION_DAYS,
+  commandIds: { next: randomUUID },
   expiredSessionRevokeHours: config.EXPIRED_SESSION_REVOKE_HOURS,
   lobbyIdleHours: config.ROOM_LOBBY_IDLE_HOURS,
   store,

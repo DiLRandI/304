@@ -118,6 +118,7 @@ describeIntegration("room maintenance", () => {
     const maintenance = new RoomMaintenance({
       batchSize: 100,
       closedRetentionDays: 30,
+      commandIds: { next: randomUUID },
       expiredSessionRevokeHours: 24,
       lobbyIdleHours: 24,
       store,

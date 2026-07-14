@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { roomClosureReason } from "@three-zero-four/room-domain";
 import type { PostgresRoomStore } from "./room-store.js";
 
@@ -30,6 +29,9 @@ type MaintenanceStore = Pick<
 interface RoomMaintenanceDependencies {
   batchSize: number;
   closedRetentionDays: number;
+  commandIds: {
+    next(): string;
+  };
   expiredSessionRevokeHours: number;
   lobbyIdleHours: number;
   store: MaintenanceStore;
@@ -115,7 +117,7 @@ export class RoomMaintenance {
       await this.dependencies.store.appendEventAndSnapshot(transaction, {
         roomId: room.id,
         expectedVersion: room.eventVersion,
-        commandId: randomUUID(),
+        commandId: this.dependencies.commandIds.next(),
         actorPlayerId: null,
         eventType: "ROOM_CLOSED",
         payload: { reason },
