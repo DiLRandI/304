@@ -27,6 +27,7 @@ import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-proje
 import type { CreateRoomHandler } from "../contexts/rooms/application/create-room.js";
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
+import type { StartRoomHandler } from "../contexts/rooms/application/start-room.js";
 import type { RateLimiter } from "../infra/redis-coordination.js";
 import { ServiceError } from "../shared/service-error.js";
 
@@ -66,6 +67,7 @@ export interface GameRuntime {
     readonly create: Pick<CreateRoomHandler, "execute">;
     readonly join?: Pick<JoinRoomHandler, "execute">;
     readonly leave?: Pick<LeaveRoomHandler, "execute">;
+    readonly start?: Pick<StartRoomHandler, "execute">;
   };
   sessions: PlayerAccessService;
   rateLimiter: RateLimiter;
@@ -207,6 +209,18 @@ export async function registerV1Routes(
         60,
       );
       const input = StartRoomRequestSchema.parse(request.body);
+      if (runtime.roomUseCases.start) {
+        const parsedRoomId = roomId(
+          RoomIdPathSchema.parse(request.params.roomId),
+        );
+        await runtime.roomUseCases.start.execute({
+          actor: playerId(session.playerId),
+          commandId: commandId(input.commandId),
+          expectedVersion: eventVersion(input.expectedVersion),
+          roomId: parsedRoomId,
+        });
+        return runtime.coordinator.getSnapshot(session, parsedRoomId);
+      }
       return runtime.coordinator.startRoom(
         session,
         request.params.roomId,

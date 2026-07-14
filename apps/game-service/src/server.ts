@@ -12,6 +12,7 @@ import { CreateRoomHandler } from "./contexts/rooms/application/create-room.js";
 import { ExecuteRoomCommandHandler } from "./contexts/rooms/application/execute-room-command.js";
 import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "./contexts/rooms/application/leave-room.js";
+import { StartRoomHandler } from "./contexts/rooms/application/start-room.js";
 import { createDatabase } from "./infra/database.js";
 import { createReadiness } from "./infra/readiness.js";
 import { createRedis } from "./infra/redis.js";
@@ -72,6 +73,7 @@ const game = {
     ),
     join: new JoinRoomHandler(roomCommands, presence),
     leave: new LeaveRoomHandler(roomCommands, presence),
+    start: new StartRoomHandler(roomCommands, presence),
   },
   sessions,
   rateLimiter: new RateLimiter(redis),
