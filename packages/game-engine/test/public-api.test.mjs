@@ -508,7 +508,7 @@ test("opening trump does not reveal an earlier face-down non-trump card", () => 
   );
 });
 
-test("concealed face-down cards also conceal their point value", () => {
+test("concealed face-down cards and points stay hidden through results", () => {
   const { engine } = faceDownPrivacyEngine();
   const hiddenNine = {
     cardId: "spades-9",
@@ -531,11 +531,26 @@ test("concealed face-down cards also conceal their point value", () => {
   assert.equal(engine.getSeatView(0).trickPoints, 0);
 
   engine.state.phase = "hand_result";
-  const revealed = engine.getPublicState(0);
-  assert.equal(revealed.trickPointsPartial, false);
-  assert.equal(revealed.completedTricks[0].points, 50);
-  assert.equal(revealed.completedTricks[0].pointValue, 50);
-  assert.equal(revealed.seats[0].trickPoints, 50);
+  const handResult = engine.getPublicState(0);
+  assert.equal(handResult.trickPointsPartial, true);
+  assert.equal(handResult.completedTricks[0].points, null);
+  assert.equal(handResult.completedTricks[0].pointValue, null);
+  assert.equal(handResult.seats[0].trickPoints, 0);
+  assert.deepEqual(handResult.completedTricks[0].plays[1].card, {
+    cardId: "Card Back",
+    hidden: true,
+  });
+
+  engine.state.phase = "match_complete";
+  const matchResult = engine.getPublicState(0);
+  assert.equal(matchResult.trickPointsPartial, true);
+  assert.equal(matchResult.completedTricks[0].points, null);
+  assert.equal(matchResult.completedTricks[0].pointValue, null);
+  assert.equal(matchResult.seats[0].trickPoints, 0);
+  assert.deepEqual(matchResult.completedTricks[0].plays[1].card, {
+    cardId: "Card Back",
+    hidden: true,
+  });
 });
 
 test("public reconnect summaries omit hidden autopilot card identities", () => {

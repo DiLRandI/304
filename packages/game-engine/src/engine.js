@@ -534,12 +534,6 @@ export class GameEngine {
 
   _isPlayPubliclyVisible(play) {
     if (!play?.faceDown) return true;
-    if (
-      this.state.phase === PHASE.HAND_RESULT ||
-      this.state.phase === PHASE.MATCH_COMPLETE
-    ) {
-      return true;
-    }
     return Boolean(
       this.state.trump?.isOpen &&
         play.card?.suit &&
