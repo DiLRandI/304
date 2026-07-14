@@ -1,26 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const CARD_VALUES = [
-  "Jack · 30 points",
-  "Nine · 20 points",
-  "Ace · 11 points",
-  "Ten · 10 points",
-  "King · 3 points",
-  "Queen · 2 points",
-  "Eight, Seven, and Six · 0 points",
-] as const;
-
-export function CardValues() {
-  return (
-    <ul className="card-values">
-      {CARD_VALUES.map((value) => (
-        <li key={value}>{value}</li>
-      ))}
-    </ul>
-  );
-}
+import { CardValues } from "./card-values";
 
 export function RulesDrawer({ profileId }: { profileId: string }) {
   const [open, setOpen] = useState(false);

@@ -1,7 +1,7 @@
 "use client";
 
 import type { GameAction, RoomProjection } from "@three-zero-four/contracts";
-import { RulesDrawer } from "../../../components/rules-drawer";
+import { RulesDrawer } from "../../rules/ui/rules-drawer";
 import { partitionCardActions } from "../model/card-action";
 import { readActiveRoomView } from "../model/room-view";
 import { CommandActions } from "./command-actions";

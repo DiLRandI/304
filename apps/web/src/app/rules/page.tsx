@@ -1,4 +1,4 @@
-import { CardValues } from "../../components/rules-drawer";
+import { CardValues } from "../../features/rules/ui/card-values";
 
 export default function RulesPage() {
   return (
