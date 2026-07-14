@@ -15,10 +15,6 @@ const sourceRoots = [
   "apps/game-service/src/contexts",
   "apps/web/src",
 ];
-const roomCoordinatorFile = path.join(
-  repoRoot,
-  "apps/game-service/src/contexts/rooms/adapters/orchestration/room-coordinator.ts",
-);
 const sourceExtensions = new Set([".js", ".jsx", ".ts", ".tsx"]);
 
 async function collectSourceFiles(relativeDirectory) {
@@ -236,21 +232,17 @@ test("room maintenance depends on an application-owned persistence port", async 
   assert.match(maintenanceSource, /\.\/room-maintenance-ports\.js/);
 });
 
-test("room coordination depends on application-owned lease and presence ports", async () => {
-  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
-
-  assert.doesNotMatch(coordinatorSource, /infra\/redis-coordination\.js/);
-  assert.match(coordinatorSource, /application\/room-coordination-ports\.js/);
-});
-
 test("gameplay recovery errors belong to the Gameplay application", async () => {
-  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
-
-  assert.doesNotMatch(coordinatorSource, /class RecoveryError/);
-  assert.match(
-    coordinatorSource,
-    /gameplay\/application\/gameplay-recovery-error\.js/,
+  const recoverySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.ts",
+    ),
+    "utf8",
   );
+
+  assert.doesNotMatch(recoverySource, /class RecoveryError/);
+  assert.match(recoverySource, /application\/gameplay-recovery-error\.js/);
 });
 
 test("legacy gameplay snapshot replay belongs to a Gameplay adapter", async () => {
@@ -261,11 +253,8 @@ test("legacy gameplay snapshot replay belongs to a Gameplay adapter", async () =
     ),
     "utf8",
   );
-  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
 
   assert.match(recoverySource, /export class LegacyGameplayRecovery/);
-  assert.match(coordinatorSource, /LegacyGameplayRecovery/);
-  assert.doesNotMatch(coordinatorSource, /private async recoverLockedRoom/);
 });
 
 test("legacy gameplay automation scheduling belongs to a Gameplay adapter", async () => {
@@ -276,20 +265,10 @@ test("legacy gameplay automation scheduling belongs to a Gameplay adapter", asyn
     ),
     "utf8",
   );
-  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
 
   assert.match(
     schedulerSource,
     /export class LegacyGameplayAutomationScheduler/,
-  );
-  assert.match(coordinatorSource, /LegacyGameplayAutomationScheduler/);
-  assert.doesNotMatch(
-    coordinatorSource,
-    /private async scheduleNextAutomation/,
-  );
-  assert.doesNotMatch(
-    coordinatorSource,
-    /private async scheduleDisconnectGraceJobs/,
   );
 });
 
@@ -322,7 +301,6 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
     path.join(repoRoot, "apps/game-service/src/server.ts"),
     "utf8",
   );
-  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
 
   assert.match(executorSource, /export class LegacyGameplayCommandExecutor/);
   assert.match(serverSource, /new LegacyGameplayCommandExecutor/);
@@ -330,7 +308,6 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
     serverSource,
     /new SubmitGameplayCommandHandler\(gameplayCommands/,
   );
-  assert.doesNotMatch(coordinatorSource, /async submitCommand/);
 });
 
 test("the web server composes realtime connections without a room coordinator", async () => {
@@ -349,16 +326,6 @@ test("the web server composes realtime connections without a room coordinator", 
   assert.match(connectionsSource, /export class LegacyGameplayConnections/);
   assert.match(serverSource, /new LegacyGameplayConnections/);
   assert.doesNotMatch(serverSource, /new RoomCoordinator/);
-
-  const coordinatorSource = await readFile(
-    path.join(
-      repoRoot,
-      "apps/game-service/src/contexts/rooms/adapters/orchestration/room-coordinator.ts",
-    ),
-    "utf8",
-  );
-  assert.doesNotMatch(coordinatorSource, /async markRealtimePresence/);
-  assert.doesNotMatch(coordinatorSource, /async markRealtimeDisconnected/);
 });
 
 test("room projection reads use a dedicated query adapter", async () => {
@@ -369,11 +336,8 @@ test("room projection reads use a dedicated query adapter", async () => {
     ),
     "utf8",
   );
-  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
 
   assert.match(querySource, /export class LegacyRoomProjectionQueries/);
-  assert.match(coordinatorSource, /LegacyRoomProjectionQueries/);
-  assert.doesNotMatch(coordinatorSource, /private async projectCurrent/);
 });
 
 test("the PostgreSQL room store is a Rooms persistence adapter", async () => {
@@ -404,13 +368,6 @@ test("the automation worker depends on behavioral ports", async () => {
     path.join(repoRoot, "apps/game-service/src/worker.ts"),
     "utf8",
   );
-  const coordinatorSource = await readFile(
-    path.join(
-      repoRoot,
-      "apps/game-service/src/contexts/rooms/adapters/orchestration/room-coordinator.ts",
-    ),
-    "utf8",
-  );
 
   assert.doesNotMatch(workerSource, /postgres-room-store\.js/);
   assert.doesNotMatch(workerSource, /domain\/room-coordinator\.js/);
@@ -418,7 +375,6 @@ test("the automation worker depends on behavioral ports", async () => {
   assert.match(workerSource, /export interface AutomationExecutor/);
   assert.doesNotMatch(workerSource, /coordinator/i);
   assert.doesNotMatch(bootstrapSource, /RoomCoordinator/);
-  assert.doesNotMatch(coordinatorSource, /async runAutomation/);
 });
 
 test("the outbox publisher depends on a behavioral store port", async () => {
@@ -491,7 +447,13 @@ test("durability integration coverage composes room application handlers", async
 });
 
 test("room persistence records are owned by the Rooms application", async () => {
-  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
+  const portSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/application/room-coordinator-store.ts",
+    ),
+    "utf8",
+  );
   const storeSource = await readFile(
     path.join(
       repoRoot,
@@ -500,31 +462,34 @@ test("room persistence records are owned by the Rooms application", async () => 
     "utf8",
   );
 
-  assert.match(coordinatorSource, /application\/room-persistence-model\.js/);
+  assert.match(portSource, /\.\/room-persistence-model\.js/);
   assert.doesNotMatch(storeSource, /export interface StoredRoom/);
   assert.doesNotMatch(storeSource, /export interface StoredSeat/);
 });
 
-test("the room coordinator depends on an application-owned store port", async () => {
-  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
+test("gameplay adapters depend on an application-owned room store port", async () => {
+  const executorSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.ts",
+    ),
+    "utf8",
+  );
 
-  assert.doesNotMatch(coordinatorSource, /postgres-room-store\.js/);
-  assert.match(coordinatorSource, /application\/room-coordinator-store\.js/);
+  assert.doesNotMatch(executorSource, /postgres-room-store\.js/);
+  assert.match(executorSource, /application\/room-coordinator-store\.js/);
 });
 
-test("room coordination belongs to a Rooms orchestration adapter", async () => {
-  const legacyDomainFiles = await collectSourceFiles(
-    "apps/game-service/src/domain",
+test("the legacy room coordinator is retired", async () => {
+  const orchestrationFiles = await collectSourceFiles(
+    "apps/game-service/src/contexts/rooms/adapters/orchestration",
   );
   assert.equal(
-    legacyDomainFiles.includes(
-      "apps/game-service/src/domain/room-coordinator.ts",
+    orchestrationFiles.includes(
+      "apps/game-service/src/contexts/rooms/adapters/orchestration/room-coordinator.ts",
     ),
     false,
   );
-  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
-  assert.match(coordinatorSource, /export class RoomCoordinator/);
-  assert.doesNotMatch(coordinatorSource, /DomainError/);
 });
 
 test("transport-aware service errors are not modeled as domain code", async () => {
