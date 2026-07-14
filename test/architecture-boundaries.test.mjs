@@ -336,3 +336,13 @@ test("room persistence records are owned by the Rooms application", async () => 
   assert.doesNotMatch(storeSource, /export interface StoredRoom/);
   assert.doesNotMatch(storeSource, /export interface StoredSeat/);
 });
+
+test("the room coordinator depends on an application-owned store port", async () => {
+  const coordinatorSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/domain/room-coordinator.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(coordinatorSource, /postgres-room-store\.js/);
+  assert.match(coordinatorSource, /application\/room-coordinator-store\.js/);
+});

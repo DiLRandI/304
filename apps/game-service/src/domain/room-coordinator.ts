@@ -32,13 +32,13 @@ import { RecoveryError } from "../contexts/gameplay/application/gameplay-recover
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { projectLobbyForViewer } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import type {
-  PostgresRoomStore,
-  Queryable,
-} from "../contexts/rooms/adapters/persistence/postgres-room-store.js";
-import type {
   RoomLease,
   RoomPresence,
 } from "../contexts/rooms/application/room-coordination-ports.js";
+import type {
+  RoomCoordinatorStore,
+  RoomTransaction,
+} from "../contexts/rooms/application/room-coordinator-store.js";
 import type { RoomIdentityProvider } from "../contexts/rooms/application/room-identity-provider.js";
 import type { RoomInviteCodeProvider } from "../contexts/rooms/application/room-invite-code-provider.js";
 import type {
@@ -52,7 +52,7 @@ import { DomainError } from "./errors.js";
 interface RoomCoordinatorDependencies {
   identities: RoomIdentityProvider;
   inviteCodes: RoomInviteCodeProvider;
-  store: PostgresRoomStore;
+  store: RoomCoordinatorStore;
   lease: RoomLease;
   presence: RoomPresence;
   automation?: {
@@ -82,7 +82,7 @@ function ensureAvailable(room: StoredRoom, allowClosed = false): void {
 }
 
 export class RoomCoordinator {
-  private readonly store: PostgresRoomStore;
+  private readonly store: RoomCoordinatorStore;
   private readonly lease: RoomLease;
   private readonly presence: RoomPresence;
   private readonly automation: RoomCoordinatorDependencies["automation"];
@@ -779,7 +779,7 @@ export class RoomCoordinator {
     session: AuthenticatedSession,
     request: CommandRequest,
     apply: (
-      transaction: Queryable,
+      transaction: RoomTransaction,
       room: StoredRoom,
       viewerSeatIndex: number,
     ) => Promise<RoomProjection>,
@@ -817,7 +817,7 @@ export class RoomCoordinator {
 
   private async withRoomLease<T>(
     roomId: string,
-    work: (transaction: Queryable, room: StoredRoom) => Promise<T>,
+    work: (transaction: RoomTransaction, room: StoredRoom) => Promise<T>,
     options: { allowClosed?: boolean } = {},
   ): Promise<T> {
     try {
@@ -843,7 +843,7 @@ export class RoomCoordinator {
   }
 
   private async scheduleNextAutomation(
-    transaction: Queryable,
+    transaction: RoomTransaction,
     room: StoredRoom,
     engine: GameEngine,
   ): Promise<void> {
@@ -898,7 +898,7 @@ export class RoomCoordinator {
   }
 
   private async scheduleDisconnectGraceJobs(
-    transaction: Queryable,
+    transaction: RoomTransaction,
     room: StoredRoom,
   ): Promise<void> {
     const disconnectGraceSeconds =
@@ -928,7 +928,7 @@ export class RoomCoordinator {
   }
 
   private async projectCurrent(
-    transaction: Queryable,
+    transaction: RoomTransaction,
     room: StoredRoom,
     viewerSeatIndex: number,
   ): Promise<RoomProjection> {
@@ -944,7 +944,7 @@ export class RoomCoordinator {
   }
 
   private async projectAtVersion(
-    transaction: Queryable,
+    transaction: RoomTransaction,
     room: StoredRoom,
     session: AuthenticatedSession,
     eventVersion: number,
@@ -979,7 +979,7 @@ export class RoomCoordinator {
   }
 
   private async recoverLockedRoom(
-    transaction: Queryable,
+    transaction: RoomTransaction,
     room: StoredRoom,
   ): Promise<GameEngine> {
     const snapshot = await this.store.loadSnapshot(room.id, transaction);
