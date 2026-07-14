@@ -6,6 +6,7 @@ import {
   playerId,
   projectRoom,
   type Room,
+  type RoomProjection,
   roomId,
 } from "@three-zero-four/room-domain";
 import { describe, expect, it } from "vitest";
@@ -32,7 +33,7 @@ function room(): Room {
 
 class FakeRoomRepository implements RoomCommandRepository {
   commitCalls: RoomCommandCommit[] = [];
-  duplicate: Room | null = null;
+  duplicate: RoomProjection | null = null;
 
   constructor(public current: Room | null = room()) {}
 
@@ -45,7 +46,7 @@ class FakeRoomRepository implements RoomCommandRepository {
     return this.current;
   }
 
-  async findDuplicate(): Promise<Room | null> {
+  async findDuplicate(): Promise<RoomProjection | null> {
     return this.duplicate;
   }
 }
@@ -71,13 +72,14 @@ describe("execute room command application handler", () => {
       commandId: roomCommandId,
       expectedVersion: 1,
       events: [{ type: "PLAYER_JOINED", version: 2 }],
+      response: projection,
       room: { eventVersion: 2 },
     });
   });
 
   it("returns a duplicate result without executing or committing again", async () => {
     const repository = new FakeRoomRepository();
-    repository.duplicate = room();
+    repository.duplicate = projectRoom(room(), hostId);
     const handler = new ExecuteRoomCommandHandler(repository);
     const projection = await handler.execute({
       command: {
@@ -89,7 +91,7 @@ describe("execute room command application handler", () => {
       roomReference: "304-AbCdEfGhIjKl_123",
     });
 
-    expect(projection).toEqual(projectRoom(repository.duplicate, hostId));
+    expect(projection).toBe(repository.duplicate);
     expect(repository.commitCalls).toEqual([]);
   });
 

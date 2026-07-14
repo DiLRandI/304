@@ -16,6 +16,7 @@ export interface RoomCommandCommit {
   readonly commandId: CommandId;
   readonly events: readonly RoomEvent[];
   readonly expectedVersion: EventVersion;
+  readonly response: RoomProjection;
   readonly room: Room;
 }
 
@@ -26,7 +27,7 @@ export interface RoomCommandRepository {
     roomId: RoomId,
     commandId: CommandId,
     actorPlayerId: PlayerId,
-  ): Promise<Room | null>;
+  ): Promise<RoomProjection | null>;
 }
 
 export interface ExecuteRoomCommandInput {
@@ -63,19 +64,21 @@ export class ExecuteRoomCommandHandler {
       input.commandId,
       actor,
     );
-    if (duplicate) return projectRoom(duplicate, actor);
+    if (duplicate) return duplicate;
 
     const result = executeRoomCommand(room, input.command);
     if (!result.ok) {
       throw new RoomApplicationError(result.error.code, result.error.message);
     }
+    const response = projectRoom(result.room, actor);
     await this.repository.commit({
       actorPlayerId: actor,
       commandId: input.commandId,
       events: result.events,
       expectedVersion: room.eventVersion,
+      response,
       room: result.room,
     });
-    return projectRoom(result.room, actor);
+    return response;
   }
 }
