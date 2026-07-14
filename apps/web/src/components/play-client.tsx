@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
-import { GameClient } from "../lib/game-client";
+import { GameClient } from "../features/room/api/game-service-client";
 import { EntryFlow } from "./entry-flow";
 
 export function PlayClient({

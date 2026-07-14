@@ -6,7 +6,7 @@ import {
   type CreateRoomOptions,
   GameServiceError,
   type GuestSession,
-} from "../lib/game-client";
+} from "../features/room/api/game-service-client";
 
 export interface EntryClient {
   createGuest(displayName: string): Promise<GuestSession>;

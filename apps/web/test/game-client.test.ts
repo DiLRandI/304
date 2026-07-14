@@ -4,7 +4,7 @@ import {
   type GameServiceError,
   parseRealtimeServerMessage,
   toRoomSocketUrl,
-} from "../src/lib/game-client.js";
+} from "../src/features/room/api/game-service-client.js";
 
 const roomProjection = {
   roomId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",

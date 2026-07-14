@@ -3,8 +3,8 @@
 import type { GameAction } from "@three-zero-four/contracts";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
+import { GameClient } from "../features/room/api/game-service-client";
 import { useRoomController } from "../hooks/use-room-controller";
-import { GameClient } from "../lib/game-client";
 import { GameTable } from "./game-table";
 import { RoomLobby } from "./room-lobby";
 
