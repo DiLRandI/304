@@ -45,7 +45,6 @@ describe("start room route cutover", () => {
       viewerSeatIndex: 0,
     };
     const getSnapshot = vi.fn().mockResolvedValue(activeProjection);
-    const legacyStart = vi.fn();
     const session = {
       displayName: "Asha",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
@@ -53,7 +52,7 @@ describe("start room route cutover", () => {
       sessionId: "b8fc339d-ee47-45f9-826c-b3477bdb8d51",
     };
     const game = {
-      coordinator: { getSnapshot, startRoom: legacyStart },
+      coordinator: { getSnapshot },
       rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
       roomUseCases: { start: { execute } },
       sessions: { require: vi.fn().mockResolvedValue(session) },
@@ -83,7 +82,6 @@ describe("start room route cutover", () => {
       roomId: aggregateId,
     });
     expect(getSnapshot).toHaveBeenCalledWith(session, aggregateId);
-    expect(legacyStart).not.toHaveBeenCalled();
     await app.close();
   });
 });

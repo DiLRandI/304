@@ -8,11 +8,16 @@ import { runMigrations } from "../scripts/migrate.js";
 import { buildApp, loadConfig } from "../src/app.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
+import { LegacyStartedRoomAutomationFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
+import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
 import { RoomCoordinator } from "../src/contexts/rooms/adapters/orchestration/room-coordinator.js";
+import { PostgresRoomCommandRepository } from "../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { CreateRoomHandler } from "../src/contexts/rooms/application/create-room.js";
+import { ExecuteRoomCommandHandler } from "../src/contexts/rooms/application/execute-room-command.js";
+import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
 import {
   Presence,
@@ -102,6 +107,17 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
       disconnectGraceSeconds: config.DISCONNECT_GRACE_SECONDS,
     },
   });
+  const roomCommands = new ExecuteRoomCommandHandler(
+    new PostgresRoomCommandRepository(
+      database,
+      new LegacyStartedRoomSnapshotFactory(),
+      new LegacyStartedRoomAutomationFactory(
+        identities,
+        () => new Date(),
+        config.BOT_ACTION_DELAY_MS,
+      ),
+    ),
+  );
   const roomChanges = new RedisRoomChangeBus(redis);
   const hub = new RoomSocketHub({ coordinator });
   await roomChanges.start((notice) => hub.handleRoomChanged(notice));
@@ -122,6 +138,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
           identities,
           inviteCodes,
         ),
+        start: new StartRoomHandler(roomCommands, presence),
       },
       sessions,
       rateLimiter: new RateLimiter(redis, `g304:test:${randomUUID()}`),

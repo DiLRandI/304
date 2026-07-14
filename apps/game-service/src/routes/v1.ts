@@ -9,7 +9,6 @@ import {
   LeaveRoomRequestSchema,
   type RoomExitResponse,
   type RoomProjection,
-  type StartRoomRequest,
   StartRoomRequestSchema,
 } from "@three-zero-four/contracts";
 import {
@@ -50,11 +49,6 @@ export interface V1RoomCoordinator {
     roomId: string,
     request: LeaveRoomRequest,
   ): Promise<RoomExitResponse>;
-  startRoom(
-    session: AuthenticatedSession,
-    roomId: string,
-    request: StartRoomRequest,
-  ): Promise<RoomProjection>;
   submitCommand(
     session: AuthenticatedSession,
     command: GameCommand,
@@ -67,7 +61,7 @@ export interface GameRuntime {
     readonly create: Pick<CreateRoomHandler, "execute">;
     readonly join?: Pick<JoinRoomHandler, "execute">;
     readonly leave?: Pick<LeaveRoomHandler, "execute">;
-    readonly start?: Pick<StartRoomHandler, "execute">;
+    readonly start: Pick<StartRoomHandler, "execute">;
   };
   sessions: PlayerAccessService;
   rateLimiter: RateLimiter;
@@ -209,23 +203,16 @@ export async function registerV1Routes(
         60,
       );
       const input = StartRoomRequestSchema.parse(request.body);
-      if (runtime.roomUseCases.start) {
-        const parsedRoomId = roomId(
-          RoomIdPathSchema.parse(request.params.roomId),
-        );
-        await runtime.roomUseCases.start.execute({
-          actor: playerId(session.playerId),
-          commandId: commandId(input.commandId),
-          expectedVersion: eventVersion(input.expectedVersion),
-          roomId: parsedRoomId,
-        });
-        return runtime.coordinator.getSnapshot(session, parsedRoomId);
-      }
-      return runtime.coordinator.startRoom(
-        session,
-        request.params.roomId,
-        input,
+      const parsedRoomId = roomId(
+        RoomIdPathSchema.parse(request.params.roomId),
       );
+      await runtime.roomUseCases.start.execute({
+        actor: playerId(session.playerId),
+        commandId: commandId(input.commandId),
+        expectedVersion: eventVersion(input.expectedVersion),
+        roomId: parsedRoomId,
+      });
+      return runtime.coordinator.getSnapshot(session, parsedRoomId);
     },
   );
 
