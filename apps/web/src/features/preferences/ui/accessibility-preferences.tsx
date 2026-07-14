@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   readBrowserStorage,
   writeBrowserStorage,
-} from "../lib/browser-storage";
+} from "../../../lib/browser-storage";
 
 type CardSize = "large" | "normal";
 

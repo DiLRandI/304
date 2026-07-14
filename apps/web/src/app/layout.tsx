@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AccessibilityPreferences } from "../components/accessibility-preferences";
 import { ConsentBanner } from "../features/consent/ui/consent-banner";
+import { AccessibilityPreferences } from "../features/preferences/ui/accessibility-preferences";
 import "./globals.css";
 
 export const metadata: Metadata = {
