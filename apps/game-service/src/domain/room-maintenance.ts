@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { PostgresRoomStore, StoredRoom } from "./room-store.js";
+import { roomClosureReason } from "@three-zero-four/room-domain";
+import type { PostgresRoomStore } from "./room-store.js";
 
 const ALL_AUTOMATION_KINDS = [
   "BOT_ACTION",
@@ -41,20 +42,6 @@ function subtractHours(now: Date, hours: number): Date {
 
 function subtractDays(now: Date, days: number): Date {
   return subtractHours(now, days * 24);
-}
-
-function maintenanceReason(
-  room: StoredRoom,
-  lobbyCutoff: Date,
-  terminalCutoff: Date,
-): "LOBBY_IDLE" | "TERMINAL_RETENTION" | null {
-  if (room.status === "lobby" && room.updatedAt <= lobbyCutoff) {
-    return "LOBBY_IDLE";
-  }
-  if (room.status === "hand_result" && room.updatedAt <= terminalCutoff) {
-    return "TERMINAL_RETENTION";
-  }
-  return null;
 }
 
 export class RoomMaintenance {
@@ -112,7 +99,7 @@ export class RoomMaintenance {
         roomId,
       );
       if (!room) return false;
-      const reason = maintenanceReason(room, lobbyCutoff, terminalCutoff);
+      const reason = roomClosureReason(room, { lobbyCutoff, terminalCutoff });
       if (!reason) return false;
       const snapshot = await this.dependencies.store.loadSnapshot(
         room.id,
