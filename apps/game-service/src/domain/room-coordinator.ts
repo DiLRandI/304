@@ -15,6 +15,7 @@ import {
   type EngineState,
   GameEngine,
 } from "@three-zero-four/game-engine";
+import type { AuthenticatedSession } from "../contexts/player-access/adapters/delivery/player-access-service.js";
 import type { Presence, RoomLease } from "../infra/redis-coordination.js";
 import { DomainError } from "./errors.js";
 import {
@@ -30,7 +31,6 @@ import type {
   StoredRoom,
   StoredSeat,
 } from "./room-store.js";
-import type { AuthenticatedSession } from "./session-service.js";
 
 class RecoveryError extends Error {
   constructor(readonly roomId: string) {

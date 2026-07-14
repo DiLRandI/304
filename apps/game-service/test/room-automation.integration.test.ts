@@ -6,6 +6,7 @@ import { GameEngine } from "@three-zero-four/game-engine";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
+import { SessionService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { RoomCoordinator } from "../src/domain/room-coordinator.js";
 import {
   type ClaimedAutomationJob,
@@ -13,7 +14,6 @@ import {
   type Queryable,
   type StoredRoom,
 } from "../src/domain/room-store.js";
-import { SessionService } from "../src/domain/session-service.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
 import { Presence, RoomLease } from "../src/infra/redis-coordination.js";
 import { AutomationWorker } from "../src/worker/automation-worker.js";

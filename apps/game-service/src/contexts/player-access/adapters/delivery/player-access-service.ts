@@ -1,15 +1,15 @@
-import { PostgresPlayerSessionReader } from "../contexts/player-access/adapters/persistence/postgres-player-session-reader.js";
-import { PostgresPlayerSessionWriter } from "../contexts/player-access/adapters/persistence/postgres-player-session-writer.js";
+import { DomainError } from "../../../../domain/errors.js";
+import type { Database } from "../../../../infra/database.js";
+import { AuthenticateSession } from "../../application/authenticate-session.js";
+import { CreateGuestSession } from "../../application/create-guest-session.js";
+import { InvalidDisplayNameError } from "../../domain/display-name.js";
+import { SessionRequiredError } from "../../domain/session-access.js";
+import { PostgresPlayerSessionReader } from "../persistence/postgres-player-session-reader.js";
+import { PostgresPlayerSessionWriter } from "../persistence/postgres-player-session-writer.js";
 import {
   NodeSessionSecrets,
   UuidIdentityProvider,
-} from "../contexts/player-access/adapters/security/node-player-access-security.js";
-import { AuthenticateSession } from "../contexts/player-access/application/authenticate-session.js";
-import { CreateGuestSession } from "../contexts/player-access/application/create-guest-session.js";
-import { InvalidDisplayNameError } from "../contexts/player-access/domain/display-name.js";
-import { SessionRequiredError } from "../contexts/player-access/domain/session-access.js";
-import type { Database } from "../infra/database.js";
-import { DomainError } from "./errors.js";
+} from "../security/node-player-access-security.js";
 
 export interface AuthenticatedSession {
   sessionId: string;

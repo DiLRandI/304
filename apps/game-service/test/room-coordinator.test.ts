@@ -5,10 +5,12 @@ import type { GameAction } from "@three-zero-four/contracts";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
+import {
+  type AuthenticatedSession,
+  SessionService,
+} from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { RoomCoordinator } from "../src/domain/room-coordinator.js";
 import { PostgresRoomStore } from "../src/domain/room-store.js";
-import type { AuthenticatedSession } from "../src/domain/session-service.js";
-import { SessionService } from "../src/domain/session-service.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
 import { Presence, RoomLease } from "../src/infra/redis-coordination.js";
 

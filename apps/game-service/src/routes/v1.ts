@@ -15,15 +15,15 @@ import {
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { ServiceConfig } from "../config.js";
+import type {
+  AuthenticatedSession,
+  SessionService,
+} from "../contexts/player-access/adapters/delivery/player-access-service.js";
 import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
 import { DomainError } from "../domain/errors.js";
 import type { RoomCoordinator } from "../domain/room-coordinator.js";
-import type {
-  AuthenticatedSession,
-  SessionService,
-} from "../domain/session-service.js";
 import type { RateLimiter } from "../infra/redis-coordination.js";
 
 export interface GameRuntime {
