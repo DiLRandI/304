@@ -360,4 +360,5 @@ test("transport-aware service errors are not modeled as domain code", async () =
     "utf8",
   );
   assert.match(errorSource, /readonly statusCode: number/);
+  assert.match(errorSource, /export class ServiceError/);
 });
