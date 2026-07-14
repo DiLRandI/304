@@ -3,11 +3,8 @@
 import type { GameAction, RoomProjection } from "@three-zero-four/contracts";
 import { RulesDrawer } from "../../../components/rules-drawer";
 import type { ProjectedCard } from "../model/card-view";
-import {
-  type GameRoomView,
-  type ProjectedHandResult,
-  readActiveRoomView,
-} from "../model/room-view";
+import type { ProjectedHandResult } from "../model/hand-result-view";
+import { type GameRoomView, readActiveRoomView } from "../model/room-view";
 import { CardButton, CardFace, cardLabel } from "./card";
 
 function isNoScoreResult(
