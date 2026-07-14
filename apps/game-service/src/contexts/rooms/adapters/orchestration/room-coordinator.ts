@@ -9,7 +9,7 @@ import type {
 } from "@three-zero-four/contracts";
 import { RoomExitResponseSchema } from "@three-zero-four/contracts";
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
-import { DomainError } from "../../../../shared/service-error.js";
+import { ServiceError } from "../../../../shared/service-error.js";
 import { projectRoomForPlayer } from "../../../gameplay/adapters/delivery/gameplay-room-presenter.js";
 import {
   createLobbyEngine,
@@ -68,16 +68,16 @@ const DEFAULT_AUTOMATION = {
   disconnectGraceSeconds: 120,
 };
 
-function roomNotFound(): DomainError {
-  return new DomainError("ROOM_NOT_FOUND", 404, "Room was not found");
+function roomNotFound(): ServiceError {
+  return new ServiceError("ROOM_NOT_FOUND", 404, "Room was not found");
 }
 
 function ensureAvailable(room: StoredRoom, allowClosed = false): void {
   if (room.status === "recovery_failed") {
-    throw new DomainError("ROOM_RECOVERY_FAILED", 503, "Room is unavailable");
+    throw new ServiceError("ROOM_RECOVERY_FAILED", 503, "Room is unavailable");
   }
   if (room.status === "closed" && !allowClosed) {
-    throw new DomainError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
+    throw new ServiceError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
   }
 }
 
@@ -195,14 +195,14 @@ export class RoomCoordinator {
           return this.projectCurrent(transaction, room, existingSeatIndex);
         }
         if (room.status !== "lobby") {
-          throw new DomainError(
+          throw new ServiceError(
             "ROOM_NOT_JOINABLE",
             409,
             "Room is not accepting joins",
           );
         }
         if (room.eventVersion !== request.expectedVersion) {
-          throw new DomainError(
+          throw new ServiceError(
             "VERSION_CONFLICT",
             409,
             "Room state changed; refresh and retry",
@@ -257,14 +257,14 @@ export class RoomCoordinator {
       request,
       async (transaction, room, viewerSeatIndex) => {
         if (room.status !== "lobby") {
-          throw new DomainError(
+          throw new ServiceError(
             "ROOM_ALREADY_STARTED",
             409,
             "Room has already started",
           );
         }
         if (room.hostPlayerId !== session.playerId) {
-          throw new DomainError(
+          throw new ServiceError(
             "HOST_REQUIRED",
             403,
             "Only the host can start the room",
@@ -343,7 +343,7 @@ export class RoomCoordinator {
           return this.projectCurrent(transaction, room, viewerSeatIndex);
         }
         if (room.status !== "lobby") {
-          throw new DomainError(
+          throw new ServiceError(
             "SEAT_REQUIRED",
             403,
             "You are not seated in this room",
@@ -373,13 +373,13 @@ export class RoomCoordinator {
       command,
       async (transaction, room, viewerSeatIndex) => {
         if (room.status !== "in_hand" && room.status !== "hand_result") {
-          throw new DomainError("ROOM_NOT_ACTIVE", 409, "Room is not active");
+          throw new ServiceError("ROOM_NOT_ACTIVE", 409, "Room is not active");
         }
         if (
           command.action.type === "ACK_RESULT" &&
           room.hostPlayerId !== session.playerId
         ) {
-          throw new DomainError(
+          throw new ServiceError(
             "HOST_REQUIRED",
             403,
             "Only the host can continue",
@@ -392,7 +392,7 @@ export class RoomCoordinator {
           actorSeatIndex: viewerSeatIndex,
         });
         if (!result.ok) {
-          throw new DomainError(
+          throw new ServiceError(
             "ACTION_REJECTED",
             409,
             result.reason ?? "Action was rejected",
@@ -438,7 +438,7 @@ export class RoomCoordinator {
         if (duplicate) {
           const parsed = RoomExitResponseSchema.safeParse(duplicate.response);
           if (!parsed.success) {
-            throw new DomainError(
+            throw new ServiceError(
               "ROOM_DATA_INVALID",
               500,
               "Invalid room leave response",
@@ -447,17 +447,21 @@ export class RoomCoordinator {
           return parsed.data;
         }
         if (room.status === "closed") {
-          throw new DomainError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
+          throw new ServiceError(
+            "ROOM_UNAVAILABLE",
+            409,
+            "Room is unavailable",
+          );
         }
         if (room.status !== "lobby" && room.status !== "hand_result") {
-          throw new DomainError(
+          throw new ServiceError(
             "ROOM_LEAVE_NOT_ALLOWED",
             409,
             "You can leave only before or after a hand",
           );
         }
         if (room.eventVersion !== request.expectedVersion) {
-          throw new DomainError(
+          throw new ServiceError(
             "VERSION_CONFLICT",
             409,
             "Room state changed; refresh and retry",
@@ -569,7 +573,7 @@ export class RoomCoordinator {
         }
         const result = engine.advanceTrick();
         if (!result.ok) {
-          throw new DomainError(
+          throw new ServiceError(
             "AUTOMATION_ACTION_REJECTED",
             500,
             "Trick advancement was rejected",
@@ -657,7 +661,7 @@ export class RoomCoordinator {
       if (!action) return "stale";
       const result = engine.applyAutomationAction(action, job.targetSeatIndex);
       if (!result.ok) {
-        throw new DomainError(
+        throw new ServiceError(
           "AUTOMATION_ACTION_REJECTED",
           500,
           "Automation action was rejected",
@@ -800,7 +804,7 @@ export class RoomCoordinator {
         );
       }
       if (room.eventVersion !== request.expectedVersion) {
-        throw new DomainError(
+        throw new ServiceError(
           "VERSION_CONFLICT",
           409,
           "Room state changed; refresh and retry",
@@ -832,7 +836,7 @@ export class RoomCoordinator {
     } catch (error) {
       if (error instanceof RecoveryError) {
         await this.store.markRecoveryFailed(roomId, "Snapshot replay failed");
-        throw new DomainError(
+        throw new ServiceError(
           "ROOM_RECOVERY_FAILED",
           503,
           "Room is unavailable",

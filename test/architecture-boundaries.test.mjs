@@ -348,6 +348,7 @@ test("room coordination belongs to a Rooms orchestration adapter", async () => {
   );
   const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
   assert.match(coordinatorSource, /export class RoomCoordinator/);
+  assert.doesNotMatch(coordinatorSource, /DomainError/);
 });
 
 test("transport-aware service errors are not modeled as domain code", async () => {
