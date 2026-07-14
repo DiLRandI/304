@@ -52,9 +52,9 @@ describe("start room route cutover", () => {
       sessionId: "b8fc339d-ee47-45f9-826c-b3477bdb8d51",
     };
     const game = {
-      coordinator: { getSnapshot },
+      coordinator: {},
       rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
-      roomUseCases: { start: { execute } },
+      roomUseCases: { snapshot: { execute: getSnapshot }, start: { execute } },
       sessions: { require: vi.fn().mockResolvedValue(session) },
     } as unknown as GameRuntime;
     const app = await buildApp({
@@ -81,7 +81,10 @@ describe("start room route cutover", () => {
       expectedVersion: 1,
       roomId: aggregateId,
     });
-    expect(getSnapshot).toHaveBeenCalledWith(session, aggregateId);
+    expect(getSnapshot).toHaveBeenCalledWith({
+      roomId: aggregateId,
+      session,
+    });
     await app.close();
   });
 });

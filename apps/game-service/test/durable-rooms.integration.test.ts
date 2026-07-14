@@ -8,6 +8,7 @@ import { runMigrations } from "../scripts/migrate.js";
 import { buildApp, loadConfig } from "../src/app.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
+import { LegacyRoomProjectionQueries } from "../src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
 import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
 import { RoomCoordinator } from "../src/contexts/rooms/adapters/orchestration/room-coordinator.js";
@@ -17,6 +18,10 @@ import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/securit
 import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { CreateRoomHandler } from "../src/contexts/rooms/application/create-room.js";
 import { ExecuteRoomCommandHandler } from "../src/contexts/rooms/application/execute-room-command.js";
+import {
+  GetRoomHandler,
+  GetRoomSnapshotHandler,
+} from "../src/contexts/rooms/application/get-room-projection.js";
 import { JoinRoomHandler } from "../src/contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "../src/contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.js";
@@ -97,11 +102,12 @@ async function buildRealApp(): Promise<TestRuntime> {
   const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
   const identities = new NodeRoomIdentityProvider();
   const inviteCodes = new NodeRoomInviteCodeProvider();
+  const roomLease = new RoomLease(redis, config.ROOM_LEASE_TTL_MS);
   const coordinator = new RoomCoordinator({
     identities,
     inviteCodes,
     store,
-    lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
+    lease: roomLease,
     presence,
     automation: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
   });
@@ -112,6 +118,13 @@ async function buildRealApp(): Promise<TestRuntime> {
       new LegacyStartedRoomAutomationFactory(identities, () => new Date(), 0),
     ),
   );
+  const roomQueries = new LegacyRoomProjectionQueries({
+    lease: roomLease,
+    store,
+  });
+  const roomPresence = {
+    refresh: coordinator.markRealtimePresence.bind(coordinator),
+  };
   const app = await buildApp({
     config,
     readiness: { database: () => database.health(), redis: async () => true },
@@ -124,8 +137,10 @@ async function buildRealApp(): Promise<TestRuntime> {
           identities,
           inviteCodes,
         ),
+        get: new GetRoomHandler(roomQueries, roomPresence),
         join: new JoinRoomHandler(roomCommands, presence),
         leave: new LeaveRoomHandler(roomCommands, presence),
+        snapshot: new GetRoomSnapshotHandler(roomQueries, roomPresence),
         start: new StartRoomHandler(roomCommands, presence),
       },
       sessions,

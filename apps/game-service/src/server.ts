@@ -1,6 +1,7 @@
 import { buildApp, loadConfig } from "./app.js";
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
 import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
+import { LegacyRoomProjectionQueries } from "./contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import { LegacyStartedRoomAutomationFactory } from "./contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
 import { LegacyStartedRoomSnapshotFactory } from "./contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
 import { RoomCoordinator } from "./contexts/rooms/adapters/orchestration/room-coordinator.js";
@@ -10,6 +11,10 @@ import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/nod
 import { NodeRoomInviteCodeProvider } from "./contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { CreateRoomHandler } from "./contexts/rooms/application/create-room.js";
 import { ExecuteRoomCommandHandler } from "./contexts/rooms/application/execute-room-command.js";
+import {
+  GetRoomHandler,
+  GetRoomSnapshotHandler,
+} from "./contexts/rooms/application/get-room-projection.js";
 import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "./contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "./contexts/rooms/application/start-room.js";
@@ -40,11 +45,12 @@ const sessions = new PlayerAccessService(database, {
 const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
 const identities = new NodeRoomIdentityProvider();
 const inviteCodes = new NodeRoomInviteCodeProvider();
+const roomLease = new RoomLease(redis, config.ROOM_LEASE_TTL_MS);
 const coordinator = new RoomCoordinator({
   identities,
   inviteCodes,
   store,
-  lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
+  lease: roomLease,
   presence,
   automation: {
     botActionDelayMs: config.BOT_ACTION_DELAY_MS,
@@ -62,6 +68,13 @@ const roomCommands = new ExecuteRoomCommandHandler(
     ),
   ),
 );
+const roomQueries = new LegacyRoomProjectionQueries({
+  lease: roomLease,
+  store,
+});
+const roomPresence = {
+  refresh: coordinator.markRealtimePresence.bind(coordinator),
+};
 const game = {
   coordinator,
   roomUseCases: {
@@ -71,8 +84,10 @@ const game = {
       identities,
       inviteCodes,
     ),
+    get: new GetRoomHandler(roomQueries, roomPresence),
     join: new JoinRoomHandler(roomCommands, presence),
     leave: new LeaveRoomHandler(roomCommands, presence),
+    snapshot: new GetRoomSnapshotHandler(roomQueries, roomPresence),
     start: new StartRoomHandler(roomCommands, presence),
   },
   sessions,

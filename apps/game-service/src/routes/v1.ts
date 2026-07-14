@@ -21,6 +21,10 @@ import type { PlayerAccessService } from "../contexts/player-access/adapters/del
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import type { CreateRoomHandler } from "../contexts/rooms/application/create-room.js";
+import type {
+  GetRoomHandler,
+  GetRoomSnapshotHandler,
+} from "../contexts/rooms/application/get-room-projection.js";
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
 import type { StartRoomHandler } from "../contexts/rooms/application/start-room.js";
@@ -28,14 +32,6 @@ import type { RateLimiter } from "../infra/redis-coordination.js";
 import { ServiceError } from "../shared/service-error.js";
 
 export interface V1RoomCoordinator {
-  getRoom(
-    session: AuthenticatedSession,
-    roomReference: string,
-  ): Promise<RoomProjection>;
-  getSnapshot(
-    session: AuthenticatedSession,
-    roomId: string,
-  ): Promise<RoomProjection>;
   submitCommand(
     session: AuthenticatedSession,
     command: GameCommand,
@@ -46,8 +42,10 @@ export interface GameRuntime {
   coordinator: V1RoomCoordinator;
   roomUseCases: {
     readonly create: Pick<CreateRoomHandler, "execute">;
+    readonly get: Pick<GetRoomHandler, "execute">;
     readonly join: Pick<JoinRoomHandler, "execute">;
     readonly leave: Pick<LeaveRoomHandler, "execute">;
+    readonly snapshot: Pick<GetRoomSnapshotHandler, "execute">;
     readonly start: Pick<StartRoomHandler, "execute">;
   };
   sessions: PlayerAccessService;
@@ -140,7 +138,10 @@ export async function registerV1Routes(
     "/v1/rooms/:roomRef",
     async (request) => {
       const session = await requireSession(request, config, runtime);
-      return runtime.coordinator.getRoom(session, request.params.roomRef);
+      return runtime.roomUseCases.get.execute({
+        roomReference: request.params.roomRef,
+        session,
+      });
     },
   );
 
@@ -192,7 +193,10 @@ export async function registerV1Routes(
         expectedVersion: eventVersion(input.expectedVersion),
         roomId: parsedRoomId,
       });
-      return runtime.coordinator.getSnapshot(session, parsedRoomId);
+      return runtime.roomUseCases.snapshot.execute({
+        roomId: parsedRoomId,
+        session,
+      });
     },
   );
 
@@ -222,7 +226,10 @@ export async function registerV1Routes(
     "/v1/rooms/:roomId/snapshot",
     async (request) => {
       const session = await requireSession(request, config, runtime);
-      return runtime.coordinator.getSnapshot(session, request.params.roomId);
+      return runtime.roomUseCases.snapshot.execute({
+        roomId: request.params.roomId,
+        session,
+      });
     },
   );
 

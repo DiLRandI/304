@@ -12,7 +12,7 @@ async function validateRealtimeSeat(
 ): Promise<void> {
   for (let attempt = 0; ; attempt += 1) {
     try {
-      await runtime.coordinator.getSnapshot(session, roomId);
+      await runtime.roomUseCases.snapshot.execute({ roomId, session });
       return;
     } catch (error) {
       if (
