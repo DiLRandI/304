@@ -17,6 +17,15 @@ export interface PlayerSessionWriter {
   create(record: CreatePlayerSessionRecord): Promise<void>;
 }
 
+export interface StoredPlayerSession extends AuthenticatedSession {
+  readonly secretHash: string;
+}
+
+export interface PlayerSessionReader {
+  findActive(sessionId: string): Promise<StoredPlayerSession | null>;
+  touch(sessionId: string): Promise<void>;
+}
+
 export interface PlayerAccessClock {
   now(): Date;
 }
@@ -28,4 +37,8 @@ export interface PlayerIdentityProvider {
 export interface SessionSecretProvider {
   digest(secret: string): string;
   generate(): string;
+}
+
+export interface SessionSecretVerifier {
+  matches(secret: string, digest: string): boolean;
 }
