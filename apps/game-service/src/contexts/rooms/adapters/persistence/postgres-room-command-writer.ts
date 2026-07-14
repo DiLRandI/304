@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { RoomEvent } from "@three-zero-four/room-domain";
 import type { QueryResultRow } from "pg";
 import type { Database } from "../../../../infra/database.js";
@@ -13,6 +14,7 @@ interface LockedRoomRow extends QueryResultRow {
 
 interface DuplicateRow extends QueryResultRow {
   readonly actor_player_id: string | null;
+  readonly request: unknown;
 }
 
 type TransactionalDatabase = Pick<Database, "transaction">;
@@ -79,12 +81,15 @@ export class PostgresRoomCommandWriter implements RoomCommandWriter {
       }
 
       const duplicateResult = await transaction.query<DuplicateRow>(
-        "SELECT actor_player_id FROM command_deduplications WHERE room_id = $1 AND command_id = $2",
+        "SELECT actor_player_id, request FROM command_deduplications WHERE room_id = $1 AND command_id = $2",
         [input.room.id, input.commandId],
       );
       const duplicate = duplicateResult.rows[0];
       if (duplicate) {
-        if (duplicate.actor_player_id !== input.actorPlayerId) {
+        if (
+          duplicate.actor_player_id !== input.actorPlayerId ||
+          !isDeepStrictEqual(duplicate.request, input.request)
+        ) {
           throw new RoomCommandPersistenceError(
             "COMMAND_ID_CONFLICT",
             "Command id belongs to another player",
@@ -158,11 +163,12 @@ export class PostgresRoomCommandWriter implements RoomCommandWriter {
       }
 
       await transaction.query(
-        "INSERT INTO command_deduplications (room_id, command_id, actor_player_id, response) VALUES ($1, $2, $3, $4::jsonb)",
+        "INSERT INTO command_deduplications (room_id, command_id, actor_player_id, request, response) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)",
         [
           input.room.id,
           input.commandId,
           input.actorPlayerId,
+          JSON.stringify(input.request),
           JSON.stringify(input.response),
         ],
       );

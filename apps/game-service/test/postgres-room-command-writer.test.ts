@@ -45,6 +45,11 @@ function joinCommit(): RoomCommandCommit {
     commandId: aggregateCommandId,
     events: result.events,
     expectedVersion: original.eventVersion,
+    request: {
+      actor: { displayName: "Bimal", playerId: guestId },
+      expectedVersion: original.eventVersion,
+      type: "JOIN_ROOM",
+    },
     response: projectRoom(result.room, guestId),
     room: result.room,
   };
@@ -58,7 +63,7 @@ interface QueryCall {
 class TransactionDatabase implements Pick<Database, "transaction"> {
   readonly calls: QueryCall[] = [];
   currentVersion = 1;
-  duplicate: { actor_player_id: string; response: unknown } | null = null;
+  duplicate: { actor_player_id: string; request: unknown } | null = null;
 
   async transaction<T>(
     callback: (transaction: Pick<Database, "query">) => Promise<T>,
@@ -119,7 +124,7 @@ describe("PostgresRoomCommandWriter", () => {
     const deduplicationInsert = database.calls.find((call) =>
       call.text.startsWith("INSERT INTO command_deduplications"),
     );
-    expect(JSON.parse(String(deduplicationInsert?.values[3]))).toEqual(
+    expect(JSON.parse(String(deduplicationInsert?.values[4]))).toEqual(
       commit.response,
     );
     expect(
@@ -144,6 +149,12 @@ describe("PostgresRoomCommandWriter", () => {
       commandId: aggregateCommandId,
       events: result.events,
       expectedVersion: room.eventVersion,
+      request: {
+        actor: hostId,
+        connectionStatus: "online",
+        expectedVersion: room.eventVersion,
+        type: "SET_CONNECTION",
+      },
       response: projectRoom(result.room, hostId),
       room: result.room,
     });
@@ -182,10 +193,36 @@ describe("PostgresRoomCommandWriter", () => {
 
   it("treats a concurrently persisted command by the same actor as complete", async () => {
     const database = new TransactionDatabase();
-    database.duplicate = { actor_player_id: guestId, response: {} };
+    database.duplicate = {
+      actor_player_id: guestId,
+      request: joinCommit().request,
+    };
     const writer = new PostgresRoomCommandWriter(database);
 
     await expect(writer.commit(joinCommit())).resolves.toBeUndefined();
+    expect(
+      database.calls.some(
+        (call) =>
+          call.text.startsWith("UPDATE") || call.text.startsWith("INSERT"),
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects concurrent reuse of a command id for another request", async () => {
+    const database = new TransactionDatabase();
+    database.duplicate = {
+      actor_player_id: guestId,
+      request: {
+        actor: guestId,
+        expectedVersion: eventVersion(1),
+        type: "LEAVE_ROOM",
+      },
+    };
+    const writer = new PostgresRoomCommandWriter(database);
+
+    await expect(writer.commit(joinCommit())).rejects.toMatchObject({
+      code: "COMMAND_ID_CONFLICT",
+    });
     expect(
       database.calls.some(
         (call) =>

@@ -72,6 +72,11 @@ describe("execute room command application handler", () => {
       commandId: roomCommandId,
       expectedVersion: 1,
       events: [{ type: "PLAYER_JOINED", version: 2 }],
+      request: {
+        actor: { displayName: "Bimal", playerId: guestId },
+        expectedVersion: 1,
+        type: "JOIN_ROOM",
+      },
       response: projection,
       room: { eventVersion: 2 },
     });

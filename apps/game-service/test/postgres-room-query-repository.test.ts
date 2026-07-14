@@ -57,6 +57,11 @@ const projection = {
   status: "lobby",
   viewerSeatPosition: 0,
 };
+const request = {
+  actor: hostId,
+  expectedVersion: 2,
+  type: "START_ROOM",
+} as const;
 
 class QueryQueue implements Pick<Database, "query"> {
   readonly calls: { text: string; values: readonly unknown[] }[] = [];
@@ -94,7 +99,7 @@ describe("PostgresRoomQueryRepository", () => {
 
   it("returns the exact validated projection stored for a duplicate command", async () => {
     const database = new QueryQueue([
-      [{ actor_player_id: hostId, response: projection }],
+      [{ actor_player_id: hostId, request, response: projection }],
     ]);
     const repository = new PostgresRoomQueryRepository(database);
 
@@ -103,13 +108,16 @@ describe("PostgresRoomQueryRepository", () => {
         roomId(persistedRoom.id),
         commandId("d7c60215-243f-4599-80cb-e8ad78c6ae1f"),
         playerId(hostId),
+        request,
       ),
     ).resolves.toEqual(projection);
   });
 
   it("rejects reuse of a command id by another player", async () => {
     const repository = new PostgresRoomQueryRepository(
-      new QueryQueue([[{ actor_player_id: hostId, response: projection }]]),
+      new QueryQueue([
+        [{ actor_player_id: hostId, request, response: projection }],
+      ]),
     );
 
     await expect(
@@ -117,6 +125,7 @@ describe("PostgresRoomQueryRepository", () => {
         roomId(persistedRoom.id),
         commandId("d7c60215-243f-4599-80cb-e8ad78c6ae1f"),
         playerId(guestId),
+        request,
       ),
     ).rejects.toEqual(
       new RoomQueryRepositoryError(
@@ -126,10 +135,10 @@ describe("PostgresRoomQueryRepository", () => {
     );
   });
 
-  it("rejects an invalid persisted duplicate response", async () => {
+  it("rejects reuse of a command id for another command", async () => {
     const repository = new PostgresRoomQueryRepository(
       new QueryQueue([
-        [{ actor_player_id: hostId, response: { ...projection, seats: [] } }],
+        [{ actor_player_id: hostId, request, response: projection }],
       ]),
     );
 
@@ -138,6 +147,30 @@ describe("PostgresRoomQueryRepository", () => {
         roomId(persistedRoom.id),
         commandId("d7c60215-243f-4599-80cb-e8ad78c6ae1f"),
         playerId(hostId),
+        { ...request, type: "LEAVE_ROOM" },
+      ),
+    ).rejects.toMatchObject({ code: "COMMAND_ID_CONFLICT" });
+  });
+
+  it("rejects an invalid persisted duplicate response", async () => {
+    const repository = new PostgresRoomQueryRepository(
+      new QueryQueue([
+        [
+          {
+            actor_player_id: hostId,
+            request,
+            response: { ...projection, seats: [] },
+          },
+        ],
+      ]),
+    );
+
+    await expect(
+      repository.findDuplicate(
+        roomId(persistedRoom.id),
+        commandId("d7c60215-243f-4599-80cb-e8ad78c6ae1f"),
+        playerId(hostId),
+        request,
       ),
     ).rejects.toMatchObject({ code: "INVALID_COMMAND_RESPONSE" });
   });

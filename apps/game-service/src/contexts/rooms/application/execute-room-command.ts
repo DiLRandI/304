@@ -16,6 +16,7 @@ export interface RoomCommandCommit {
   readonly commandId: CommandId;
   readonly events: readonly RoomEvent[];
   readonly expectedVersion: EventVersion;
+  readonly request: RoomCommand;
   readonly response: RoomProjection;
   readonly room: Room;
 }
@@ -26,6 +27,7 @@ export interface RoomCommandReader {
     roomId: RoomId,
     commandId: CommandId,
     actorPlayerId: PlayerId,
+    request: RoomCommand,
   ): Promise<RoomProjection | null>;
 }
 
@@ -70,6 +72,7 @@ export class ExecuteRoomCommandHandler {
       room.id,
       input.commandId,
       actor,
+      input.command,
     );
     if (duplicate) return duplicate;
 
@@ -83,6 +86,7 @@ export class ExecuteRoomCommandHandler {
       commandId: input.commandId,
       events: result.events,
       expectedVersion: room.eventVersion,
+      request: input.command,
       response,
       room: result.room,
     });

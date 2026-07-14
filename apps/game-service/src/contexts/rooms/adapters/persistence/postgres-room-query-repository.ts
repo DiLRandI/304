@@ -1,9 +1,11 @@
+import { isDeepStrictEqual } from "node:util";
 import {
   type CommandId,
   eventVersion,
   inviteCode,
   type PlayerId,
   type Room,
+  type RoomCommand,
   type RoomId,
   type RoomProjection,
   roomId,
@@ -42,6 +44,7 @@ type RoomWithSeatRow = RoomRow & SeatRow;
 
 interface DuplicateRow extends QueryResultRow {
   readonly actor_player_id: string | null;
+  readonly request: unknown;
   readonly response: unknown;
 }
 
@@ -183,14 +186,18 @@ export class PostgresRoomQueryRepository implements RoomCommandReader {
     aggregateId: RoomId,
     duplicateCommandId: CommandId,
     actorPlayerId: PlayerId,
+    request: RoomCommand,
   ): Promise<RoomProjection | null> {
     const result = await this.database.query<DuplicateRow>(
-      "SELECT actor_player_id, response FROM command_deduplications WHERE room_id = $1 AND command_id = $2",
+      "SELECT actor_player_id, request, response FROM command_deduplications WHERE room_id = $1 AND command_id = $2",
       [aggregateId, duplicateCommandId],
     );
     const duplicate = result.rows[0];
     if (!duplicate) return null;
-    if (duplicate.actor_player_id !== actorPlayerId) {
+    if (
+      duplicate.actor_player_id !== actorPlayerId ||
+      !isDeepStrictEqual(duplicate.request, request)
+    ) {
       throw new RoomQueryRepositoryError(
         "COMMAND_ID_CONFLICT",
         "Command id belongs to another player",
