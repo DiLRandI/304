@@ -5,8 +5,6 @@ import {
   GuestSessionRequestSchema,
   JoinRoomRequestSchema,
   LeaveRoomRequestSchema,
-  type RealtimeServerMessage,
-  RealtimeServerMessageSchema,
   type RoomExitResponse,
   RoomExitResponseSchema,
   type RoomProjection,
@@ -19,29 +17,14 @@ import {
 import {
   type ClientFetcher,
   GameServiceTransport,
-  parseGameServiceOrigin,
 } from "./game-service-transport";
+import { toRoomSocketUrl } from "./room-realtime";
 
 export type GuestSession = SessionResponse;
 
 export interface CreateRoomOptions {
   botDifficulty?: "easy" | "normal" | "strong";
   ruleProfileId: RuleProfileId;
-}
-
-export function parseRealtimeServerMessage(
-  value: unknown,
-): RealtimeServerMessage {
-  return RealtimeServerMessageSchema.parse(value);
-}
-
-export function toRoomSocketUrl(serviceOrigin: string, roomId: string): string {
-  const url = new URL(
-    `/v1/realtime/rooms/${encodeURIComponent(roomId)}`,
-    parseGameServiceOrigin(serviceOrigin),
-  );
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  return url.toString();
 }
 
 export class GameClient {

@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  GameClient,
-  parseRealtimeServerMessage,
-  toRoomSocketUrl,
-} from "../src/features/room/api/game-service-client.js";
+import { GameClient } from "../src/features/room/api/game-service-client.js";
 import type { GameServiceError } from "../src/features/room/api/game-service-transport.js";
 
 const roomProjection = {
@@ -74,17 +70,6 @@ describe("GameClient", () => {
     } finally {
       vi.stubGlobal("fetch", originalFetch);
     }
-  });
-
-  it("derives a WebSocket room URL from an HTTPS game-service origin", () => {
-    expect(
-      toRoomSocketUrl(
-        "https://api.example.test",
-        "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
-      ),
-    ).toBe(
-      "wss://api.example.test/v1/realtime/rooms/a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
-    );
   });
 
   it("submits versioned room commands without accepting a client actor identity", async () => {
@@ -181,20 +166,5 @@ describe("GameClient", () => {
       message: "Room is full",
       status: 409,
     } satisfies Partial<GameServiceError>);
-  });
-
-  it("validates every realtime server message before it reaches the room reducer", () => {
-    expect(
-      parseRealtimeServerMessage({
-        type: "SNAPSHOT",
-        projection: roomProjection,
-      }),
-    ).toMatchObject({ type: "SNAPSHOT", projection: roomProjection });
-    expect(() =>
-      parseRealtimeServerMessage({
-        type: "SNAPSHOT",
-        projection: { roomId: "not-a-uuid" },
-      }),
-    ).toThrow();
   });
 });
