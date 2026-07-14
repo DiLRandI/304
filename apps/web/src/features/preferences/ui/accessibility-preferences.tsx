@@ -1,70 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import {
-  readBrowserStorage,
-  writeBrowserStorage,
-} from "../../../lib/browser-storage";
-
-type CardSize = "large" | "normal";
-
-const CARD_SIZE_KEY = "g304.card-size";
-const CONTRAST_KEY = "g304.high-contrast";
-const REDUCED_MOTION_KEY = "g304.reduced-motion";
-
-function storedCardSize(): CardSize {
-  return readBrowserStorage(CARD_SIZE_KEY) === "large" ? "large" : "normal";
-}
-
-function storedBoolean(key: string): boolean {
-  return readBrowserStorage(key) === "true";
-}
-
-function applyPreferences(
-  cardSize: CardSize,
-  highContrast: boolean,
-  reducedMotion: boolean,
-): void {
-  const root = document.documentElement;
-  if (cardSize === "large") root.dataset.cardSize = cardSize;
-  else delete root.dataset.cardSize;
-  if (highContrast) root.dataset.contrast = "high";
-  else delete root.dataset.contrast;
-  if (reducedMotion) root.dataset.reducedMotion = "true";
-  else delete root.dataset.reducedMotion;
-}
+  applyDisplayPreferences,
+  type CardSize,
+  readDisplayPreferences,
+  readServerDisplayPreferences,
+  subscribeToDisplayPreferences,
+  writeDisplayPreference,
+} from "../model/display-preferences";
 
 export function AccessibilityPreferences() {
-  const [cardSize, setCardSize] = useState<CardSize>("normal");
-  const [highContrast, setHighContrast] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const preferences = useSyncExternalStore(
+    subscribeToDisplayPreferences,
+    readDisplayPreferences,
+    readServerDisplayPreferences,
+  );
+  const { cardSize, highContrast, reducedMotion } = preferences;
 
   useEffect(() => {
-    const nextCardSize = storedCardSize();
-    const nextHighContrast = storedBoolean(CONTRAST_KEY);
-    const nextReducedMotion = storedBoolean(REDUCED_MOTION_KEY);
-    setCardSize(nextCardSize);
-    setHighContrast(nextHighContrast);
-    setReducedMotion(nextReducedMotion);
-    applyPreferences(nextCardSize, nextHighContrast, nextReducedMotion);
-  }, []);
+    applyDisplayPreferences(preferences);
+  }, [preferences]);
 
   function updateCardSize(next: CardSize): void {
-    writeBrowserStorage(CARD_SIZE_KEY, next);
-    setCardSize(next);
-    applyPreferences(next, highContrast, reducedMotion);
+    writeDisplayPreference("cardSize", next);
   }
 
   function updateHighContrast(next: boolean): void {
-    writeBrowserStorage(CONTRAST_KEY, String(next));
-    setHighContrast(next);
-    applyPreferences(cardSize, next, reducedMotion);
+    writeDisplayPreference("highContrast", next);
   }
 
   function updateReducedMotion(next: boolean): void {
-    writeBrowserStorage(REDUCED_MOTION_KEY, String(next));
-    setReducedMotion(next);
-    applyPreferences(cardSize, highContrast, next);
+    writeDisplayPreference("reducedMotion", next);
   }
 
   return (

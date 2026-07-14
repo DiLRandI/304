@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccessibilityPreferences } from "../src/features/preferences/ui/accessibility-preferences.js";
@@ -80,6 +80,26 @@ describe("browser accessibility", () => {
     expect(document.documentElement.dataset.cardSize).toBe("large");
     expect(document.documentElement.dataset.contrast).toBe("high");
     expect(document.documentElement.dataset.reducedMotion).toBe("true");
+  });
+
+  it("reflects display preference changes from another browser document", () => {
+    render(<AccessibilityPreferences />);
+
+    localStorage.setItem("g304.high-contrast", "true");
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "g304.high-contrast",
+          newValue: "true",
+        }),
+      );
+    });
+
+    expect(screen.getByLabelText("High contrast")).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(document.documentElement.dataset.contrast).toBe("high");
   });
 
   it("renders default preferences when storage access is denied", () => {
