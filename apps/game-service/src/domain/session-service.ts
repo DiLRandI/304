@@ -1,18 +1,13 @@
-import {
-  createHmac,
-  randomBytes,
-  randomUUID,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { QueryResultRow } from "pg";
+import { PostgresPlayerSessionWriter } from "../contexts/player-access/adapters/persistence/postgres-player-session-writer.js";
 import {
-  InvalidDisplayNameError,
-  normalizeDisplayName,
-} from "../contexts/player-access/domain/display-name.js";
-import {
-  formatSessionCredential,
-  parseSessionCredential,
-} from "../contexts/player-access/domain/session-credential.js";
+  NodeSessionSecrets,
+  UuidIdentityProvider,
+} from "../contexts/player-access/adapters/security/node-player-access-security.js";
+import { CreateGuestSession } from "../contexts/player-access/application/create-guest-session.js";
+import { InvalidDisplayNameError } from "../contexts/player-access/domain/display-name.js";
+import { parseSessionCredential } from "../contexts/player-access/domain/session-credential.js";
 import type { Database } from "../infra/database.js";
 import { DomainError } from "./errors.js";
 
@@ -49,19 +44,28 @@ function sessionRequired(): DomainError {
 }
 
 export class SessionService {
+  private readonly createGuestSession: CreateGuestSession;
+
   constructor(
     private readonly database: Database,
     private readonly options: SessionServiceOptions,
-  ) {}
+  ) {
+    this.createGuestSession = new CreateGuestSession({
+      clock: { now: () => new Date() },
+      identities: new UuidIdentityProvider(),
+      repository: new PostgresPlayerSessionWriter(database),
+      secrets: new NodeSessionSecrets(options.pepper),
+      ttlMs: options.ttlDays * 24 * 60 * 60 * 1000,
+    });
+  }
 
   private digest(secret: string): Buffer {
     return createHmac("sha256", this.options.pepper).update(secret).digest();
   }
 
   async create(displayName: string): Promise<CreatedSession> {
-    let normalizedDisplayName: string;
     try {
-      normalizedDisplayName = normalizeDisplayName(displayName);
+      return await this.createGuestSession.execute(displayName);
     } catch (error) {
       if (!(error instanceof InvalidDisplayNameError)) throw error;
       throw new DomainError(
@@ -70,32 +74,6 @@ export class SessionService {
         "Display name is invalid",
       );
     }
-    const playerId = randomUUID();
-    const sessionId = randomUUID();
-    const secret = randomBytes(32).toString("base64url");
-    const secretHash = this.digest(secret).toString("hex");
-    const expiresAt = new Date(
-      Date.now() + this.options.ttlDays * 24 * 60 * 60 * 1000,
-    );
-
-    await this.database.transaction(async (transaction) => {
-      await transaction.query(
-        "INSERT INTO players (id, display_name) VALUES ($1, $2)",
-        [playerId, normalizedDisplayName],
-      );
-      await transaction.query(
-        "INSERT INTO sessions (id, player_id, secret_hash, expires_at) VALUES ($1, $2, $3, $4)",
-        [sessionId, playerId, secretHash, expiresAt],
-      );
-    });
-
-    return {
-      sessionId,
-      playerId,
-      displayName: normalizedDisplayName,
-      expiresAt,
-      cookieValue: formatSessionCredential({ secret, sessionId }),
-    };
   }
 
   async require(
