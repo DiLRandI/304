@@ -342,7 +342,6 @@ export class RoomCoordinator {
     session: AuthenticatedSession,
     command: GameCommand,
   ): Promise<RoomProjection> {
-    await this.markRealtimePresence(session, command.roomId);
     const projection = await this.withRoomCommand(
       command.roomId,
       session,

@@ -26,12 +26,24 @@ const projection = {
 
 describe("SubmitGameplayCommandHandler", () => {
   it("delegates an authenticated command to the gameplay executor", async () => {
-    const submitCommand = vi.fn().mockResolvedValue(projection);
-    const handler = new SubmitGameplayCommandHandler({ submitCommand });
+    const calls: string[] = [];
+    const refresh = vi.fn(async () => {
+      calls.push("presence");
+    });
+    const submitCommand = vi.fn(async () => {
+      calls.push("command");
+      return projection;
+    });
+    const handler = new SubmitGameplayCommandHandler(
+      { submitCommand },
+      { refresh },
+    );
 
     await expect(handler.execute({ command, session })).resolves.toEqual(
       projection,
     );
+    expect(calls).toEqual(["presence", "command"]);
+    expect(refresh).toHaveBeenCalledWith(session, command.roomId);
     expect(submitCommand).toHaveBeenCalledWith(session, command);
   });
 });

@@ -151,7 +151,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
     readiness: { database: () => database.health(), redis: async () => true },
     game: {
       gameplayUseCases: {
-        submit: new SubmitGameplayCommandHandler(coordinator),
+        submit: new SubmitGameplayCommandHandler(coordinator, roomPresence),
       },
       roomUseCases: {
         create: new CreateRoomHandler(

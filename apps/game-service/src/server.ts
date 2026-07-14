@@ -79,7 +79,7 @@ const roomPresence = {
 const getRoomSnapshot = new GetRoomSnapshotHandler(roomQueries, roomPresence);
 const game = {
   gameplayUseCases: {
-    submit: new SubmitGameplayCommandHandler(coordinator),
+    submit: new SubmitGameplayCommandHandler(coordinator, roomPresence),
   },
   roomUseCases: {
     create: new CreateRoomHandler(

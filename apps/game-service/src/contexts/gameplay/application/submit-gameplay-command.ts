@@ -8,15 +8,23 @@ export interface GameplayCommandExecutor {
   ): Promise<RoomProjection>;
 }
 
+export interface GameplayCommandPresence {
+  refresh(session: AuthenticatedSession, roomId: string): Promise<void>;
+}
+
 export interface SubmitGameplayCommandInput {
   readonly command: GameCommand;
   readonly session: AuthenticatedSession;
 }
 
 export class SubmitGameplayCommandHandler {
-  constructor(private readonly executor: GameplayCommandExecutor) {}
+  constructor(
+    private readonly executor: GameplayCommandExecutor,
+    private readonly presence: GameplayCommandPresence,
+  ) {}
 
-  execute(input: SubmitGameplayCommandInput): Promise<RoomProjection> {
+  async execute(input: SubmitGameplayCommandInput): Promise<RoomProjection> {
+    await this.presence.refresh(input.session, input.command.roomId);
     return this.executor.submitCommand(input.session, input.command);
   }
 }
