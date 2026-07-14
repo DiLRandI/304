@@ -62,7 +62,7 @@ export interface RoomSessionCommandDuplicate {
   roomId: string;
 }
 
-export interface RoomCoordinatorStore {
+export interface RoomPersistenceStore {
   appendEventAndSnapshot(
     transaction: RoomTransaction,
     input: RoomEventAppendInput,

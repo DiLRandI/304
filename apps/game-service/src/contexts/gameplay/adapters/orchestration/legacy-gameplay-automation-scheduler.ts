@@ -1,10 +1,10 @@
 import type { GameEngine } from "@three-zero-four/game-engine";
-import type {
-  RoomCoordinatorStore,
-  RoomTransaction,
-} from "../../../rooms/application/room-coordinator-store.js";
 import type { RoomIdentityProvider } from "../../../rooms/application/room-identity-provider.js";
 import type { StoredRoom } from "../../../rooms/application/room-persistence-model.js";
+import type {
+  RoomPersistenceStore,
+  RoomTransaction,
+} from "../../../rooms/application/room-persistence-store.js";
 import {
   automationSeatIndex,
   completedTrickWinner,
@@ -12,7 +12,7 @@ import {
 } from "../../application/gameplay-automation-policy.js";
 
 type AutomationStore = Pick<
-  RoomCoordinatorStore,
+  RoomPersistenceStore,
   "cancelAutomationForRoom" | "loadSeats" | "scheduleAutomation"
 >;
 

@@ -13,13 +13,13 @@ import {
 } from "../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
 import type { RoomCreationCommit } from "../src/contexts/rooms/application/create-room.js";
 import type {
-  RoomCreationInput,
-  RoomSessionCommandDuplicate,
-} from "../src/contexts/rooms/application/room-coordinator-store.js";
-import type {
   StoredRoom,
   StoredSeat,
 } from "../src/contexts/rooms/application/room-persistence-model.js";
+import type {
+  RoomCreationInput,
+  RoomSessionCommandDuplicate,
+} from "../src/contexts/rooms/application/room-persistence-store.js";
 
 const hostId = playerId("9c9c7530-224f-4d5e-b354-1c78df2f063b");
 const aggregate = createLobby({

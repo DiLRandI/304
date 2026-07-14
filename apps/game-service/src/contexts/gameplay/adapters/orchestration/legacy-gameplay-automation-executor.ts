@@ -4,13 +4,13 @@ import type {
   RoomPresence,
 } from "../../../rooms/application/room-coordination-ports.js";
 import type {
-  RoomCoordinatorStore,
-  RoomTransaction,
-} from "../../../rooms/application/room-coordinator-store.js";
-import type {
   ClaimedAutomationJob,
   StoredRoom,
 } from "../../../rooms/application/room-persistence-model.js";
+import type {
+  RoomPersistenceStore,
+  RoomTransaction,
+} from "../../../rooms/application/room-persistence-store.js";
 import {
   activeRoomStatus,
   activeSeatIndex,
@@ -26,7 +26,7 @@ interface LegacyGameplayAutomationDependencies {
   readonly lease: RoomLease;
   readonly presence: Pick<RoomPresence, "onlinePlayerIds">;
   readonly recovery: Pick<LegacyGameplayRecovery, "recover">;
-  readonly store: RoomCoordinatorStore;
+  readonly store: RoomPersistenceStore;
 }
 
 function roomNotFound(): ServiceError {

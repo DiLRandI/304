@@ -2,11 +2,11 @@ import type { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
 import { LegacyGameplayAutomationExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.js";
 import type { RoomLease } from "../src/contexts/rooms/application/room-coordination-ports.js";
-import type { RoomCoordinatorStore } from "../src/contexts/rooms/application/room-coordinator-store.js";
 import type {
   ClaimedAutomationJob,
   StoredRoom,
 } from "../src/contexts/rooms/application/room-persistence-model.js";
+import type { RoomPersistenceStore } from "../src/contexts/rooms/application/room-persistence-store.js";
 
 const room: StoredRoom = {
   eventVersion: 7,
@@ -39,7 +39,7 @@ function harness(storedRoom = room) {
     transaction: async <Result>(
       work: (value: unknown) => Promise<Result>,
     ): Promise<Result> => work(transaction),
-  } as unknown as RoomCoordinatorStore;
+  } as unknown as RoomPersistenceStore;
   const lease: RoomLease = {
     async withLease<Result>(
       _roomId: string,

@@ -4,12 +4,12 @@ import type {
   RoomLease,
   RoomPresence,
 } from "../../../rooms/application/room-coordination-ports.js";
-import type {
-  RoomCoordinatorStore,
-  RoomTransaction,
-} from "../../../rooms/application/room-coordinator-store.js";
 import type { RoomIdentityProvider } from "../../../rooms/application/room-identity-provider.js";
 import type { StoredRoom } from "../../../rooms/application/room-persistence-model.js";
+import type {
+  RoomPersistenceStore,
+  RoomTransaction,
+} from "../../../rooms/application/room-persistence-store.js";
 import { activeRoomStatus } from "../../application/gameplay-automation-policy.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import { applyConnectionState } from "../engine/legacy-engine-seat-mapper.js";
@@ -22,7 +22,7 @@ interface LegacyGameplayConnectionDependencies {
   readonly lease: RoomLease;
   readonly presence: RoomPresence;
   readonly recovery: Pick<LegacyGameplayRecovery, "recover">;
-  readonly store: RoomCoordinatorStore;
+  readonly store: RoomPersistenceStore;
 }
 
 function roomNotFound(): ServiceError {

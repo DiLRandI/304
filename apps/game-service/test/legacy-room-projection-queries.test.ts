@@ -4,11 +4,11 @@ import { RecoveryError } from "../src/contexts/gameplay/application/gameplay-rec
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { LegacyRoomProjectionQueries } from "../src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import type { RoomLease } from "../src/contexts/rooms/application/room-coordination-ports.js";
-import type { RoomCoordinatorStore } from "../src/contexts/rooms/application/room-coordinator-store.js";
 import type {
   StoredRoom,
   StoredSeat,
 } from "../src/contexts/rooms/application/room-persistence-model.js";
+import type { RoomPersistenceStore } from "../src/contexts/rooms/application/room-persistence-store.js";
 
 const room: StoredRoom = {
   eventVersion: 5,
@@ -66,7 +66,7 @@ function harness(
     transaction: async <Result>(
       work: (value: unknown) => Promise<Result>,
     ): Promise<Result> => work(transaction),
-  } as unknown as RoomCoordinatorStore;
+  } as unknown as RoomPersistenceStore;
   const lease: RoomLease = {
     async withLease<Result>(
       _roomId: string,

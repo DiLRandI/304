@@ -4,11 +4,11 @@ import { ServiceError } from "../../../../shared/service-error.js";
 import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import { projectLobbyForViewer } from "../../../rooms/adapters/delivery/lobby-room-presenter.js";
 import type { RoomLease } from "../../../rooms/application/room-coordination-ports.js";
-import type {
-  RoomCoordinatorStore,
-  RoomTransaction,
-} from "../../../rooms/application/room-coordinator-store.js";
 import type { StoredRoom } from "../../../rooms/application/room-persistence-model.js";
+import type {
+  RoomPersistenceStore,
+  RoomTransaction,
+} from "../../../rooms/application/room-persistence-store.js";
 import { activeRoomStatus } from "../../application/gameplay-automation-policy.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import type { GameplayCommandExecutor } from "../../application/submit-gameplay-command.js";
@@ -20,7 +20,7 @@ interface LegacyGameplayCommandDependencies {
   readonly automation: Pick<LegacyGameplayAutomationScheduler, "schedule">;
   readonly lease: RoomLease;
   readonly recovery: Pick<LegacyGameplayRecovery, "recover">;
-  readonly store: RoomCoordinatorStore;
+  readonly store: RoomPersistenceStore;
 }
 
 function roomNotFound(): ServiceError {

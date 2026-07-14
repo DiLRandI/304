@@ -6,11 +6,11 @@ import type {
   RoomLease,
   RoomPresence,
 } from "../src/contexts/rooms/application/room-coordination-ports.js";
-import type { RoomCoordinatorStore } from "../src/contexts/rooms/application/room-coordinator-store.js";
 import type {
   StoredRoom,
   StoredSeat,
 } from "../src/contexts/rooms/application/room-persistence-model.js";
+import type { RoomPersistenceStore } from "../src/contexts/rooms/application/room-persistence-store.js";
 
 const room: StoredRoom = {
   eventVersion: 7,
@@ -57,7 +57,7 @@ function harness(connectionStatus: StoredSeat["connectionStatus"]) {
     transaction: async <Result>(
       work: (value: unknown) => Promise<Result>,
     ): Promise<Result> => work(transaction),
-  } as unknown as RoomCoordinatorStore;
+  } as unknown as RoomPersistenceStore;
   const lease: RoomLease = {
     async withLease<Result>(
       _roomId: string,

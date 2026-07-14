@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import type { RoomLease } from "../src/contexts/rooms/application/room-coordination-ports.js";
-import type { RoomCoordinatorStore } from "../src/contexts/rooms/application/room-coordinator-store.js";
 import type { StoredRoom } from "../src/contexts/rooms/application/room-persistence-model.js";
+import type { RoomPersistenceStore } from "../src/contexts/rooms/application/room-persistence-store.js";
 
 const room: StoredRoom = {
   eventVersion: 2,
@@ -57,7 +57,7 @@ describe("LegacyGameplayCommandExecutor", () => {
       transaction: async <Result>(
         work: (transaction: unknown) => Promise<Result>,
       ): Promise<Result> => work(Symbol("transaction")),
-    } as unknown as RoomCoordinatorStore;
+    } as unknown as RoomPersistenceStore;
     const lease: RoomLease = {
       async withLease<Result>(
         _roomId: string,

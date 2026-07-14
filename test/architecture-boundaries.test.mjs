@@ -450,7 +450,7 @@ test("room persistence records are owned by the Rooms application", async () => 
   const portSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/rooms/application/room-coordinator-store.ts",
+      "apps/game-service/src/contexts/rooms/application/room-persistence-store.ts",
     ),
     "utf8",
   );
@@ -477,7 +477,7 @@ test("gameplay adapters depend on an application-owned room store port", async (
   );
 
   assert.doesNotMatch(executorSource, /postgres-room-store\.js/);
-  assert.match(executorSource, /application\/room-coordinator-store\.js/);
+  assert.match(executorSource, /application\/room-persistence-store\.js/);
 });
 
 test("the legacy room coordinator is retired", async () => {

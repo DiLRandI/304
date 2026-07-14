@@ -5,17 +5,17 @@ import { LegacyGameplayRecovery } from "../../../gameplay/adapters/persistence/l
 import { RecoveryError } from "../../../gameplay/application/gameplay-recovery-error.js";
 import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import type { RoomLease } from "../../application/room-coordination-ports.js";
-import type {
-  RoomCoordinatorStore,
-  RoomTransaction,
-} from "../../application/room-coordinator-store.js";
 import type { StoredRoom } from "../../application/room-persistence-model.js";
+import type {
+  RoomPersistenceStore,
+  RoomTransaction,
+} from "../../application/room-persistence-store.js";
 import { projectLobbyForViewer } from "../delivery/lobby-room-presenter.js";
 
 interface LegacyRoomProjectionQueryDependencies {
   readonly gameplayRecovery?: Pick<LegacyGameplayRecovery, "recover">;
   readonly lease: RoomLease;
-  readonly store: RoomCoordinatorStore;
+  readonly store: RoomPersistenceStore;
 }
 
 function roomNotFound(): ServiceError {

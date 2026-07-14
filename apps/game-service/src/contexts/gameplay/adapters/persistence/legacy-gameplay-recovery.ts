@@ -1,9 +1,9 @@
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
-import type {
-  RoomCoordinatorStore,
-  RoomTransaction,
-} from "../../../rooms/application/room-coordinator-store.js";
 import type { StoredRoom } from "../../../rooms/application/room-persistence-model.js";
+import type {
+  RoomPersistenceStore,
+  RoomTransaction,
+} from "../../../rooms/application/room-persistence-store.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import {
   applyConnectionState,
@@ -12,7 +12,7 @@ import {
 } from "../engine/legacy-engine-seat-mapper.js";
 
 type RecoveryStore = Pick<
-  RoomCoordinatorStore,
+  RoomPersistenceStore,
   "findSeatIndex" | "loadEventsAfter" | "loadSeats" | "loadSnapshot"
 >;
 

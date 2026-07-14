@@ -5,13 +5,13 @@ import type {
   RoomCreationRepository,
 } from "../../application/create-room.js";
 import type {
-  RoomCoordinatorStore,
-  RoomSessionCommandDuplicate,
-} from "../../application/room-coordinator-store.js";
-import type {
   StoredRoom,
   StoredSeat,
 } from "../../application/room-persistence-model.js";
+import type {
+  RoomPersistenceStore,
+  RoomSessionCommandDuplicate,
+} from "../../application/room-persistence-store.js";
 import { mapPersistedRoomProjection } from "../persistence/room-projection-record-mapper.js";
 import {
   mapPersistedRoom,
@@ -21,7 +21,7 @@ import {
 } from "../persistence/room-record-mapper.js";
 
 export type LegacyRoomCreationStore = Pick<
-  RoomCoordinatorStore,
+  RoomPersistenceStore,
   "createRoom" | "findSessionDuplicate" | "loadRoomByReference" | "loadSeats"
 >;
 
