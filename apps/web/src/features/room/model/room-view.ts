@@ -3,19 +3,12 @@ import {
   GameActionSchema,
   type RoomProjection,
 } from "@three-zero-four/contracts";
+import { type ProjectedCard, readProjectedCard } from "./card-view";
 import {
   isRecord,
   nonNegativeInteger,
   nullableString,
 } from "./projection-value";
-
-export interface ProjectedCard {
-  cardId: string;
-  hidden: boolean;
-  points: number | null;
-  rank: string | null;
-  suit: string | null;
-}
 
 export interface ProjectedSeat {
   autopilot: boolean;
@@ -203,35 +196,6 @@ function readHandResult(
   };
 }
 
-function readCard(value: unknown): ProjectedCard | null {
-  if (!isRecord(value) || typeof value.cardId !== "string") return null;
-  const hidden = value.hidden === true;
-  if (hidden) {
-    return {
-      cardId: value.cardId,
-      hidden: true,
-      points: null,
-      rank: null,
-      suit: null,
-    };
-  }
-  if (
-    typeof value.rank !== "string" ||
-    typeof value.suit !== "string" ||
-    typeof value.points !== "number" ||
-    !Number.isFinite(value.points)
-  ) {
-    return null;
-  }
-  return {
-    cardId: value.cardId,
-    hidden: false,
-    points: value.points,
-    rank: value.rank,
-    suit: value.suit,
-  };
-}
-
 function readSeat(value: unknown): ProjectedSeat | null {
   if (!isRecord(value)) return null;
   const index = nonNegativeInteger(value.index);
@@ -275,7 +239,7 @@ function readTrick(value: unknown): ProjectedTrickPlay[] | null {
   for (const item of value.plays) {
     if (!isRecord(item)) return null;
     const seatIndex = nonNegativeInteger(item.seatIndex);
-    const card = readCard(item.card);
+    const card = readProjectedCard(item.card);
     if (
       seatIndex === null ||
       card === null ||
@@ -359,7 +323,7 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
 
   const hand: ProjectedCard[] = [];
   for (const item of privateSeat.hand) {
-    const card = readCard(item);
+    const card = readProjectedCard(item);
     if (card === null) return null;
     hand.push(card);
   }
