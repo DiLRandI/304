@@ -2,27 +2,20 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { CreateRoomRequest } from "@three-zero-four/contracts";
-import { GameEngine } from "@three-zero-four/game-engine";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { LegacyGameplayAutomationExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.js";
-import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
-import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
-import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
-import { RoomCoordinator } from "../src/contexts/rooms/adapters/orchestration/room-coordinator.js";
 import {
   type ClaimedAutomationJob,
   PostgresRoomStore,
-  type Queryable,
-  type StoredRoom,
 } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
-import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/security/node-room-identity-provider.js";
-import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
-import { Presence, RoomLease } from "../src/infra/redis-coordination.js";
 import { AutomationWorker } from "../src/worker/automation-worker.js";
+import {
+  RoomTestRuntime,
+  type RoomTestRuntimeOptions,
+} from "./support/room-test-runtime.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
@@ -32,115 +25,19 @@ const migrationsDir = path.resolve(
   "../../../infra/postgres/migrations",
 );
 
-interface AutomationScheduler {
-  scheduleNextAutomation(
-    transaction: Queryable,
-    room: StoredRoom,
-    engine: GameEngine,
-  ): Promise<void>;
-}
-
-interface PresenceCoordinator {
-  markRealtimePresence(
-    session: Parameters<RoomCoordinator["getSnapshot"]>[0],
-    roomId: string,
-  ): Promise<void>;
-}
-
-interface ConnectionCoordinator {
-  markRealtimeDisconnected(
-    session: Parameters<RoomCoordinator["getSnapshot"]>[0],
-    roomId: string,
-  ): Promise<void>;
-}
-
 let database: Database;
 let redis: RedisClientType;
 let store: PostgresRoomStore;
 let sessions: PlayerAccessService;
-const connectionsByCoordinator = new WeakMap<
-  RoomCoordinator,
-  LegacyGameplayConnections
->();
-const automationByCoordinator = new WeakMap<
-  RoomCoordinator,
-  LegacyGameplayAutomationExecutor
->();
 
-function coordinator(
-  automationOptions?: ConstructorParameters<
-    typeof RoomCoordinator
-  >[0]["automation"],
-): RoomCoordinator {
-  const identities = new NodeRoomIdentityProvider();
-  const lease = new RoomLease(redis, 5_000);
-  const presence = new Presence(redis, 60);
-  const game = new RoomCoordinator({
-    identities,
-    inviteCodes: new NodeRoomInviteCodeProvider(),
-    store,
-    lease,
-    presence,
-    automation: automationOptions,
-  });
-  const recovery = new LegacyGameplayRecovery(store);
-  const scheduler = new LegacyGameplayAutomationScheduler({
-    ...(automationOptions ? { config: automationOptions } : {}),
-    identities,
-    store,
-  });
-  connectionsByCoordinator.set(
-    game,
-    new LegacyGameplayConnections({
-      automation: scheduler,
-      identities,
-      lease,
-      presence,
-      recovery,
-      store,
-    }),
-  );
-  automationByCoordinator.set(
-    game,
-    new LegacyGameplayAutomationExecutor({
-      automation: scheduler,
-      lease,
-      presence,
-      recovery,
-      store,
-    }),
-  );
-  return game;
-}
-
-function automation(
-  coordinatorInstance: RoomCoordinator,
-): LegacyGameplayAutomationExecutor {
-  const executor = automationByCoordinator.get(coordinatorInstance);
-  if (!executor) throw new Error("Expected automation executor");
-  return executor;
-}
-
-function scheduler(coordinatorInstance: RoomCoordinator): AutomationScheduler {
-  return coordinatorInstance as unknown as AutomationScheduler;
-}
-
-function presence(coordinatorInstance: RoomCoordinator): PresenceCoordinator {
-  const connections = connectionsByCoordinator.get(coordinatorInstance);
-  if (!connections) throw new Error("Expected realtime connections");
-  return connections;
-}
-
-function connection(
-  coordinatorInstance: RoomCoordinator,
-): ConnectionCoordinator {
-  const connections = connectionsByCoordinator.get(coordinatorInstance);
-  if (!connections) throw new Error("Expected realtime connections");
-  return connections;
+function createRuntime(
+  automation?: RoomTestRuntimeOptions["automation"],
+): RoomTestRuntime {
+  return new RoomTestRuntime(database, redis, { automation });
 }
 
 async function createStartedClassicRoom(
-  game: RoomCoordinator,
+  game: RoomTestRuntime,
   hostName: string,
   guestNames: readonly [string, string, string],
 ) {
@@ -317,7 +214,7 @@ describeIntegration("durable room automation", () => {
   });
 
   it("creates a six-seat lobby before exposing the six-seat profile", async () => {
-    const game = coordinator();
+    const game = createRuntime();
     const host = await sessions.create("Asha");
     const projection = await game.createRoom(host, {
       commandId: randomUUID(),
@@ -361,7 +258,7 @@ describeIntegration("durable room automation", () => {
   });
 
   it("replays a durable room start when its start snapshot is unavailable", async () => {
-    const game = coordinator();
+    const game = createRuntime();
     const { created, host, started } = await createStartedClassicRoom(
       game,
       "Arosha",
@@ -373,7 +270,7 @@ describeIntegration("durable room automation", () => {
       [created.roomId, started.eventVersion],
     );
 
-    const recovered = await coordinator().getSnapshot(host, created.roomId);
+    const recovered = await createRuntime().getSnapshot(host, created.roomId);
     expect(recovered).toMatchObject({
       eventVersion: started.eventVersion,
       status: "in_hand",
@@ -381,8 +278,8 @@ describeIntegration("durable room automation", () => {
   });
 
   it("turns a claimed timeout into a durable autopilot action", async () => {
-    expect(automation(coordinator()).run).toBeTypeOf("function");
-    const game = coordinator();
+    expect(createRuntime().automation.run).toBeTypeOf("function");
+    const game = createRuntime();
     const host = await sessions.create("Esha");
     const created = await game.createRoom(host, {
       commandId: randomUUID(),
@@ -427,7 +324,7 @@ describeIntegration("durable room automation", () => {
       roomId: created.roomId,
       kind: "TURN_TIMEOUT",
     });
-    await automation(game).run(timeoutJob as ClaimedAutomationJob);
+    await game.automation.run(timeoutJob as ClaimedAutomationJob);
     await store.completeAutomationJob(timeoutJob?.id ?? "", owner);
 
     const events = await store.loadEventsAfter(created.roomId, eventVersion);
@@ -453,7 +350,7 @@ describeIntegration("durable room automation", () => {
         candidate.roomId === created.roomId && candidate.kind === "BOT_ACTION",
     );
     if (!botJob) throw new Error("Expected an autopilot bot job");
-    await automation(game).run(botJob);
+    await game.automation.run(botJob);
     await store.completeAutomationJob(botJob.id, botOwner);
 
     expect(await store.loadEventsAfter(created.roomId, eventVersion)).toEqual(
@@ -465,8 +362,10 @@ describeIntegration("durable room automation", () => {
   });
 
   it("cancels autopilot when its human reconnects before the bot job runs", async () => {
-    expect(presence(coordinator()).markRealtimePresence).toBeTypeOf("function");
-    const game = coordinator();
+    expect(createRuntime().connections.markRealtimePresence).toBeTypeOf(
+      "function",
+    );
+    const game = createRuntime();
     const host = await sessions.create("Farah");
     const created = await game.createRoom(host, {
       commandId: randomUUID(),
@@ -508,12 +407,12 @@ describeIntegration("durable room automation", () => {
         candidate.kind === "TURN_TIMEOUT",
     );
     if (!timeoutJob) throw new Error("Expected a timeout job");
-    await automation(game).run(timeoutJob);
+    await game.automation.run(timeoutJob);
     await store.completeAutomationJob(timeoutJob.id, owner);
 
     const reconnectingPlayer = players[timeoutJob.targetSeatIndex];
     if (!reconnectingPlayer) throw new Error("Missing timed-out player");
-    await presence(game).markRealtimePresence(
+    await game.connections.markRealtimePresence(
       reconnectingPlayer,
       created.roomId,
     );
@@ -533,7 +432,7 @@ describeIntegration("durable room automation", () => {
   });
 
   it("returns control when the automated action has already committed", async () => {
-    const game = coordinator();
+    const game = createRuntime();
     const { created, players, started } = await createStartedClassicRoom(
       game,
       "Isuri",
@@ -558,7 +457,7 @@ describeIntegration("durable room automation", () => {
         candidate.kind === "TURN_TIMEOUT",
     );
     if (!timeoutJob) throw new Error("Expected a timeout job");
-    await automation(game).run(timeoutJob);
+    await game.automation.run(timeoutJob);
     await store.completeAutomationJob(timeoutJob.id, timeoutOwner);
 
     await database.query(
@@ -578,12 +477,15 @@ describeIntegration("durable room automation", () => {
         candidate.roomId === created.roomId && candidate.kind === "BOT_ACTION",
     );
     if (!botJob) throw new Error("Expected an autopilot bot job");
-    await automation(game).run(botJob);
+    await game.automation.run(botJob);
     await store.completeAutomationJob(botJob.id, botOwner);
 
     const automatedPlayer = players[timeoutJob.targetSeatIndex];
     if (!automatedPlayer) throw new Error("Expected the automated player");
-    await presence(game).markRealtimePresence(automatedPlayer, created.roomId);
+    await game.connections.markRealtimePresence(
+      automatedPlayer,
+      created.roomId,
+    );
 
     const events = await store.loadEventsAfter(
       created.roomId,
@@ -611,7 +513,7 @@ describeIntegration("durable room automation", () => {
   });
 
   it("does not allow a stale bot job to acknowledge a completed hand", async () => {
-    const game = coordinator();
+    const game = createRuntime();
     const { created, started } = await createStartedClassicRoom(game, "Milan", [
       "Nethmi",
       "Oshada",
@@ -663,7 +565,7 @@ describeIntegration("durable room automation", () => {
         candidate.id === staleJobId && candidate.kind === "BOT_ACTION",
     );
     if (!botJob) throw new Error("Expected a stale terminal bot job");
-    await expect(automation(game).run(botJob)).resolves.toBe("stale");
+    await expect(game.automation.run(botJob)).resolves.toBe("stale");
     await store.completeAutomationJob(botJob.id, botOwner);
 
     const room = await store.loadRoom(created.roomId);
@@ -677,7 +579,7 @@ describeIntegration("durable room automation", () => {
   });
 
   it("durably advances a completed trick after the configured reveal delay", async () => {
-    const game = coordinator({
+    const game = createRuntime({
       botActionDelayMs: 0,
       trickRevealDelayMs: 2_000,
     });
@@ -698,7 +600,7 @@ describeIntegration("durable room automation", () => {
     );
     const scheduledAt = Date.now();
     await store.transaction((transaction) =>
-      scheduler(game).scheduleNextAutomation(transaction, room, pausedEngine),
+      game.scheduler.schedule(transaction, room, pausedEngine),
     );
 
     const pending = await database.query<{
@@ -735,9 +637,9 @@ describeIntegration("durable room automation", () => {
       )
     ).find((candidate) => candidate.kind === "TRICK_ADVANCE");
     if (!trickJob) throw new Error("Expected a due trick-advance job");
-    await expect(automation(game).run(trickJob)).resolves.toBe("completed");
+    await expect(game.automation.run(trickJob)).resolves.toBe("completed");
     await store.completeAutomationJob(trickJob.id, owner);
-    await expect(automation(game).run(trickJob)).resolves.toBe("stale");
+    await expect(game.automation.run(trickJob)).resolves.toBe("stale");
 
     const projection = await game.getSnapshot(host, created.roomId);
     const publicState = (
@@ -757,7 +659,7 @@ describeIntegration("durable room automation", () => {
       "DELETE FROM game_snapshots WHERE room_id = $1 AND event_version = $2",
       [created.roomId, projection.eventVersion],
     );
-    const recovered = await coordinator().getSnapshot(host, created.roomId);
+    const recovered = await createRuntime().getSnapshot(host, created.roomId);
     const recoveredPublicState = (
       recovered.view as { publicState: Record<string, unknown> }
     ).publicState;
@@ -766,10 +668,10 @@ describeIntegration("durable room automation", () => {
   });
 
   it("persists a disconnect grace job and cancels it on timely reconnect", async () => {
-    expect(connection(coordinator()).markRealtimeDisconnected).toBeTypeOf(
+    expect(createRuntime().connections.markRealtimeDisconnected).toBeTypeOf(
       "function",
     );
-    const game = coordinator();
+    const game = createRuntime();
     const host = await sessions.create("Jaya");
     const created = await game.createRoom(host, {
       commandId: randomUUID(),
@@ -793,7 +695,7 @@ describeIntegration("durable room automation", () => {
       expectedVersion: eventVersion,
     });
 
-    await connection(game).markRealtimeDisconnected(host, created.roomId);
+    await game.connections.markRealtimeDisconnected(host, created.roomId);
     const graceJob = await database.query<{
       state: string;
       target_seat_index: number;
@@ -803,7 +705,7 @@ describeIntegration("durable room automation", () => {
     );
     expect(graceJob.rows).toEqual([{ state: "pending", target_seat_index: 0 }]);
 
-    await presence(game).markRealtimePresence(host, created.roomId);
+    await game.connections.markRealtimePresence(host, created.roomId);
     const events = await store.loadEventsAfter(created.roomId, eventVersion);
     expect(events).toEqual(
       expect.arrayContaining([
@@ -824,7 +726,7 @@ describeIntegration("durable room automation", () => {
   });
 
   it("replays an automated action after its latest snapshot is removed", async () => {
-    const game = coordinator();
+    const game = createRuntime();
     const host = await sessions.create("Nimal");
     const created = await game.createRoom(host, {
       commandId: randomUUID(),
@@ -867,7 +769,7 @@ describeIntegration("durable room automation", () => {
         candidate.kind === "TURN_TIMEOUT",
     );
     if (!timeoutJob) throw new Error("Expected a timeout job");
-    await automation(game).run(timeoutJob);
+    await game.automation.run(timeoutJob);
     await store.completeAutomationJob(timeoutJob.id, timeoutOwner);
 
     await database.query(
@@ -887,7 +789,7 @@ describeIntegration("durable room automation", () => {
         candidate.roomId === created.roomId && candidate.kind === "BOT_ACTION",
     );
     if (!botJob) throw new Error("Expected an autopilot bot job");
-    await automation(game).run(botJob);
+    await game.automation.run(botJob);
     await store.completeAutomationJob(botJob.id, botOwner);
 
     const currentRoom = await store.loadRoom(created.roomId);
@@ -900,13 +802,13 @@ describeIntegration("durable room automation", () => {
       (_player, seatIndex) => seatIndex !== timeoutJob.targetSeatIndex,
     );
     if (!viewer) throw new Error("Expected a non-autopilot viewer");
-    const recovered = await coordinator().getSnapshot(viewer, created.roomId);
+    const recovered = await createRuntime().getSnapshot(viewer, created.roomId);
     expect(recovered.eventVersion).toBe(currentRoom.eventVersion);
     expect(recovered.status).toBe("in_hand");
   });
 
   it("enables autopilot after grace even when the disconnected seat is not active", async () => {
-    const game = coordinator();
+    const game = createRuntime();
     const host = await sessions.create("Saman");
     const created = await game.createRoom(host, {
       commandId: randomUUID(),
@@ -938,7 +840,7 @@ describeIntegration("durable room automation", () => {
     const disconnectedPlayer = players[disconnectedSeat];
     if (!disconnectedPlayer) throw new Error("Expected an inactive player");
 
-    await connection(game).markRealtimeDisconnected(
+    await game.connections.markRealtimeDisconnected(
       disconnectedPlayer,
       created.roomId,
     );
@@ -961,7 +863,7 @@ describeIntegration("durable room automation", () => {
         candidate.targetSeatIndex === disconnectedSeat,
     );
     if (!graceJob) throw new Error("Expected a disconnect grace job");
-    expect(await automation(game).run(graceJob)).toBe("completed");
+    expect(await game.automation.run(graceJob)).toBe("completed");
     await store.completeAutomationJob(graceJob.id, owner);
 
     const events = await store.loadEventsAfter(created.roomId, eventVersion);
@@ -976,7 +878,7 @@ describeIntegration("durable room automation", () => {
   });
 
   it("keeps another disconnected human's grace deadline current after a reconnect", async () => {
-    const game = coordinator();
+    const game = createRuntime();
     const { created, players } = await createStartedClassicRoom(game, "Maya", [
       "Nadee",
       "Oshan",
@@ -988,15 +890,15 @@ describeIntegration("durable room automation", () => {
       throw new Error("Expected two human players");
     }
 
-    await connection(game).markRealtimeDisconnected(
+    await game.connections.markRealtimeDisconnected(
       firstDisconnected,
       created.roomId,
     );
-    await connection(game).markRealtimeDisconnected(
+    await game.connections.markRealtimeDisconnected(
       secondDisconnected,
       created.roomId,
     );
-    await presence(game).markRealtimePresence(
+    await game.connections.markRealtimePresence(
       firstDisconnected,
       created.roomId,
     );
@@ -1022,7 +924,7 @@ describeIntegration("durable room automation", () => {
   });
 
   it("lets two workers claim one due autopilot action exactly once", async () => {
-    const game = coordinator();
+    const game = createRuntime();
     const { created } = await createStartedClassicRoom(game, "Ravi", [
       "Sachi",
       "Thilini",
@@ -1034,7 +936,7 @@ describeIntegration("durable room automation", () => {
     );
     const primingWorker = new AutomationWorker({
       store,
-      executor: automation(game),
+      executor: game.automation,
       pollIntervalMs: 500,
       ownerId: randomUUID(),
       roomId: created.roomId,
@@ -1048,7 +950,7 @@ describeIntegration("durable room automation", () => {
     const outcomes: string[] = [];
     const first = new AutomationWorker({
       store,
-      executor: automation(game),
+      executor: game.automation,
       pollIntervalMs: 500,
       ownerId: randomUUID(),
       roomId: created.roomId,
@@ -1056,7 +958,7 @@ describeIntegration("durable room automation", () => {
     });
     const second = new AutomationWorker({
       store,
-      executor: automation(game),
+      executor: game.automation,
       pollIntervalMs: 500,
       ownerId: randomUUID(),
       roomId: created.roomId,

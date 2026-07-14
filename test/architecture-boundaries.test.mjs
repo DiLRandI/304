@@ -471,6 +471,13 @@ test("durability integration coverage composes room application handlers", async
     ),
     "utf8",
   );
+  const automationSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/test/room-automation.integration.test.ts",
+    ),
+    "utf8",
+  );
 
   assert.match(integrationSource, /RoomTestRuntime/);
   assert.doesNotMatch(integrationSource, /new RoomCoordinator/);
@@ -479,6 +486,8 @@ test("durability integration coverage composes room application handlers", async
   assert.match(runtimeSource, /new GetRoomSnapshotHandler/);
   assert.match(recoverySource, /RoomTestRuntime/);
   assert.doesNotMatch(recoverySource, /RoomCoordinator/);
+  assert.match(automationSource, /RoomTestRuntime/);
+  assert.doesNotMatch(automationSource, /RoomCoordinator/);
 });
 
 test("room persistence records are owned by the Rooms application", async () => {
