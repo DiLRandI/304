@@ -1,13 +1,28 @@
-import type { RoomProjection } from "@three-zero-four/contracts";
-import { DomainError } from "./errors.js";
-import type { RoomStatus, StoredRoom, StoredSeat } from "./room-store.js";
+import type { RoomProjection, RuleProfileId } from "@three-zero-four/contracts";
+import { DomainError } from "../../../../domain/errors.js";
 
-type ProjectableStatus = Extract<
-  RoomStatus,
-  "lobby" | "in_hand" | "hand_result"
->;
+type ProjectableStatus = "lobby" | "in_hand" | "hand_result";
 
-function projectableStatus(status: RoomStatus): ProjectableStatus {
+export interface LobbyRoomRecord {
+  readonly eventVersion: number;
+  readonly hostPlayerId: string;
+  readonly id: string;
+  readonly inviteCode: string;
+  readonly ruleProfileId: RuleProfileId;
+  readonly status: ProjectableStatus | "closed" | "recovery_failed";
+}
+
+export interface LobbySeatRecord {
+  readonly botDifficulty: string | null;
+  readonly displayName: string | null;
+  readonly occupantType: "human" | "bot" | "empty";
+  readonly playerId: string | null;
+  readonly seatIndex: number;
+}
+
+function projectableStatus(
+  status: LobbyRoomRecord["status"],
+): ProjectableStatus {
   if (status === "lobby" || status === "in_hand" || status === "hand_result") {
     return status;
   }
@@ -15,8 +30,8 @@ function projectableStatus(status: RoomStatus): ProjectableStatus {
 }
 
 export function projectLobbyForViewer(
-  room: StoredRoom,
-  seats: readonly StoredSeat[],
+  room: LobbyRoomRecord,
+  seats: readonly LobbySeatRecord[],
   viewerSeatIndex: number | null,
 ): RoomProjection {
   const isHost =
