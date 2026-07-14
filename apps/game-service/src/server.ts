@@ -1,6 +1,7 @@
 import { buildApp, loadConfig } from "./app.js";
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
 import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
+import { LegacyStartedRoomSnapshotFactory } from "./contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
 import { RoomCoordinator } from "./contexts/rooms/adapters/orchestration/room-coordinator.js";
 import { PostgresRoomCommandRepository } from "./contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
@@ -49,7 +50,10 @@ const coordinator = new RoomCoordinator({
   },
 });
 const roomCommands = new ExecuteRoomCommandHandler(
-  new PostgresRoomCommandRepository(database),
+  new PostgresRoomCommandRepository(
+    database,
+    new LegacyStartedRoomSnapshotFactory(),
+  ),
 );
 const game = {
   coordinator,

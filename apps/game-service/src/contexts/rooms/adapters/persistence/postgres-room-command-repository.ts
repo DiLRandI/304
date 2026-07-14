@@ -11,16 +11,22 @@ import type {
   RoomCommandCommit,
   RoomCommandRepository,
 } from "../../application/execute-room-command.js";
-import { PostgresRoomCommandWriter } from "./postgres-room-command-writer.js";
+import {
+  PostgresRoomCommandWriter,
+  type StartedRoomSnapshotFactory,
+} from "./postgres-room-command-writer.js";
 import { PostgresRoomQueryRepository } from "./postgres-room-query-repository.js";
 
 export class PostgresRoomCommandRepository implements RoomCommandRepository {
   private readonly reader: PostgresRoomQueryRepository;
   private readonly writer: PostgresRoomCommandWriter;
 
-  constructor(database: Database) {
+  constructor(
+    database: Database,
+    startedRoomSnapshots?: StartedRoomSnapshotFactory,
+  ) {
     this.reader = new PostgresRoomQueryRepository(database);
-    this.writer = new PostgresRoomCommandWriter(database);
+    this.writer = new PostgresRoomCommandWriter(database, startedRoomSnapshots);
   }
 
   findByReference(reference: string): Promise<Room | null> {
