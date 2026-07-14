@@ -1,5 +1,6 @@
-import type { GameAction, RoomProjection } from "@three-zero-four/contracts";
+import type { RoomProjection } from "@three-zero-four/contracts";
 import type { GameEngine } from "@three-zero-four/game-engine";
+import { presentGameAction } from "../contexts/gameplay/adapters/delivery/game-action-presenter.js";
 import { DomainError } from "./errors.js";
 import type { RoomStatus, StoredRoom, StoredSeat } from "./room-store.js";
 
@@ -7,45 +8,6 @@ type ProjectableStatus = Extract<
   RoomStatus,
   "lobby" | "in_hand" | "hand_result"
 >;
-
-function isString(value: unknown): value is string {
-  return typeof value === "string";
-}
-
-function toWireAction(action: Record<string, unknown>): GameAction {
-  switch (action.type) {
-    case "BID":
-      if (typeof action.amount === "number") {
-        return { type: "BID", amount: action.amount };
-      }
-      break;
-    case "PASS_BID":
-      return { type: "PASS_BID" };
-    case "SELECT_TRUMP":
-      if (isString(action.cardId))
-        return { type: "SELECT_TRUMP", cardId: action.cardId };
-      break;
-    case "TRUMP_OPEN":
-      return { type: "TRUMP_OPEN" };
-    case "TRUMP_CLOSE":
-      return { type: "TRUMP_CLOSE" };
-    case "PLAY_CARD":
-      if (isString(action.cardId)) {
-        return {
-          type: "PLAY_CARD",
-          cardId: action.cardId,
-          faceDown: Boolean(action.faceDown),
-          fromIndicator: Boolean(action.fromIndicator),
-        };
-      }
-      break;
-    case "ACK_RESULT":
-      return { type: "ACK_RESULT" };
-    default:
-      break;
-  }
-  throw new DomainError("ROOM_DATA_INVALID", 500, "Invalid legal action");
-}
 
 function projectableStatus(status: RoomStatus): ProjectableStatus {
   if (status === "lobby" || status === "in_hand" || status === "hand_result") {
@@ -102,7 +64,7 @@ export function projectRoomForPlayer(
   const legalActions = engine
     .getLegalActions(viewerSeatIndex)
     .filter((action) => action.type !== "ACK_RESULT" || isHost)
-    .map(toWireAction);
+    .map(presentGameAction);
   return {
     roomId: room.id,
     inviteCode: room.inviteCode,
