@@ -301,16 +301,13 @@ test("legacy gameplay automation executes through a Gameplay adapter", async () 
     ),
     "utf8",
   );
-  const coordinatorSource = await readFile(
-    path.join(
-      repoRoot,
-      "apps/game-service/src/contexts/rooms/adapters/orchestration/room-coordinator.ts",
-    ),
+  const workerSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/worker.ts"),
     "utf8",
   );
 
   assert.match(executorSource, /export class LegacyGameplayAutomationExecutor/);
-  assert.match(coordinatorSource, /new LegacyGameplayAutomationExecutor/);
+  assert.match(workerSource, /new LegacyGameplayAutomationExecutor/);
 });
 
 test("legacy gameplay commands execute through a Gameplay adapter", async () => {
@@ -403,11 +400,25 @@ test("the automation worker depends on behavioral ports", async () => {
     path.join(repoRoot, "apps/game-service/src/worker/automation-worker.ts"),
     "utf8",
   );
+  const bootstrapSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/worker.ts"),
+    "utf8",
+  );
+  const coordinatorSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/orchestration/room-coordinator.ts",
+    ),
+    "utf8",
+  );
 
   assert.doesNotMatch(workerSource, /postgres-room-store\.js/);
   assert.doesNotMatch(workerSource, /domain\/room-coordinator\.js/);
   assert.match(workerSource, /export interface AutomationStore/);
-  assert.match(workerSource, /export interface AutomationCoordinator/);
+  assert.match(workerSource, /export interface AutomationExecutor/);
+  assert.doesNotMatch(workerSource, /coordinator/i);
+  assert.doesNotMatch(bootstrapSource, /RoomCoordinator/);
+  assert.doesNotMatch(coordinatorSource, /async runAutomation/);
 });
 
 test("the outbox publisher depends on a behavioral store port", async () => {

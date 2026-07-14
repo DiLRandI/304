@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { loadConfig } from "./config.js";
-import { RoomCoordinator } from "./contexts/rooms/adapters/orchestration/room-coordinator.js";
+import { LegacyGameplayAutomationExecutor } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.js";
+import { LegacyGameplayAutomationScheduler } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
+import { LegacyGameplayRecovery } from "./contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
-import { NodeRoomInviteCodeProvider } from "./contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { RoomMaintenance } from "./contexts/rooms/application/room-maintenance.js";
 import { createDatabase } from "./infra/database.js";
 import { createReadiness } from "./infra/readiness.js";
@@ -22,16 +23,23 @@ const config = loadConfig();
 const database = createDatabase(config.DATABASE_URL);
 const redis = await createRedis(config.REDIS_URL);
 const store = new PostgresRoomStore(database);
-const coordinator = new RoomCoordinator({
-  identities: new NodeRoomIdentityProvider(),
-  inviteCodes: new NodeRoomInviteCodeProvider(),
-  store,
-  lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
-  presence: new Presence(redis, config.PRESENCE_TTL_SECONDS),
-  automation: {
+const identities = new NodeRoomIdentityProvider();
+const lease = new RoomLease(redis, config.ROOM_LEASE_TTL_MS);
+const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
+const automation = new LegacyGameplayAutomationScheduler({
+  config: {
     botActionDelayMs: config.BOT_ACTION_DELAY_MS,
     disconnectGraceSeconds: config.DISCONNECT_GRACE_SECONDS,
   },
+  identities,
+  store,
+});
+const executor = new LegacyGameplayAutomationExecutor({
+  automation,
+  lease,
+  presence,
+  recovery: new LegacyGameplayRecovery(store),
+  store,
 });
 const readiness = createReadiness(database, redis);
 const telemetry = new AutomationTelemetry(redis);
@@ -43,7 +51,7 @@ const workerTelemetry = new WorkerTelemetry(
 );
 const worker = new AutomationWorker({
   store,
-  coordinator,
+  executor,
   pollIntervalMs: config.AUTOMATION_POLL_INTERVAL_MS,
   health: async () => {
     const [databaseHealthy, redisHealthy] = await Promise.all([

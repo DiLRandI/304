@@ -6,6 +6,7 @@ import { createClient, type RedisClientType } from "redis";
 import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { buildApp, loadConfig } from "../src/app.js";
+import { LegacyGameplayAutomationExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
 import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
@@ -16,7 +17,6 @@ import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/orc
 import { LegacyRoomProjectionQueries } from "../src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
 import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
-import { RoomCoordinator } from "../src/contexts/rooms/adapters/orchestration/room-coordinator.js";
 import { PostgresRoomCommandRepository } from "../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/security/node-room-identity-provider.js";
@@ -71,7 +71,7 @@ interface DurableProjection {
 
 interface TestRuntime {
   app: Awaited<ReturnType<typeof buildApp>>;
-  coordinator: RoomCoordinator;
+  automation: LegacyGameplayAutomationExecutor;
   database: Database;
   redis: RedisClientType;
   store: PostgresRoomStore;
@@ -108,14 +108,6 @@ async function buildRealApp(): Promise<TestRuntime> {
   const identities = new NodeRoomIdentityProvider();
   const inviteCodes = new NodeRoomInviteCodeProvider();
   const roomLease = new RoomLease(redis, config.ROOM_LEASE_TTL_MS);
-  const coordinator = new RoomCoordinator({
-    identities,
-    inviteCodes,
-    store,
-    lease: roomLease,
-    presence,
-    automation: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
-  });
   const gameplayRecovery = new LegacyGameplayRecovery(store);
   const gameplayAutomation = new LegacyGameplayAutomationScheduler({
     config: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
@@ -125,6 +117,13 @@ async function buildRealApp(): Promise<TestRuntime> {
   const connections = new LegacyGameplayConnections({
     automation: gameplayAutomation,
     identities,
+    lease: roomLease,
+    presence,
+    recovery: gameplayRecovery,
+    store,
+  });
+  const automation = new LegacyGameplayAutomationExecutor({
+    automation: gameplayAutomation,
     lease: roomLease,
     presence,
     recovery: gameplayRecovery,
@@ -178,7 +177,7 @@ async function buildRealApp(): Promise<TestRuntime> {
       rateLimiter: new RateLimiter(redis, `g304:test:${randomUUID()}`),
     },
   });
-  return { app, coordinator, database, redis, store };
+  return { app, automation, database, redis, store };
 }
 
 async function closeRuntime(): Promise<void> {
@@ -309,9 +308,7 @@ async function advanceToHandResult(
       );
     }
     for (const job of jobs) {
-      expect(await currentRuntime.coordinator.runAutomation(job)).toBe(
-        "completed",
-      );
+      expect(await currentRuntime.automation.run(job)).toBe("completed");
       await currentRuntime.store.completeAutomationJob(job.id, automationOwner);
     }
   }

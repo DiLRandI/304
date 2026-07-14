@@ -9,6 +9,7 @@ import type {
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
+import { LegacyGameplayAutomationExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
 import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
@@ -60,6 +61,10 @@ const connectionsByCoordinator = new WeakMap<
   RoomCoordinator,
   LegacyGameplayConnections
 >();
+const automationByCoordinator = new WeakMap<
+  RoomCoordinator,
+  LegacyGameplayAutomationExecutor
+>();
 
 function coordinator(): RoomCoordinator {
   const identities = new NodeRoomIdentityProvider();
@@ -77,18 +82,29 @@ function coordinator(): RoomCoordinator {
     },
   });
   const recovery = new LegacyGameplayRecovery(store);
+  const automation = new LegacyGameplayAutomationScheduler({
+    config: {
+      botActionDelayMs: 250,
+      disconnectGraceSeconds: 90,
+    },
+    identities,
+    store,
+  });
   connectionsByCoordinator.set(
     game,
     new LegacyGameplayConnections({
-      automation: new LegacyGameplayAutomationScheduler({
-        config: {
-          botActionDelayMs: 250,
-          disconnectGraceSeconds: 90,
-        },
-        identities,
-        store,
-      }),
+      automation,
       identities,
+      lease,
+      presence,
+      recovery,
+      store,
+    }),
+  );
+  automationByCoordinator.set(
+    game,
+    new LegacyGameplayAutomationExecutor({
+      automation,
       lease,
       presence,
       recovery,
@@ -101,6 +117,12 @@ function coordinator(): RoomCoordinator {
 function connections(game: RoomCoordinator): LegacyGameplayConnections {
   const value = connectionsByCoordinator.get(game);
   if (!value) throw new Error("Expected realtime connections");
+  return value;
+}
+
+function automation(game: RoomCoordinator): LegacyGameplayAutomationExecutor {
+  const value = automationByCoordinator.get(game);
+  if (!value) throw new Error("Expected automation executor");
   return value;
 }
 
@@ -203,7 +225,7 @@ async function applyWorkerAction(
     [roomId],
   );
   const worker = new AutomationWorker({
-    coordinator: game,
+    executor: automation(game),
     ownerId: randomUUID(),
     pollIntervalMs: 500,
     roomId,

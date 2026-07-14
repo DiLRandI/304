@@ -50,10 +50,10 @@ describe("automation worker", () => {
       countPendingAutomationJobs: vi.fn().mockResolvedValue(0),
       releaseAutomationJob: vi.fn().mockResolvedValue(undefined),
     };
-    const runAutomation = vi.fn().mockResolvedValue("completed" as const);
+    const run = vi.fn().mockResolvedValue("completed" as const);
     const worker = new AutomationWorker({
       store,
-      coordinator: { runAutomation },
+      executor: { run },
       ownerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
       pollIntervalMs: 500,
     });
@@ -61,7 +61,7 @@ describe("automation worker", () => {
     await worker.runOnce(new Date("2026-07-10T21:00:30.000Z"));
 
     expect(store.claimDueAutomationJobs).toHaveBeenCalledTimes(2);
-    expect(runAutomation).toHaveBeenCalledTimes(17);
+    expect(run).toHaveBeenCalledTimes(17);
   });
 
   it("runs separate room queues concurrently without overlapping one room's jobs", async () => {
@@ -83,7 +83,7 @@ describe("automation worker", () => {
       countPendingAutomationJobs: vi.fn().mockResolvedValue(0),
       releaseAutomationJob: vi.fn().mockResolvedValue(undefined),
     };
-    const runAutomation = vi.fn((job: ClaimedAutomationJob) => {
+    const run = vi.fn((job: ClaimedAutomationJob) => {
       if (job.id === firstRoomFirstJob.id) return firstRoomFirstResult.promise;
       if (job.id === firstRoomSecondJob.id) {
         return firstRoomSecondResult.promise;
@@ -92,7 +92,7 @@ describe("automation worker", () => {
     });
     const worker = new AutomationWorker({
       store,
-      coordinator: { runAutomation },
+      executor: { run },
       ownerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
       pollIntervalMs: 500,
     });
@@ -100,7 +100,7 @@ describe("automation worker", () => {
 
     try {
       await nextTick();
-      const startedIds = runAutomation.mock.calls.map(([job]) => job.id);
+      const startedIds = run.mock.calls.map(([job]) => job.id);
       expect(startedIds).toEqual(
         expect.arrayContaining([firstRoomFirstJob.id, secondRoomJob.id]),
       );
@@ -126,7 +126,7 @@ describe("automation worker", () => {
     };
     const worker = new AutomationWorker({
       store,
-      coordinator: { runAutomation: vi.fn() },
+      executor: { run: vi.fn() },
       ownerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
       pollIntervalMs: 500,
     });
@@ -161,7 +161,7 @@ describe("automation worker", () => {
     const pending = vi.fn();
     const worker = new AutomationWorker({
       store,
-      coordinator: { runAutomation: vi.fn() },
+      executor: { run: vi.fn() },
       pollIntervalMs: 500,
       ownerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
       health: async () => true,
@@ -205,8 +205,8 @@ describe("automation worker", () => {
     const reported = vi.fn().mockResolvedValue(undefined);
     const worker = new AutomationWorker({
       store,
-      coordinator: {
-        runAutomation: vi.fn().mockResolvedValue("completed"),
+      executor: {
+        run: vi.fn().mockResolvedValue("completed"),
       },
       onJob: reported,
       ownerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",

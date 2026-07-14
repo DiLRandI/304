@@ -29,8 +29,8 @@ export interface AutomationStore {
   releaseAutomationJob(id: string, owner: string, error: string): Promise<void>;
 }
 
-export interface AutomationCoordinator {
-  runAutomation(
+export interface AutomationExecutor {
+  run(
     job: ClaimedAutomationJob,
   ): Promise<Exclude<AutomationWorkerOutcome, "failed">>;
 }
@@ -52,7 +52,7 @@ export class AutomationWorker {
   constructor(
     private readonly dependencies: {
       store: AutomationStore;
-      coordinator: AutomationCoordinator;
+      executor: AutomationExecutor;
       pollIntervalMs: number;
       ownerId?: string;
       roomId?: string;
@@ -153,7 +153,7 @@ export class AutomationWorker {
 
   private async processClaimedJob(job: ClaimedAutomationJob): Promise<void> {
     try {
-      const outcome = await this.dependencies.coordinator.runAutomation(job);
+      const outcome = await this.dependencies.executor.run(job);
       await this.dependencies.store.completeAutomationJob(job.id, this.ownerId);
       await this.report(outcome);
     } catch (error) {

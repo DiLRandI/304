@@ -6,6 +6,7 @@ import { GameEngine } from "@three-zero-four/game-engine";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
+import { LegacyGameplayAutomationExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
@@ -30,10 +31,6 @@ const migrationsDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../infra/postgres/migrations",
 );
-
-interface AutomationCoordinator {
-  runAutomation(job: ClaimedAutomationJob): Promise<"completed" | "stale">;
-}
 
 interface AutomationScheduler {
   scheduleNextAutomation(
@@ -65,6 +62,10 @@ const connectionsByCoordinator = new WeakMap<
   RoomCoordinator,
   LegacyGameplayConnections
 >();
+const automationByCoordinator = new WeakMap<
+  RoomCoordinator,
+  LegacyGameplayAutomationExecutor
+>();
 
 function coordinator(
   automationOptions?: ConstructorParameters<
@@ -83,15 +84,26 @@ function coordinator(
     automation: automationOptions,
   });
   const recovery = new LegacyGameplayRecovery(store);
+  const scheduler = new LegacyGameplayAutomationScheduler({
+    ...(automationOptions ? { config: automationOptions } : {}),
+    identities,
+    store,
+  });
   connectionsByCoordinator.set(
     game,
     new LegacyGameplayConnections({
-      automation: new LegacyGameplayAutomationScheduler({
-        ...(automationOptions ? { config: automationOptions } : {}),
-        identities,
-        store,
-      }),
+      automation: scheduler,
       identities,
+      lease,
+      presence,
+      recovery,
+      store,
+    }),
+  );
+  automationByCoordinator.set(
+    game,
+    new LegacyGameplayAutomationExecutor({
+      automation: scheduler,
       lease,
       presence,
       recovery,
@@ -103,8 +115,10 @@ function coordinator(
 
 function automation(
   coordinatorInstance: RoomCoordinator,
-): AutomationCoordinator {
-  return coordinatorInstance as unknown as AutomationCoordinator;
+): LegacyGameplayAutomationExecutor {
+  const executor = automationByCoordinator.get(coordinatorInstance);
+  if (!executor) throw new Error("Expected automation executor");
+  return executor;
 }
 
 function scheduler(coordinatorInstance: RoomCoordinator): AutomationScheduler {
@@ -367,7 +381,7 @@ describeIntegration("durable room automation", () => {
   });
 
   it("turns a claimed timeout into a durable autopilot action", async () => {
-    expect(automation(coordinator()).runAutomation).toBeTypeOf("function");
+    expect(automation(coordinator()).run).toBeTypeOf("function");
     const game = coordinator();
     const host = await sessions.create("Esha");
     const created = await game.createRoom(host, {
@@ -413,7 +427,7 @@ describeIntegration("durable room automation", () => {
       roomId: created.roomId,
       kind: "TURN_TIMEOUT",
     });
-    await automation(game).runAutomation(timeoutJob as ClaimedAutomationJob);
+    await automation(game).run(timeoutJob as ClaimedAutomationJob);
     await store.completeAutomationJob(timeoutJob?.id ?? "", owner);
 
     const events = await store.loadEventsAfter(created.roomId, eventVersion);
@@ -439,7 +453,7 @@ describeIntegration("durable room automation", () => {
         candidate.roomId === created.roomId && candidate.kind === "BOT_ACTION",
     );
     if (!botJob) throw new Error("Expected an autopilot bot job");
-    await automation(game).runAutomation(botJob);
+    await automation(game).run(botJob);
     await store.completeAutomationJob(botJob.id, botOwner);
 
     expect(await store.loadEventsAfter(created.roomId, eventVersion)).toEqual(
@@ -494,7 +508,7 @@ describeIntegration("durable room automation", () => {
         candidate.kind === "TURN_TIMEOUT",
     );
     if (!timeoutJob) throw new Error("Expected a timeout job");
-    await automation(game).runAutomation(timeoutJob);
+    await automation(game).run(timeoutJob);
     await store.completeAutomationJob(timeoutJob.id, owner);
 
     const reconnectingPlayer = players[timeoutJob.targetSeatIndex];
@@ -544,7 +558,7 @@ describeIntegration("durable room automation", () => {
         candidate.kind === "TURN_TIMEOUT",
     );
     if (!timeoutJob) throw new Error("Expected a timeout job");
-    await automation(game).runAutomation(timeoutJob);
+    await automation(game).run(timeoutJob);
     await store.completeAutomationJob(timeoutJob.id, timeoutOwner);
 
     await database.query(
@@ -564,7 +578,7 @@ describeIntegration("durable room automation", () => {
         candidate.roomId === created.roomId && candidate.kind === "BOT_ACTION",
     );
     if (!botJob) throw new Error("Expected an autopilot bot job");
-    await automation(game).runAutomation(botJob);
+    await automation(game).run(botJob);
     await store.completeAutomationJob(botJob.id, botOwner);
 
     const automatedPlayer = players[timeoutJob.targetSeatIndex];
@@ -649,7 +663,7 @@ describeIntegration("durable room automation", () => {
         candidate.id === staleJobId && candidate.kind === "BOT_ACTION",
     );
     if (!botJob) throw new Error("Expected a stale terminal bot job");
-    await expect(automation(game).runAutomation(botJob)).resolves.toBe("stale");
+    await expect(automation(game).run(botJob)).resolves.toBe("stale");
     await store.completeAutomationJob(botJob.id, botOwner);
 
     const room = await store.loadRoom(created.roomId);
@@ -721,13 +735,9 @@ describeIntegration("durable room automation", () => {
       )
     ).find((candidate) => candidate.kind === "TRICK_ADVANCE");
     if (!trickJob) throw new Error("Expected a due trick-advance job");
-    await expect(automation(game).runAutomation(trickJob)).resolves.toBe(
-      "completed",
-    );
+    await expect(automation(game).run(trickJob)).resolves.toBe("completed");
     await store.completeAutomationJob(trickJob.id, owner);
-    await expect(automation(game).runAutomation(trickJob)).resolves.toBe(
-      "stale",
-    );
+    await expect(automation(game).run(trickJob)).resolves.toBe("stale");
 
     const projection = await game.getSnapshot(host, created.roomId);
     const publicState = (
@@ -857,7 +867,7 @@ describeIntegration("durable room automation", () => {
         candidate.kind === "TURN_TIMEOUT",
     );
     if (!timeoutJob) throw new Error("Expected a timeout job");
-    await automation(game).runAutomation(timeoutJob);
+    await automation(game).run(timeoutJob);
     await store.completeAutomationJob(timeoutJob.id, timeoutOwner);
 
     await database.query(
@@ -877,7 +887,7 @@ describeIntegration("durable room automation", () => {
         candidate.roomId === created.roomId && candidate.kind === "BOT_ACTION",
     );
     if (!botJob) throw new Error("Expected an autopilot bot job");
-    await automation(game).runAutomation(botJob);
+    await automation(game).run(botJob);
     await store.completeAutomationJob(botJob.id, botOwner);
 
     const currentRoom = await store.loadRoom(created.roomId);
@@ -951,7 +961,7 @@ describeIntegration("durable room automation", () => {
         candidate.targetSeatIndex === disconnectedSeat,
     );
     if (!graceJob) throw new Error("Expected a disconnect grace job");
-    expect(await automation(game).runAutomation(graceJob)).toBe("completed");
+    expect(await automation(game).run(graceJob)).toBe("completed");
     await store.completeAutomationJob(graceJob.id, owner);
 
     const events = await store.loadEventsAfter(created.roomId, eventVersion);
@@ -1024,7 +1034,7 @@ describeIntegration("durable room automation", () => {
     );
     const primingWorker = new AutomationWorker({
       store,
-      coordinator: game,
+      executor: automation(game),
       pollIntervalMs: 500,
       ownerId: randomUUID(),
       roomId: created.roomId,
@@ -1038,7 +1048,7 @@ describeIntegration("durable room automation", () => {
     const outcomes: string[] = [];
     const first = new AutomationWorker({
       store,
-      coordinator: game,
+      executor: automation(game),
       pollIntervalMs: 500,
       ownerId: randomUUID(),
       roomId: created.roomId,
@@ -1046,7 +1056,7 @@ describeIntegration("durable room automation", () => {
     });
     const second = new AutomationWorker({
       store,
-      coordinator: game,
+      executor: automation(game),
       pollIntervalMs: 500,
       ownerId: randomUUID(),
       roomId: created.roomId,

@@ -16,7 +16,6 @@ import {
   seatCountForProfile,
 } from "../../../gameplay/adapters/engine/legacy-engine-factory.js";
 import { applyLobbySeat } from "../../../gameplay/adapters/engine/legacy-engine-seat-mapper.js";
-import { LegacyGameplayAutomationExecutor } from "../../../gameplay/adapters/orchestration/legacy-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../../../gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayConnections } from "../../../gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../../../gameplay/adapters/persistence/legacy-gameplay-recovery.js";
@@ -34,7 +33,6 @@ import type {
 import type { RoomIdentityProvider } from "../../application/room-identity-provider.js";
 import type { RoomInviteCodeProvider } from "../../application/room-invite-code-provider.js";
 import type {
-  ClaimedAutomationJob,
   RoomSettings,
   StoredRoom,
   StoredSeat,
@@ -77,7 +75,6 @@ export class RoomCoordinator {
   private readonly identities: RoomIdentityProvider;
   private readonly inviteCodes: RoomInviteCodeProvider;
   private readonly gameplayAutomation: LegacyGameplayAutomationScheduler;
-  private readonly gameplayAutomationExecutor: LegacyGameplayAutomationExecutor;
   private readonly gameplayConnections: LegacyGameplayConnections;
   private readonly gameplayRecovery: LegacyGameplayRecovery;
   private readonly roomQueries: LegacyRoomProjectionQueries;
@@ -101,13 +98,6 @@ export class RoomCoordinator {
       store,
     });
     this.gameplayRecovery = new LegacyGameplayRecovery(store);
-    this.gameplayAutomationExecutor = new LegacyGameplayAutomationExecutor({
-      automation: this.gameplayAutomation,
-      lease,
-      presence,
-      recovery: this.gameplayRecovery,
-      store,
-    });
     this.gameplayConnections = new LegacyGameplayConnections({
       automation: this.gameplayAutomation,
       identities,
@@ -480,12 +470,6 @@ export class RoomCoordinator {
     );
     await this.presence.remove(roomId, session.playerId);
     return exit;
-  }
-
-  async runAutomation(
-    job: ClaimedAutomationJob,
-  ): Promise<"completed" | "stale"> {
-    return this.gameplayAutomationExecutor.run(job);
   }
 
   private async withRoomCommand(
