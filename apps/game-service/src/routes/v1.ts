@@ -1,5 +1,4 @@
 import {
-  type CreateRoomRequest,
   CreateRoomRequestSchema,
   type GameCommand,
   GameCommandSchema,
@@ -32,10 +31,6 @@ import type { RateLimiter } from "../infra/redis-coordination.js";
 import { ServiceError } from "../shared/service-error.js";
 
 export interface V1RoomCoordinator {
-  createRoom(
-    session: AuthenticatedSession,
-    request: CreateRoomRequest,
-  ): Promise<RoomProjection>;
   getRoom(
     session: AuthenticatedSession,
     roomReference: string,
@@ -67,10 +62,10 @@ export interface V1RoomCoordinator {
 
 export interface GameRuntime {
   coordinator: V1RoomCoordinator;
-  roomUseCases?: {
-    readonly create?: Pick<CreateRoomHandler, "execute">;
-    readonly join: Pick<JoinRoomHandler, "execute">;
-    readonly leave: Pick<LeaveRoomHandler, "execute">;
+  roomUseCases: {
+    readonly create: Pick<CreateRoomHandler, "execute">;
+    readonly join?: Pick<JoinRoomHandler, "execute">;
+    readonly leave?: Pick<LeaveRoomHandler, "execute">;
   };
   sessions: PlayerAccessService;
   rateLimiter: RateLimiter;
@@ -142,25 +137,20 @@ export async function registerV1Routes(
     const session = await requireSession(request, config, runtime);
     await consumeMutationLimit(request, runtime, session, "room-create", 5, 60);
     const input = CreateRoomRequestSchema.parse(request.body);
-    if (runtime.roomUseCases?.create) {
-      const projection = await runtime.roomUseCases.create.execute({
-        commandId: commandId(input.commandId),
-        host: {
-          displayName: session.displayName,
-          playerId: playerId(session.playerId),
-        },
-        profileId: input.ruleProfileId,
-        sessionId: session.sessionId,
-        settings: {
-          botDifficulty: input.botDifficulty,
-          enableSecondBidding: true,
-        },
-      });
-      return reply.code(201).send(presentLobbyRoom(projection));
-    }
-    return reply
-      .code(201)
-      .send(await runtime.coordinator.createRoom(session, input));
+    const projection = await runtime.roomUseCases.create.execute({
+      commandId: commandId(input.commandId),
+      host: {
+        displayName: session.displayName,
+        playerId: playerId(session.playerId),
+      },
+      profileId: input.ruleProfileId,
+      sessionId: session.sessionId,
+      settings: {
+        botDifficulty: input.botDifficulty,
+        enableSecondBidding: true,
+      },
+    });
+    return reply.code(201).send(presentLobbyRoom(projection));
   });
 
   app.get<{ Params: { roomRef: string } }>(
@@ -184,7 +174,7 @@ export async function registerV1Routes(
         60,
       );
       const input = JoinRoomRequestSchema.parse(request.body);
-      if (runtime.roomUseCases) {
+      if (runtime.roomUseCases.join) {
         const projection = await runtime.roomUseCases.join.execute({
           actor: {
             displayName: session.displayName,

@@ -31,9 +31,8 @@ describe("create room route cutover", () => {
       settings: { botDifficulty: "normal", enableSecondBidding: true },
     });
     const execute = vi.fn().mockResolvedValue(projectRoom(lobby, hostId));
-    const legacyCreate = vi.fn();
     const game = {
-      coordinator: { createRoom: legacyCreate },
+      coordinator: {},
       rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
       roomUseCases: { create: { execute } },
       sessions: {
@@ -77,7 +76,6 @@ describe("create room route cutover", () => {
       sessionId,
       settings: { botDifficulty: "normal", enableSecondBidding: true },
     });
-    expect(legacyCreate).not.toHaveBeenCalled();
     await app.close();
   });
 });

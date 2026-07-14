@@ -7,10 +7,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { buildApp, loadConfig } from "../src/app.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
+import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
 import { RoomCoordinator } from "../src/contexts/rooms/adapters/orchestration/room-coordinator.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
+import { CreateRoomHandler } from "../src/contexts/rooms/application/create-room.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
 import {
   Presence,
@@ -85,12 +87,15 @@ async function buildRealApp(): Promise<TestRuntime> {
     pepper: config.SESSION_SECRET_PEPPER,
     ttlDays: config.SESSION_TTL_DAYS,
   });
+  const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
+  const identities = new NodeRoomIdentityProvider();
+  const inviteCodes = new NodeRoomInviteCodeProvider();
   const coordinator = new RoomCoordinator({
-    identities: new NodeRoomIdentityProvider(),
-    inviteCodes: new NodeRoomInviteCodeProvider(),
+    identities,
+    inviteCodes,
     store,
     lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
-    presence: new Presence(redis, config.PRESENCE_TTL_SECONDS),
+    presence,
     automation: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
   });
   const app = await buildApp({
@@ -98,6 +103,14 @@ async function buildRealApp(): Promise<TestRuntime> {
     readiness: { database: () => database.health(), redis: async () => true },
     game: {
       coordinator,
+      roomUseCases: {
+        create: new CreateRoomHandler(
+          new LegacyRoomCreationRepository(store),
+          presence,
+          identities,
+          inviteCodes,
+        ),
+      },
       sessions,
       rateLimiter: new RateLimiter(redis, `g304:test:${randomUUID()}`),
     },
