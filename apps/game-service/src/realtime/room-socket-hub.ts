@@ -5,7 +5,7 @@ import {
 } from "@three-zero-four/contracts";
 import type WebSocket from "ws";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
-import { DomainError } from "../shared/service-error.js";
+import { ServiceError } from "../shared/service-error.js";
 import type { RoomChangedNotice } from "./room-change-bus.js";
 
 export interface RoomSocketCoordinator {
@@ -196,7 +196,7 @@ export class RoomSocketHub {
         );
       } catch (error) {
         if (
-          !(error instanceof DomainError) ||
+          !(error instanceof ServiceError) ||
           error.code !== "ROOM_BUSY" ||
           attempt >= 3
         ) {

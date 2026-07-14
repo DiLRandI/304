@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { RedisClientType } from "redis";
-import { DomainError } from "../shared/service-error.js";
+import { ServiceError } from "../shared/service-error.js";
 
 const RELEASE_LEASE_SCRIPT =
   "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0";
@@ -49,7 +49,7 @@ export class RoomLease {
 
       const retryDelayMs = ROOM_LEASE_RETRY_DELAYS_MS[attempt];
       if (retryDelayMs === undefined) {
-        throw new DomainError("ROOM_BUSY", 503, "Room is busy; retry shortly");
+        throw new ServiceError("ROOM_BUSY", 503, "Room is busy; retry shortly");
       }
       await new Promise<void>((resolve) => {
         setTimeout(resolve, retryDelayMs);
@@ -114,14 +114,14 @@ export class RateLimiter {
       }),
     );
     if (!Number.isSafeInteger(count) || count < 1) {
-      throw new DomainError(
+      throw new ServiceError(
         "RATE_LIMIT_UNAVAILABLE",
         503,
         "Rate limit is unavailable",
       );
     }
     if (count > limit) {
-      throw new DomainError(
+      throw new ServiceError(
         "RATE_LIMITED",
         429,
         "Too many requests; retry shortly",

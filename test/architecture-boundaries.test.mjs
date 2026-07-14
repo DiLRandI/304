@@ -378,3 +378,17 @@ test("delivery adapters use the shared service error name", async () => {
     assert.doesNotMatch(source, /DomainError/, filename);
   }
 });
+
+test("runtime adapters use the shared service error name", async () => {
+  const runtimeFiles = (
+    await Promise.all(
+      ["infra", "realtime"].map((directory) =>
+        collectSourceFiles(`apps/game-service/src/${directory}`),
+      ),
+    )
+  ).flat();
+  for (const filename of runtimeFiles) {
+    const source = await readFile(path.join(repoRoot, filename), "utf8");
+    assert.doesNotMatch(source, /DomainError/, filename);
+  }
+});
