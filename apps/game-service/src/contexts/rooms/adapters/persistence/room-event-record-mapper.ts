@@ -32,12 +32,22 @@ function departedSeat(
 export function mapRoomEventForPersistence(
   event: RoomEvent,
   room: Room,
+  startedRoomSnapshot?: unknown,
 ): PersistedRoomEvent {
   if (event.type === "ROOM_STARTED") {
-    throw new RoomEventPersistenceMappingError(
-      "GAMEPLAY_STATE_REQUIRED",
-      "Room start requires an atomic gameplay snapshot",
-    );
+    if (startedRoomSnapshot === undefined) {
+      throw new RoomEventPersistenceMappingError(
+        "GAMEPLAY_STATE_REQUIRED",
+        "Room start requires an atomic gameplay snapshot",
+      );
+    }
+    return {
+      eventType: event.type,
+      payload: {
+        ruleProfileId: room.profileId,
+        state: startedRoomSnapshot,
+      },
+    };
   }
   if (event.type === "PLAYER_JOINED") {
     return {

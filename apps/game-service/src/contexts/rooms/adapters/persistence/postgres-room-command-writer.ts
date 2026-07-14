@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import type { Room } from "@three-zero-four/room-domain";
 import type { QueryResultRow } from "pg";
 import type { Database } from "../../../../infra/database.js";
 import type {
@@ -18,6 +19,10 @@ interface DuplicateRow extends QueryResultRow {
 }
 
 type TransactionalDatabase = Pick<Database, "transaction">;
+
+export interface StartedRoomSnapshotFactory {
+  create(room: Room): unknown;
+}
 
 type RoomCommandPersistenceErrorCode =
   | "COMMAND_ID_CONFLICT"
@@ -58,13 +63,20 @@ function validateCommit(input: RoomCommandCommit): void {
 }
 
 export class PostgresRoomCommandWriter implements RoomCommandWriter {
-  constructor(private readonly database: TransactionalDatabase) {}
+  constructor(
+    private readonly database: TransactionalDatabase,
+    private readonly startedRoomSnapshots?: StartedRoomSnapshotFactory,
+  ) {}
 
   async commit(input: RoomCommandCommit): Promise<void> {
     validateCommit(input);
     const event = input.events[0];
+    const startedRoomSnapshot =
+      event?.type === "ROOM_STARTED"
+        ? this.startedRoomSnapshots?.create(input.room)
+        : undefined;
     const persistedEvent = event
-      ? mapRoomEventForPersistence(event, input.room)
+      ? mapRoomEventForPersistence(event, input.room, startedRoomSnapshot)
       : null;
     await this.database.transaction(async (transaction) => {
       const locked = await transaction.query<LockedRoomRow>(
@@ -154,6 +166,17 @@ export class PostgresRoomCommandWriter implements RoomCommandWriter {
             JSON.stringify(persistedEvent.payload),
           ],
         );
+        if (startedRoomSnapshot !== undefined) {
+          await transaction.query(
+            "INSERT INTO game_snapshots (room_id, event_version, schema_version, rule_profile_id, state) VALUES ($1, $2, 1, $3, $4::jsonb)",
+            [
+              input.room.id,
+              input.room.eventVersion,
+              input.room.profileId,
+              JSON.stringify(startedRoomSnapshot),
+            ],
+          );
+        }
         await transaction.query(
           "INSERT INTO room_outbox (room_id, event_version) VALUES ($1, $2)",
           [input.room.id, input.room.eventVersion],

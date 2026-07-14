@@ -208,6 +208,52 @@ describe("PostgresRoomCommandWriter", () => {
     expect(database.calls).toEqual([]);
   });
 
+  it("persists an enriched room-start event and gameplay snapshot atomically", async () => {
+    const room = lobby();
+    const result = executeRoomCommand(room, {
+      actor: hostId,
+      expectedVersion: room.eventVersion,
+      type: "START_ROOM",
+    });
+    if (!result.ok) throw new Error("Expected room start to succeed");
+    const snapshot = { phase: "four_bidding", schemaVersion: 1 };
+    const database = new TransactionDatabase();
+    const writer = new PostgresRoomCommandWriter(database, {
+      create: () => snapshot,
+    });
+
+    await writer.commit({
+      actorPlayerId: hostId,
+      commandId: aggregateCommandId,
+      events: result.events,
+      expectedVersion: room.eventVersion,
+      request: {
+        actor: hostId,
+        expectedVersion: room.eventVersion,
+        type: "START_ROOM",
+      },
+      response: projectRoom(result.room, hostId),
+      room: result.room,
+    });
+
+    const eventInsert = database.calls.find((call) =>
+      call.text.startsWith("INSERT INTO game_events"),
+    );
+    expect(JSON.parse(String(eventInsert?.values[5]))).toEqual({
+      ruleProfileId: "classic_304_4p",
+      state: snapshot,
+    });
+    const snapshotInsert = database.calls.find((call) =>
+      call.text.startsWith("INSERT INTO game_snapshots"),
+    );
+    expect(snapshotInsert?.values).toEqual([
+      aggregateId,
+      2,
+      "classic_304_4p",
+      JSON.stringify(snapshot),
+    ]);
+  });
+
   it("rejects an optimistic version conflict before writing", async () => {
     const database = new TransactionDatabase();
     database.currentVersion = 2;
