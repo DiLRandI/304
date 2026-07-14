@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type {
   PendingRoomNotification,
   PostgresRoomStore,
-} from "../domain/room-store.js";
+} from "../contexts/rooms/adapters/persistence/postgres-room-store.js";
 import type { RoomChangePublisher } from "./room-change-bus.js";
 
 type OutboxStore = Pick<

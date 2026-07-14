@@ -1,7 +1,7 @@
 import type { RuleProfileId } from "@three-zero-four/contracts";
 import type { QueryResultRow } from "pg";
-import type { Database } from "../infra/database.js";
-import { DomainError } from "./errors.js";
+import { DomainError } from "../../../../domain/errors.js";
+import type { Database } from "../../../../infra/database.js";
 
 export type RoomStatus =
   | "lobby"

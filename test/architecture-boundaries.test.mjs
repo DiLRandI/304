@@ -257,3 +257,21 @@ test("gameplay recovery errors belong to the Gameplay application", async () => 
     /contexts\/gameplay\/application\/gameplay-recovery-error\.js/,
   );
 });
+
+test("the PostgreSQL room store is a Rooms persistence adapter", async () => {
+  const legacyDomainFiles = await collectSourceFiles(
+    "apps/game-service/src/domain",
+  );
+  assert.equal(
+    legacyDomainFiles.includes("apps/game-service/src/domain/room-store.ts"),
+    false,
+  );
+  const adapterSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/persistence/postgres-room-store.ts",
+    ),
+    "utf8",
+  );
+  assert.match(adapterSource, /export class PostgresRoomStore/);
+});

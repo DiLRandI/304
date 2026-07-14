@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import type { ClaimedAutomationJob } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
 import type { RoomCoordinator } from "../src/domain/room-coordinator.js";
-import type { ClaimedAutomationJob } from "../src/domain/room-store.js";
 import { AutomationWorker } from "../src/worker/automation-worker.js";
 import {
   type MaintenanceRunner,

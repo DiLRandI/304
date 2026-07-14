@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { loadConfig } from "./config.js";
+import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { NodeRoomInviteCodeProvider } from "./contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { RoomMaintenance } from "./contexts/rooms/application/room-maintenance.js";
 import { RoomCoordinator } from "./domain/room-coordinator.js";
-import { PostgresRoomStore } from "./domain/room-store.js";
 import { createDatabase } from "./infra/database.js";
 import { createReadiness } from "./infra/readiness.js";
 import { createRedis } from "./infra/redis.js";

@@ -7,7 +7,7 @@ import { runMigrations } from "../scripts/migrate.js";
 import {
   PostgresRoomStore,
   type StoredSeat,
-} from "../src/domain/room-store.js";
+} from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";

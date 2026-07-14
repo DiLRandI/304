@@ -32,20 +32,20 @@ import { RecoveryError } from "../contexts/gameplay/application/gameplay-recover
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { projectLobbyForViewer } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import type {
-  RoomLease,
-  RoomPresence,
-} from "../contexts/rooms/application/room-coordination-ports.js";
-import type { RoomIdentityProvider } from "../contexts/rooms/application/room-identity-provider.js";
-import type { RoomInviteCodeProvider } from "../contexts/rooms/application/room-invite-code-provider.js";
-import { DomainError } from "./errors.js";
-import type {
   ClaimedAutomationJob,
   PostgresRoomStore,
   Queryable,
   RoomSettings,
   StoredRoom,
   StoredSeat,
-} from "./room-store.js";
+} from "../contexts/rooms/adapters/persistence/postgres-room-store.js";
+import type {
+  RoomLease,
+  RoomPresence,
+} from "../contexts/rooms/application/room-coordination-ports.js";
+import type { RoomIdentityProvider } from "../contexts/rooms/application/room-identity-provider.js";
+import type { RoomInviteCodeProvider } from "../contexts/rooms/application/room-invite-code-provider.js";
+import { DomainError } from "./errors.js";
 
 interface RoomCoordinatorDependencies {
   identities: RoomIdentityProvider;

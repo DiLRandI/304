@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
-import type { RoomCoordinator } from "../domain/room-coordinator.js";
 import type {
   ClaimedAutomationJob,
   PostgresRoomStore,
-} from "../domain/room-store.js";
+} from "../contexts/rooms/adapters/persistence/postgres-room-store.js";
+import type { RoomCoordinator } from "../domain/room-coordinator.js";
 
 export type AutomationWorkerOutcome = "completed" | "stale" | "failed";
 
