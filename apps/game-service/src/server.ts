@@ -1,10 +1,12 @@
 import { buildApp, loadConfig } from "./app.js";
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
+import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
 import { RoomCoordinator } from "./contexts/rooms/adapters/orchestration/room-coordinator.js";
 import { PostgresRoomCommandRepository } from "./contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { NodeRoomInviteCodeProvider } from "./contexts/rooms/adapters/security/node-room-invite-code-provider.js";
+import { CreateRoomHandler } from "./contexts/rooms/application/create-room.js";
 import { ExecuteRoomCommandHandler } from "./contexts/rooms/application/execute-room-command.js";
 import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "./contexts/rooms/application/leave-room.js";
@@ -33,9 +35,11 @@ const sessions = new PlayerAccessService(database, {
   ttlDays: config.SESSION_TTL_DAYS,
 });
 const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
+const identities = new NodeRoomIdentityProvider();
+const inviteCodes = new NodeRoomInviteCodeProvider();
 const coordinator = new RoomCoordinator({
-  identities: new NodeRoomIdentityProvider(),
-  inviteCodes: new NodeRoomInviteCodeProvider(),
+  identities,
+  inviteCodes,
   store,
   lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
   presence,
@@ -50,6 +54,12 @@ const roomCommands = new ExecuteRoomCommandHandler(
 const game = {
   coordinator,
   roomUseCases: {
+    create: new CreateRoomHandler(
+      new LegacyRoomCreationRepository(store),
+      presence,
+      identities,
+      inviteCodes,
+    ),
     join: new JoinRoomHandler(roomCommands, presence),
     leave: new LeaveRoomHandler(roomCommands, presence),
   },

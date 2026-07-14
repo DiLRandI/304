@@ -25,6 +25,7 @@ import type { ServiceConfig } from "../config.js";
 import type { PlayerAccessService } from "../contexts/player-access/adapters/delivery/player-access-service.js";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
+import type { CreateRoomHandler } from "../contexts/rooms/application/create-room.js";
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
 import type { RateLimiter } from "../infra/redis-coordination.js";
@@ -67,6 +68,7 @@ export interface V1RoomCoordinator {
 export interface GameRuntime {
   coordinator: V1RoomCoordinator;
   roomUseCases?: {
+    readonly create?: Pick<CreateRoomHandler, "execute">;
     readonly join: Pick<JoinRoomHandler, "execute">;
     readonly leave: Pick<LeaveRoomHandler, "execute">;
   };
@@ -140,6 +142,22 @@ export async function registerV1Routes(
     const session = await requireSession(request, config, runtime);
     await consumeMutationLimit(request, runtime, session, "room-create", 5, 60);
     const input = CreateRoomRequestSchema.parse(request.body);
+    if (runtime.roomUseCases?.create) {
+      const projection = await runtime.roomUseCases.create.execute({
+        commandId: commandId(input.commandId),
+        host: {
+          displayName: session.displayName,
+          playerId: playerId(session.playerId),
+        },
+        profileId: input.ruleProfileId,
+        sessionId: session.sessionId,
+        settings: {
+          botDifficulty: input.botDifficulty,
+          enableSecondBidding: true,
+        },
+      });
+      return reply.code(201).send(presentLobbyRoom(projection));
+    }
     return reply
       .code(201)
       .send(await runtime.coordinator.createRoom(session, input));
