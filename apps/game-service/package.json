@@ -18,6 +18,7 @@
     "@fastify/websocket": "11.3.0",
     "@three-zero-four/contracts": "workspace:*",
     "@three-zero-four/game-engine": "workspace:*",
+    "@three-zero-four/gameplay": "workspace:*",
     "@three-zero-four/room-domain": "workspace:*",
     "fastify": "5.10.0",
     "pg": "8.22.0",
