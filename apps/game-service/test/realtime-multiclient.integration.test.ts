@@ -133,8 +133,12 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
   const roomPresence = {
     refresh: coordinator.markRealtimePresence.bind(coordinator),
   };
+  const getRoomSnapshot = new GetRoomSnapshotHandler(roomQueries, roomPresence);
   const roomChanges = new RedisRoomChangeBus(redis);
-  const hub = new RoomSocketHub({ coordinator });
+  const hub = new RoomSocketHub({
+    connections: coordinator,
+    snapshot: getRoomSnapshot,
+  });
   await roomChanges.start((notice) => hub.handleRoomChanged(notice));
   const publisher = new OutboxPublisher({
     store,
@@ -156,7 +160,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
         get: new GetRoomHandler(roomQueries, roomPresence),
         join: new JoinRoomHandler(roomCommands, presence),
         leave: new LeaveRoomHandler(roomCommands, presence),
-        snapshot: new GetRoomSnapshotHandler(roomQueries, roomPresence),
+        snapshot: getRoomSnapshot,
         start: new StartRoomHandler(roomCommands, presence),
       },
       sessions,

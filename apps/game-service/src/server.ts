@@ -75,6 +75,7 @@ const roomQueries = new LegacyRoomProjectionQueries({
 const roomPresence = {
   refresh: coordinator.markRealtimePresence.bind(coordinator),
 };
+const getRoomSnapshot = new GetRoomSnapshotHandler(roomQueries, roomPresence);
 const game = {
   coordinator,
   roomUseCases: {
@@ -87,7 +88,7 @@ const game = {
     get: new GetRoomHandler(roomQueries, roomPresence),
     join: new JoinRoomHandler(roomCommands, presence),
     leave: new LeaveRoomHandler(roomCommands, presence),
-    snapshot: new GetRoomSnapshotHandler(roomQueries, roomPresence),
+    snapshot: getRoomSnapshot,
     start: new StartRoomHandler(roomCommands, presence),
   },
   sessions,
@@ -99,8 +100,9 @@ const maintenanceTelemetry = new MaintenanceTelemetry(redis);
 const workerTelemetry = new WorkerTelemetry(redis);
 const roomChanges = new RedisRoomChangeBus(redis);
 const hub = new RoomSocketHub({
-  coordinator,
+  connections: coordinator,
   onConnectionCount: (count) => metrics.activeWebsocketConnections.set(count),
+  snapshot: getRoomSnapshot,
 });
 await roomChanges.start((notice) => hub.handleRoomChanged(notice));
 const outboxPublisher = new OutboxPublisher({

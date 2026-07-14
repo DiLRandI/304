@@ -8,11 +8,14 @@ import type { AuthenticatedSession } from "../contexts/player-access/application
 import { ServiceError } from "../shared/service-error.js";
 import type { RoomChangedNotice } from "./room-change-bus.js";
 
-export interface RoomSocketCoordinator {
-  getSnapshot(
-    session: AuthenticatedSession,
-    roomId: string,
-  ): Promise<RoomProjection>;
+export interface RoomSocketSnapshotQuery {
+  execute(input: {
+    readonly roomId: string;
+    readonly session: AuthenticatedSession;
+  }): Promise<RoomProjection>;
+}
+
+export interface RoomSocketConnections {
   markRealtimeDisconnected(
     session: AuthenticatedSession,
     roomId: string,
@@ -49,8 +52,9 @@ export class RoomSocketHub {
 
   constructor(
     private readonly dependencies: {
-      coordinator: RoomSocketCoordinator;
+      connections: RoomSocketConnections;
       onConnectionCount?: (count: number) => void;
+      snapshot: RoomSocketSnapshotQuery;
     },
   ) {}
 
@@ -99,7 +103,7 @@ export class RoomSocketHub {
     }
     try {
       if (parsed.data.type === "PING") {
-        await this.dependencies.coordinator.markRealtimePresence(
+        await this.dependencies.connections.markRealtimePresence(
           connection.session,
           connection.roomId,
         );
@@ -146,7 +150,7 @@ export class RoomSocketHub {
     );
     if (!hasPlayerConnection) {
       try {
-        await this.dependencies.coordinator.markRealtimeDisconnected(
+        await this.dependencies.connections.markRealtimeDisconnected(
           connection.session,
           connection.roomId,
         );
@@ -190,10 +194,10 @@ export class RoomSocketHub {
   ): Promise<RoomProjection> {
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return await this.dependencies.coordinator.getSnapshot(
-          connection.session,
-          connection.roomId,
-        );
+        return await this.dependencies.snapshot.execute({
+          roomId: connection.roomId,
+          session: connection.session,
+        });
       } catch (error) {
         if (
           !(error instanceof ServiceError) ||
