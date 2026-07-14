@@ -1,20 +1,17 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-  type CommandId,
-  eventVersion,
-  inviteCode,
-  type PlayerId,
-  type Room,
-  type RoomCommand,
-  type RoomId,
-  type RoomProjection,
-  roomId,
-  seatPosition,
+import type {
+  CommandId,
+  PlayerId,
+  Room,
+  RoomCommand,
+  RoomId,
+  RoomProjection,
 } from "@three-zero-four/room-domain";
 import type { QueryResultRow } from "pg";
 import { z } from "zod";
 import type { Database } from "../../../../infra/database.js";
 import type { RoomCommandReader } from "../../application/execute-room-command.js";
+import { mapPersistedRoomProjection } from "./room-projection-record-mapper.js";
 import {
   mapPersistedRoom,
   type PersistedRoomRecord,
@@ -50,36 +47,6 @@ interface DuplicateRow extends QueryResultRow {
 
 type Queryable = Pick<Database, "query">;
 
-const projectionSeatSchema = z.strictObject({
-  botDifficulty: z.enum(["easy", "normal", "strong"]).optional(),
-  connectionStatus: z.enum(["autopilot", "disconnected", "online"]),
-  displayName: z.string().nullable(),
-  isHost: z.boolean(),
-  isViewer: z.boolean(),
-  occupantType: z.enum(["bot", "empty", "human"]),
-  position: z.number().int().nonnegative(),
-});
-
-const projectionSchema = z.strictObject({
-  eventVersion: z.number().int().positive(),
-  id: z.string(),
-  inviteCode: z.string(),
-  profileId: z.enum(["classic_304_4p", "six_304_36"]),
-  seats: z.array(projectionSeatSchema),
-  settings: z.strictObject({
-    botDifficulty: z.enum(["easy", "normal", "strong"]),
-    enableSecondBidding: z.boolean(),
-  }),
-  status: z.enum([
-    "closed",
-    "hand_result",
-    "in_hand",
-    "lobby",
-    "recovery_failed",
-  ]),
-  viewerSeatPosition: z.number().int().nonnegative().nullable(),
-});
-
 export class RoomQueryRepositoryError extends Error {
   constructor(
     readonly code: "COMMAND_ID_CONFLICT" | "INVALID_COMMAND_RESPONSE",
@@ -111,58 +78,6 @@ function persistedSeatRecord(row: SeatRow): PersistedSeatRecord {
     playerId: row.player_id,
     position: row.seat_index,
   };
-}
-
-function persistedProjection(value: unknown): RoomProjection {
-  try {
-    const parsed = projectionSchema.parse(value);
-    const seatCount = parsed.profileId === "six_304_36" ? 6 : 4;
-    if (
-      parsed.seats.length !== seatCount ||
-      parsed.seats.some(
-        (seat, index) =>
-          seat.position !== index ||
-          (seat.occupantType === "bot") !==
-            (seat.botDifficulty !== undefined) ||
-          (seat.occupantType === "empty") !== (seat.displayName === null),
-      )
-    ) {
-      throw new Error("Projection seats are inconsistent");
-    }
-    const viewerSeatPosition =
-      parsed.viewerSeatPosition === null
-        ? null
-        : seatPosition(parsed.viewerSeatPosition, seatCount);
-    if (
-      parsed.seats.filter((seat) => seat.isViewer).length !==
-        (viewerSeatPosition === null ? 0 : 1) ||
-      (viewerSeatPosition !== null &&
-        !parsed.seats[viewerSeatPosition]?.isViewer)
-    ) {
-      throw new Error("Projection viewer seat is inconsistent");
-    }
-    return {
-      ...parsed,
-      eventVersion: eventVersion(parsed.eventVersion),
-      id: roomId(parsed.id),
-      inviteCode: inviteCode(parsed.inviteCode),
-      seats: parsed.seats.map(({ botDifficulty, ...seat }) => {
-        const mappedSeat = {
-          ...seat,
-          position: seatPosition(seat.position, seatCount),
-        };
-        return botDifficulty === undefined
-          ? mappedSeat
-          : { ...mappedSeat, botDifficulty };
-      }),
-      viewerSeatPosition,
-    };
-  } catch {
-    throw new RoomQueryRepositoryError(
-      "INVALID_COMMAND_RESPONSE",
-      "Stored command response is invalid",
-    );
-  }
 }
 
 export class PostgresRoomQueryRepository implements RoomCommandReader {
@@ -203,6 +118,13 @@ export class PostgresRoomQueryRepository implements RoomCommandReader {
         "Command id belongs to another player",
       );
     }
-    return persistedProjection(duplicate.response);
+    try {
+      return mapPersistedRoomProjection(duplicate.response);
+    } catch {
+      throw new RoomQueryRepositoryError(
+        "INVALID_COMMAND_RESPONSE",
+        "Stored command response is invalid",
+      );
+    }
   }
 }
