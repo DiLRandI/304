@@ -253,6 +253,21 @@ test("gameplay recovery errors belong to the Gameplay application", async () => 
   );
 });
 
+test("legacy gameplay snapshot replay belongs to a Gameplay adapter", async () => {
+  const recoverySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.ts",
+    ),
+    "utf8",
+  );
+  const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
+
+  assert.match(recoverySource, /export class LegacyGameplayRecovery/);
+  assert.match(coordinatorSource, /LegacyGameplayRecovery/);
+  assert.doesNotMatch(coordinatorSource, /private async recoverLockedRoom/);
+});
+
 test("the PostgreSQL room store is a Rooms persistence adapter", async () => {
   const legacyDomainFiles = await collectSourceFiles(
     "apps/game-service/src/domain",
