@@ -7,24 +7,15 @@ import type {
   RoomProjection,
 } from "@three-zero-four/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { parseRealtimeServerMessage } from "../api/room-realtime";
-import {
-  createBrowserRoomSocket,
-  encodeRoomClientMessage,
-  ROOM_SOCKET_OPEN,
-  type RoomSocket,
-  type RoomSocketFactory,
-} from "../api/room-socket";
+import type { RoomSocketFactory } from "../api/room-socket";
 import type { RoomGateway } from "../application/room-gateway";
 import { RoomGatewayError } from "../application/room-gateway-error";
 import { applyProjection } from "../model/room-state";
-
-const PING_INTERVAL_MS = 15_000;
-const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 5_000, 10_000] as const;
-const SOCKET_CONNECT_ERROR =
-  "The live table could not connect. Retrying shortly.";
-
-export type RoomConnection = "connecting" | "live" | "offline" | "reconnecting";
+import {
+  ROOM_SOCKET_CONNECT_ERROR,
+  type RoomMessageSender,
+  useRoomRealtime,
+} from "./use-room-realtime";
 
 export interface RoomControllerOptions {
   createSocket?: RoomSocketFactory;
@@ -40,16 +31,13 @@ export function useRoomController(
   client: RoomGateway,
   options: RoomControllerOptions = {},
 ) {
-  const [connection, setConnection] = useState<RoomConnection>("connecting");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(roomReference));
   const [projection, setProjection] = useState<RoomProjection | null>(null);
+  const [realtimeRoomId, setRealtimeRoomId] = useState<string | null>(null);
   const projectionRef = useRef<RoomProjection | null>(null);
   const leftRoomRef = useRef(false);
-  const socketRef = useRef<RoomSocket | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bootstrapRef = useRef<(() => Promise<void>) | null>(null);
-  const createSocket = options.createSocket ?? createBrowserRoomSocket;
 
   const commitProjection = useCallback((next: RoomProjection): boolean => {
     const transition = applyProjection(projectionRef.current, next);
@@ -75,22 +63,61 @@ export function useRoomController(
     [client, commitProjection],
   );
 
-  const sendRealtime = useCallback(
-    (
-      message: { roomId: string; type: "RESYNC" } | { type: "PING" },
-    ): boolean => {
-      const socket = socketRef.current;
-      if (!socket || socket.readyState !== ROOM_SOCKET_OPEN) return false;
-      socket.send(encodeRoomClientMessage(message));
-      return true;
+  const handleRealtimeMessage = useCallback(
+    (message: RealtimeServerMessage, send: RoomMessageSender): void => {
+      if (leftRoomRef.current) return;
+      if (message.type === "SNAPSHOT") {
+        const needsResync = commitProjection(message.projection);
+        if (needsResync) {
+          send({ roomId: message.projection.roomId, type: "RESYNC" });
+          void refreshSnapshot(message.projection.roomId);
+        }
+        return;
+      }
+      if (message.type === "RESYNC_REQUIRED") {
+        void refreshSnapshot(message.roomId);
+        return;
+      }
+      setError(message.message);
     },
-    [],
+    [commitProjection, refreshSnapshot],
   );
+
+  const handleUnreadableMessage = useCallback(
+    (roomId: string): void => {
+      if (leftRoomRef.current) return;
+      setError("A realtime update could not be read. Refreshing the table.");
+      void refreshSnapshot(roomId);
+    },
+    [refreshSnapshot],
+  );
+
+  const socketUrl = useCallback(
+    (roomId: string): string => client.roomSocketUrl(roomId),
+    [client],
+  );
+
+  const {
+    connection,
+    disconnect: disconnectRealtime,
+    send: sendRealtime,
+  } = useRoomRealtime({
+    ...(options.createSocket ? { createSocket: options.createSocket } : {}),
+    onConnected: () =>
+      setError((current) =>
+        current === ROOM_SOCKET_CONNECT_ERROR ? null : current,
+      ),
+    onConnectionError: setError,
+    onMessage: handleRealtimeMessage,
+    onUnreadableMessage: handleUnreadableMessage,
+    roomId: realtimeRoomId,
+    socketUrl,
+  });
 
   useEffect(() => {
     if (!roomReference) {
       leftRoomRef.current = true;
-      setConnection("offline");
+      setRealtimeRoomId(null);
       setLoading(false);
       return;
     }
@@ -98,95 +125,7 @@ export function useRoomController(
     let disposed = false;
     let bootstrapInFlight = false;
     leftRoomRef.current = false;
-    let reconnectAttempt = 0;
-    const socketFactory = createSocket;
-
-    const clearReconnectTimer = () => {
-      if (reconnectTimerRef.current !== null) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-    };
-
-    const requestSnapshot = (roomId: string) => {
-      if (leftRoomRef.current) return;
-      void refreshSnapshot(roomId);
-    };
-
-    const handleRealtimeMessage = (event: MessageEvent<string>) => {
-      if (leftRoomRef.current) return;
-      let message: RealtimeServerMessage;
-      try {
-        message = parseRealtimeServerMessage(JSON.parse(event.data));
-      } catch {
-        setError("A realtime update could not be read. Refreshing the table.");
-        const roomId = projectionRef.current?.roomId;
-        if (roomId) requestSnapshot(roomId);
-        return;
-      }
-
-      if (message.type === "SNAPSHOT") {
-        const needsResync = commitProjection(message.projection);
-        if (needsResync) {
-          sendRealtime({ roomId: message.projection.roomId, type: "RESYNC" });
-          requestSnapshot(message.projection.roomId);
-        }
-        return;
-      }
-      if (message.type === "RESYNC_REQUIRED") {
-        requestSnapshot(message.roomId);
-        return;
-      }
-      setError(message.message);
-    };
-
-    function scheduleReconnect(roomId: string): void {
-      if (disposed || leftRoomRef.current) return;
-      clearReconnectTimer();
-      reconnectAttempt += 1;
-      setConnection("reconnecting");
-      const delay =
-        RECONNECT_DELAYS_MS[
-          Math.min(reconnectAttempt - 1, RECONNECT_DELAYS_MS.length - 1)
-        ] ?? RECONNECT_DELAYS_MS[RECONNECT_DELAYS_MS.length - 1];
-      reconnectTimerRef.current = setTimeout(() => openSocket(roomId), delay);
-    }
-
-    function openSocket(roomId: string): void {
-      if (disposed || leftRoomRef.current) return;
-      clearReconnectTimer();
-      setConnection(reconnectAttempt === 0 ? "connecting" : "reconnecting");
-      let socket: RoomSocket;
-      try {
-        socket = socketFactory(client.roomSocketUrl(roomId));
-      } catch {
-        socketRef.current = null;
-        setError(SOCKET_CONNECT_ERROR);
-        scheduleReconnect(roomId);
-        return;
-      }
-      socketRef.current = socket;
-      socket.onopen = () => {
-        if (disposed || leftRoomRef.current) {
-          socket.close();
-          return;
-        }
-        reconnectAttempt = 0;
-        setConnection("live");
-        setError((current) =>
-          current === SOCKET_CONNECT_ERROR ? null : current,
-        );
-      };
-      socket.onmessage = handleRealtimeMessage;
-      socket.onerror = () => {
-        setConnection("offline");
-      };
-      socket.onclose = () => {
-        if (disposed || leftRoomRef.current) return;
-        if (socketRef.current === socket) socketRef.current = null;
-        scheduleReconnect(roomId);
-      };
-    }
+    setRealtimeRoomId(null);
 
     const bootstrap = async () => {
       if (bootstrapInFlight || disposed || leftRoomRef.current) return;
@@ -202,14 +141,14 @@ export function useRoomController(
         }
         commitProjection(initial);
         if (initial.viewerSeatIndex === null) {
-          setConnection("offline");
+          setRealtimeRoomId(null);
           setError("This private room cannot be joined from this session.");
           return;
         }
-        openSocket(initial.roomId);
+        setRealtimeRoomId(initial.roomId);
       } catch (caught) {
         if (!disposed) {
-          setConnection("offline");
+          setRealtimeRoomId(null);
           setError(safeErrorMessage(caught));
         }
       } finally {
@@ -218,34 +157,14 @@ export function useRoomController(
       }
     };
 
-    const ping = () => {
-      if (document.visibilityState === "visible")
-        sendRealtime({ type: "PING" });
-    };
-    const visibilityChange = () => ping();
-    const pingTimer = setInterval(ping, PING_INTERVAL_MS);
-    document.addEventListener("visibilitychange", visibilityChange);
     bootstrapRef.current = bootstrap;
     void bootstrap();
 
     return () => {
       disposed = true;
       if (bootstrapRef.current === bootstrap) bootstrapRef.current = null;
-      clearReconnectTimer();
-      clearInterval(pingTimer);
-      document.removeEventListener("visibilitychange", visibilityChange);
-      const socket = socketRef.current;
-      socketRef.current = null;
-      socket?.close();
     };
-  }, [
-    client,
-    commitProjection,
-    createSocket,
-    refreshSnapshot,
-    roomReference,
-    sendRealtime,
-  ]);
+  }, [client, commitProjection, roomReference]);
 
   const submit = useCallback(
     async (action: GameAction): Promise<void> => {
@@ -291,16 +210,10 @@ export function useRoomController(
     try {
       const exit = await client.leaveRoom(current.roomId, current.eventVersion);
       leftRoomRef.current = true;
-      if (reconnectTimerRef.current !== null) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-      const socket = socketRef.current;
-      socketRef.current = null;
-      socket?.close();
+      setRealtimeRoomId(null);
+      disconnectRealtime();
       projectionRef.current = null;
       setProjection(null);
-      setConnection("offline");
       setLoading(false);
       return exit;
     } catch (caught) {
@@ -308,7 +221,7 @@ export function useRoomController(
       await refreshSnapshot(current.roomId);
       return undefined;
     }
-  }, [client, refreshSnapshot]);
+  }, [client, disconnectRealtime, refreshSnapshot]);
 
   const refresh = useCallback(async (): Promise<void> => {
     const current = projectionRef.current;
