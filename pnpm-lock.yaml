@@ -118,6 +118,8 @@ importers:
 
   packages/game-engine: {}
 
+  packages/gameplay: {}
+
 packages:
 
   '@asamuzakjp/css-color@5.1.11':
