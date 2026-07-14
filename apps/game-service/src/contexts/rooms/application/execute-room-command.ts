@@ -20,8 +20,7 @@ export interface RoomCommandCommit {
   readonly room: Room;
 }
 
-export interface RoomCommandRepository {
-  commit(input: RoomCommandCommit): Promise<void>;
+export interface RoomCommandReader {
   findByReference(reference: string): Promise<Room | null>;
   findDuplicate(
     roomId: RoomId,
@@ -29,6 +28,14 @@ export interface RoomCommandRepository {
     actorPlayerId: PlayerId,
   ): Promise<RoomProjection | null>;
 }
+
+export interface RoomCommandWriter {
+  commit(input: RoomCommandCommit): Promise<void>;
+}
+
+export interface RoomCommandRepository
+  extends RoomCommandReader,
+    RoomCommandWriter {}
 
 export interface ExecuteRoomCommandInput {
   readonly command: RoomCommand;
