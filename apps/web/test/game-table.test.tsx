@@ -248,6 +248,9 @@ describe("GameTable", () => {
     expect(hiddenCard.closest(".trick-card")?.getAttribute("data-hidden")).toBe(
       "true",
     );
+    expect(within(hiddenCard).getByText("304")).toBeTruthy();
+    expect(hiddenCard.querySelector(".card-rank")).toBeNull();
+    expect(hiddenCard.querySelector(".card-suit")).toBeNull();
     expect(
       trick.querySelector(".trick-cards")?.getAttribute("data-seat-count"),
     ).toBe("4");

@@ -376,7 +376,16 @@ for (const [profile, label] of [
     await playVisibleActionsToResult(page);
     const result = page.getByRole("region", { name: "Hand result" });
     await expect(result).toBeVisible();
-    await expect(result).toContainText(/Winning team [AB]|No score movement/);
+    await expect(result).toContainText(
+      /Team [AB] wins the hand|No score movement/,
+    );
+    const bidSummary = result.locator(".hand-result-summary");
+    if (await bidSummary.isVisible()) {
+      await expect(bidSummary).toContainText(/Team [AB].*bid \d+/);
+      await expect(bidSummary).toContainText(
+        /met the \d+ bid by \d+|missed by \d+/,
+      );
+    }
     await expect(page.getByRole("button", { name: "Next hand" })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Leave table" }),
@@ -391,6 +400,33 @@ for (const [profile, label] of [
     await expect(page.locator(".table-metrics dd").first()).toHaveText("2");
   });
 }
+
+test("a completed trick stays visible before the next trick begins", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await openPractice(page, uniqueName("Trick pause"));
+
+  const trickCards = page.locator(".trick-card");
+  const deadline = Date.now() + 40_000;
+  while (Date.now() < deadline && (await trickCards.count()) !== 4) {
+    if (!(await submitVisibleAction(page))) await page.waitForTimeout(100);
+  }
+
+  await expect(trickCards).toHaveCount(4);
+  await expect(page.locator(".turn-prompt")).toContainText(
+    /wins the trick\. Next trick starts shortly\./,
+  );
+  await expect(
+    page.locator(
+      '[aria-label="Legal actions"] button:not([disabled]), [aria-label="Your hand"] button:not([disabled])',
+    ),
+  ).toHaveCount(0);
+
+  await page.waitForTimeout(1_500);
+  await expect(trickCards).toHaveCount(4);
+  await expect.poll(() => trickCards.count(), { timeout: 3_500 }).not.toBe(4);
+});
 
 test("two private-table guests keep separate hands and recover after a socket reconnect", async ({
   browser,
