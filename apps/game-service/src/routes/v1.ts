@@ -1,9 +1,16 @@
 import {
+  type CreateRoomRequest,
   CreateRoomRequestSchema,
+  type GameCommand,
   GameCommandSchema,
   GuestSessionRequestSchema,
+  type JoinRoomRequest,
   JoinRoomRequestSchema,
+  type LeaveRoomRequest,
   LeaveRoomRequestSchema,
+  type RoomExitResponse,
+  type RoomProjection,
+  type StartRoomRequest,
   StartRoomRequestSchema,
 } from "@three-zero-four/contracts";
 import {
@@ -21,11 +28,44 @@ import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-proje
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
 import { DomainError } from "../domain/errors.js";
-import type { RoomCoordinator } from "../domain/room-coordinator.js";
 import type { RateLimiter } from "../infra/redis-coordination.js";
 
+export interface V1RoomCoordinator {
+  createRoom(
+    session: AuthenticatedSession,
+    request: CreateRoomRequest,
+  ): Promise<RoomProjection>;
+  getRoom(
+    session: AuthenticatedSession,
+    roomReference: string,
+  ): Promise<RoomProjection>;
+  getSnapshot(
+    session: AuthenticatedSession,
+    roomId: string,
+  ): Promise<RoomProjection>;
+  joinRoom(
+    session: AuthenticatedSession,
+    roomReference: string,
+    request: JoinRoomRequest,
+  ): Promise<RoomProjection>;
+  leaveRoom(
+    session: AuthenticatedSession,
+    roomId: string,
+    request: LeaveRoomRequest,
+  ): Promise<RoomExitResponse>;
+  startRoom(
+    session: AuthenticatedSession,
+    roomId: string,
+    request: StartRoomRequest,
+  ): Promise<RoomProjection>;
+  submitCommand(
+    session: AuthenticatedSession,
+    command: GameCommand,
+  ): Promise<RoomProjection>;
+}
+
 export interface GameRuntime {
-  coordinator: RoomCoordinator;
+  coordinator: V1RoomCoordinator;
   roomUseCases?: {
     readonly join: Pick<JoinRoomHandler, "execute">;
     readonly leave: Pick<LeaveRoomHandler, "execute">;

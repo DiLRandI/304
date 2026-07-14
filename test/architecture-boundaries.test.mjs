@@ -308,3 +308,13 @@ test("the websocket hub depends on a behavioral coordinator port", async () => {
   assert.doesNotMatch(hubSource, /domain\/room-coordinator\.js/);
   assert.match(hubSource, /export interface RoomSocketCoordinator/);
 });
+
+test("the v1 routes depend on a behavioral coordinator port", async () => {
+  const routesSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/routes/v1.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(routesSource, /domain\/room-coordinator\.js/);
+  assert.match(routesSource, /export interface V1RoomCoordinator/);
+});
