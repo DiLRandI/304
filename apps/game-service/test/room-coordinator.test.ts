@@ -1,19 +1,42 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { GameAction } from "@three-zero-four/contracts";
+import type {
+  CreateRoomRequest,
+  GameAction,
+  JoinRoomRequest,
+  RoomProjection,
+  StartRoomRequest,
+} from "@three-zero-four/contracts";
+import {
+  commandId,
+  eventVersion,
+  playerId,
+  roomId,
+} from "@three-zero-four/room-domain";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
+import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
-import { RoomCoordinator } from "../src/contexts/rooms/adapters/orchestration/room-coordinator.js";
+import { presentLobbyRoom } from "../src/contexts/rooms/adapters/delivery/room-projection-presenter.js";
+import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
+import { LegacyRoomProjectionQueries } from "../src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
+import { LegacyStartedRoomAutomationFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
+import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
+import { PostgresRoomCommandRepository } from "../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
+import { CreateRoomHandler } from "../src/contexts/rooms/application/create-room.js";
+import { ExecuteRoomCommandHandler } from "../src/contexts/rooms/application/execute-room-command.js";
+import { GetRoomSnapshotHandler } from "../src/contexts/rooms/application/get-room-projection.js";
+import { JoinRoomHandler } from "../src/contexts/rooms/application/join-room.js";
+import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
 import { Presence, RoomLease } from "../src/infra/redis-coordination.js";
 
@@ -35,25 +58,123 @@ let database: Database;
 let redis: RedisClientType;
 let sessions: PlayerAccessService;
 
-function createCoordinator(): RoomCoordinator {
-  return new RoomCoordinator({
-    identities: new NodeRoomIdentityProvider(),
-    inviteCodes: new NodeRoomInviteCodeProvider(),
-    store: new PostgresRoomStore(database),
-    lease: new RoomLease(redis, 5_000),
-    presence: new Presence(redis, 60),
-  });
-}
+class RoomTestRuntime {
+  readonly gameplayCommands: LegacyGameplayCommandExecutor;
+  private readonly create: CreateRoomHandler;
+  private readonly join: JoinRoomHandler;
+  private readonly snapshot: GetRoomSnapshotHandler;
+  private readonly start: StartRoomHandler;
 
-function createGameplayCommands(): LegacyGameplayCommandExecutor {
-  const store = new PostgresRoomStore(database);
-  const identities = new NodeRoomIdentityProvider();
-  return new LegacyGameplayCommandExecutor({
-    automation: new LegacyGameplayAutomationScheduler({ identities, store }),
-    lease: new RoomLease(redis, 5_000),
-    recovery: new LegacyGameplayRecovery(store),
-    store,
-  });
+  constructor() {
+    const store = new PostgresRoomStore(database);
+    const identities = new NodeRoomIdentityProvider();
+    const inviteCodes = new NodeRoomInviteCodeProvider();
+    const lease = new RoomLease(redis, 5_000);
+    const presence = new Presence(redis, 60);
+    const recovery = new LegacyGameplayRecovery(store);
+    const automation = new LegacyGameplayAutomationScheduler({
+      identities,
+      store,
+    });
+    const connections = new LegacyGameplayConnections({
+      automation,
+      identities,
+      lease,
+      presence,
+      recovery,
+      store,
+    });
+    const commands = new ExecuteRoomCommandHandler(
+      new PostgresRoomCommandRepository(
+        database,
+        new LegacyStartedRoomSnapshotFactory(),
+        new LegacyStartedRoomAutomationFactory(identities),
+      ),
+    );
+    const queries = new LegacyRoomProjectionQueries({
+      gameplayRecovery: recovery,
+      lease,
+      store,
+    });
+    const roomPresence = {
+      refresh: connections.markRealtimePresence.bind(connections),
+    };
+    this.create = new CreateRoomHandler(
+      new LegacyRoomCreationRepository(store),
+      presence,
+      identities,
+      inviteCodes,
+    );
+    this.join = new JoinRoomHandler(commands, presence);
+    this.snapshot = new GetRoomSnapshotHandler(queries, roomPresence);
+    this.start = new StartRoomHandler(commands, presence);
+    this.gameplayCommands = new LegacyGameplayCommandExecutor({
+      automation,
+      lease,
+      recovery,
+      store,
+    });
+  }
+
+  async createRoom(
+    session: AuthenticatedSession,
+    request: CreateRoomRequest,
+  ): Promise<RoomProjection> {
+    return presentLobbyRoom(
+      await this.create.execute({
+        commandId: commandId(request.commandId),
+        host: {
+          displayName: session.displayName,
+          playerId: playerId(session.playerId),
+        },
+        profileId: request.ruleProfileId,
+        sessionId: session.sessionId,
+        settings: {
+          botDifficulty: request.botDifficulty ?? "easy",
+          enableSecondBidding: true,
+        },
+      }),
+    );
+  }
+
+  async joinRoom(
+    session: AuthenticatedSession,
+    roomReference: string,
+    request: JoinRoomRequest,
+  ): Promise<RoomProjection> {
+    return presentLobbyRoom(
+      await this.join.execute({
+        actor: {
+          displayName: session.displayName,
+          playerId: playerId(session.playerId),
+        },
+        commandId: commandId(request.commandId),
+        expectedVersion: eventVersion(request.expectedVersion),
+        roomReference,
+      }),
+    );
+  }
+
+  async startRoom(
+    session: AuthenticatedSession,
+    targetRoomId: string,
+    request: StartRoomRequest,
+  ): Promise<RoomProjection> {
+    await this.start.execute({
+      actor: playerId(session.playerId),
+      commandId: commandId(request.commandId),
+      expectedVersion: eventVersion(request.expectedVersion),
+      roomId: roomId(targetRoomId),
+    });
+    return this.getSnapshot(session, targetRoomId);
+  }
+
+  getSnapshot(
+    session: AuthenticatedSession,
+    targetRoomId: string,
+  ): Promise<RoomProjection> {
+    return this.snapshot.execute({ roomId: targetRoomId, session });
+  }
 }
 
 function gameView(projection: { view: Record<string, unknown> }): GameView {
@@ -61,14 +182,14 @@ function gameView(projection: { view: Record<string, unknown> }): GameView {
 }
 
 async function createClassicRoom() {
-  const coordinator = createCoordinator();
+  const game = new RoomTestRuntime();
   const host = await sessions.create("Asha");
   const request = {
     commandId: randomUUID(),
     ruleProfileId: "classic_304_4p" as const,
   };
-  const created = await coordinator.createRoom(host, request);
-  const duplicate = await coordinator.createRoom(host, request);
+  const created = await game.createRoom(host, request);
+  const duplicate = await game.createRoom(host, request);
   expect(duplicate.roomId).toBe(created.roomId);
 
   const guests = await Promise.all(
@@ -78,29 +199,29 @@ async function createClassicRoom() {
   );
   let eventVersion = created.eventVersion;
   for (const guest of guests) {
-    const joined = await coordinator.joinRoom(guest, created.inviteCode, {
+    const joined = await game.joinRoom(guest, created.inviteCode, {
       commandId: randomUUID(),
       expectedVersion: eventVersion,
     });
     eventVersion = joined.eventVersion;
   }
-  const started = await coordinator.startRoom(host, created.roomId, {
+  const started = await game.startRoom(host, created.roomId, {
     commandId: randomUUID(),
     expectedVersion: eventVersion,
   });
-  return { coordinator, host, guests, created, started };
+  return { game, host, guests, created, started };
 }
 
 async function activePlayer(
-  coordinator: RoomCoordinator,
+  game: RoomTestRuntime,
   players: readonly AuthenticatedSession[],
   roomId: string,
 ): Promise<{
   player: AuthenticatedSession;
-  projection: Awaited<ReturnType<RoomCoordinator["getSnapshot"]>>;
+  projection: RoomProjection;
 }> {
   for (const player of players) {
-    const projection = await coordinator.getSnapshot(player, roomId);
+    const projection = await game.getSnapshot(player, roomId);
     const view = gameView(projection);
     if (projection.viewerSeatIndex === view.publicState.activeSeat) {
       return { player, projection };
@@ -109,7 +230,7 @@ async function activePlayer(
   throw new Error("No player owns the active seat");
 }
 
-describeIntegration("durable room coordinator", () => {
+describeIntegration("durable room application", () => {
   beforeAll(async () => {
     database = createDatabase(databaseUrl);
     await runMigrations(database, migrationsDir);
@@ -127,7 +248,7 @@ describeIntegration("durable room coordinator", () => {
   });
 
   it("serializes simultaneous duplicate room-creation commands for one session", async () => {
-    const coordinator = createCoordinator();
+    const game = new RoomTestRuntime();
     const host = await sessions.create("Esha");
     const request = {
       commandId: randomUUID(),
@@ -135,8 +256,8 @@ describeIntegration("durable room coordinator", () => {
     };
 
     const [first, duplicate] = await Promise.all([
-      coordinator.createRoom(host, request),
-      coordinator.createRoom(host, request),
+      game.createRoom(host, request),
+      game.createRoom(host, request),
     ]);
 
     expect(duplicate.roomId).toBe(first.roomId);
@@ -148,10 +269,10 @@ describeIntegration("durable room coordinator", () => {
     ).resolves.toEqual({ rows: [{ count: "1" }] });
   });
 
-  it("defaults direct coordinator room creation to easy bots", async () => {
-    const coordinator = createCoordinator();
+  it("defaults direct room creation to easy bots", async () => {
+    const game = new RoomTestRuntime();
     const host = await sessions.create("Ishani");
-    const created = await coordinator.createRoom(host, {
+    const created = await game.createRoom(host, {
       commandId: randomUUID(),
       ruleProfileId: "classic_304_4p",
     });
@@ -164,15 +285,10 @@ describeIntegration("durable room coordinator", () => {
     ).resolves.toEqual({ rows: [{ bot_difficulty: "easy" }] });
   });
 
-  it("replays accepted actions from the latest earlier snapshot after a fresh coordinator is created", async () => {
-    const { coordinator, host, guests, created, started } =
-      await createClassicRoom();
+  it("replays accepted actions from the latest earlier snapshot after a fresh runtime is created", async () => {
+    const { game, host, guests, created, started } = await createClassicRoom();
     const hostBefore = gameView(started).privateSeat?.hand;
-    const active = await activePlayer(
-      coordinator,
-      [host, ...guests],
-      created.roomId,
-    );
+    const active = await activePlayer(game, [host, ...guests], created.roomId);
     const action = gameView(active.projection).legalActions[0];
     expect(action).toBeDefined();
     if (!action) throw new Error("Active player has no legal action");
@@ -182,7 +298,7 @@ describeIntegration("durable room coordinator", () => {
       expectedVersion: active.projection.eventVersion,
       action,
     };
-    const gameplayCommands = createGameplayCommands();
+    const gameplayCommands = game.gameplayCommands;
 
     const applied = await gameplayCommands.submitCommand(
       active.player,
@@ -206,7 +322,7 @@ describeIntegration("durable room coordinator", () => {
       "DELETE FROM game_snapshots WHERE room_id = $1 AND event_version = $2",
       [created.roomId, applied.eventVersion],
     );
-    const restarted = createCoordinator();
+    const restarted = new RoomTestRuntime();
     const recovered = await restarted.getSnapshot(host, created.roomId);
     expect(recovered.eventVersion).toBe(applied.eventVersion);
     expect(gameView(recovered).privateSeat?.hand).toEqual(hostBefore);
