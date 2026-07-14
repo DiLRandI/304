@@ -1,6 +1,7 @@
 import { buildApp, loadConfig } from "./app.js";
 import { LegacyGameplayAutomationScheduler } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
+import { LegacyGameplayConnections } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "./contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "./contexts/gameplay/application/submit-gameplay-command.js";
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
@@ -8,7 +9,6 @@ import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/orchestr
 import { LegacyRoomProjectionQueries } from "./contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import { LegacyStartedRoomAutomationFactory } from "./contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
 import { LegacyStartedRoomSnapshotFactory } from "./contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
-import { RoomCoordinator } from "./contexts/rooms/adapters/orchestration/room-coordinator.js";
 import { PostgresRoomCommandRepository } from "./contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
@@ -50,16 +50,22 @@ const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
 const identities = new NodeRoomIdentityProvider();
 const inviteCodes = new NodeRoomInviteCodeProvider();
 const roomLease = new RoomLease(redis, config.ROOM_LEASE_TTL_MS);
-const coordinator = new RoomCoordinator({
-  identities,
-  inviteCodes,
-  store,
-  lease: roomLease,
-  presence,
-  automation: {
+const gameplayRecovery = new LegacyGameplayRecovery(store);
+const gameplayAutomation = new LegacyGameplayAutomationScheduler({
+  config: {
     botActionDelayMs: config.BOT_ACTION_DELAY_MS,
     disconnectGraceSeconds: config.DISCONNECT_GRACE_SECONDS,
   },
+  identities,
+  store,
+});
+const connections = new LegacyGameplayConnections({
+  automation: gameplayAutomation,
+  identities,
+  lease: roomLease,
+  presence,
+  recovery: gameplayRecovery,
+  store,
 });
 const roomCommands = new ExecuteRoomCommandHandler(
   new PostgresRoomCommandRepository(
@@ -73,23 +79,17 @@ const roomCommands = new ExecuteRoomCommandHandler(
   ),
 );
 const roomQueries = new LegacyRoomProjectionQueries({
+  gameplayRecovery,
   lease: roomLease,
   store,
 });
 const roomPresence = {
-  refresh: coordinator.markRealtimePresence.bind(coordinator),
+  refresh: connections.markRealtimePresence.bind(connections),
 };
 const gameplayCommands = new LegacyGameplayCommandExecutor({
-  automation: new LegacyGameplayAutomationScheduler({
-    config: {
-      botActionDelayMs: config.BOT_ACTION_DELAY_MS,
-      disconnectGraceSeconds: config.DISCONNECT_GRACE_SECONDS,
-    },
-    identities,
-    store,
-  }),
+  automation: gameplayAutomation,
   lease: roomLease,
-  recovery: new LegacyGameplayRecovery(store),
+  recovery: gameplayRecovery,
   store,
 });
 const getRoomSnapshot = new GetRoomSnapshotHandler(roomQueries, roomPresence);
@@ -119,7 +119,7 @@ const maintenanceTelemetry = new MaintenanceTelemetry(redis);
 const workerTelemetry = new WorkerTelemetry(redis);
 const roomChanges = new RedisRoomChangeBus(redis);
 const hub = new RoomSocketHub({
-  connections: coordinator,
+  connections,
   onConnectionCount: (count) => metrics.activeWebsocketConnections.set(count),
   snapshot: getRoomSnapshot,
 });

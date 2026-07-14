@@ -8,6 +8,7 @@ import { runMigrations } from "../scripts/migrate.js";
 import { buildApp, loadConfig } from "../src/app.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
+import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
@@ -115,6 +116,20 @@ async function buildRealApp(): Promise<TestRuntime> {
     presence,
     automation: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
   });
+  const gameplayRecovery = new LegacyGameplayRecovery(store);
+  const gameplayAutomation = new LegacyGameplayAutomationScheduler({
+    config: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
+    identities,
+    store,
+  });
+  const connections = new LegacyGameplayConnections({
+    automation: gameplayAutomation,
+    identities,
+    lease: roomLease,
+    presence,
+    recovery: gameplayRecovery,
+    store,
+  });
   const roomCommands = new ExecuteRoomCommandHandler(
     new PostgresRoomCommandRepository(
       database,
@@ -123,20 +138,17 @@ async function buildRealApp(): Promise<TestRuntime> {
     ),
   );
   const roomQueries = new LegacyRoomProjectionQueries({
+    gameplayRecovery,
     lease: roomLease,
     store,
   });
   const roomPresence = {
-    refresh: coordinator.markRealtimePresence.bind(coordinator),
+    refresh: connections.markRealtimePresence.bind(connections),
   };
   const gameplayCommands = new LegacyGameplayCommandExecutor({
-    automation: new LegacyGameplayAutomationScheduler({
-      config: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
-      identities,
-      store,
-    }),
+    automation: gameplayAutomation,
     lease: roomLease,
-    recovery: new LegacyGameplayRecovery(store),
+    recovery: gameplayRecovery,
     store,
   });
   const app = await buildApp({

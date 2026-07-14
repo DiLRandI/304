@@ -316,6 +316,24 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
   assert.doesNotMatch(coordinatorSource, /async submitCommand/);
 });
 
+test("the web server composes realtime connections without a room coordinator", async () => {
+  const connectionsSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.ts",
+    ),
+    "utf8",
+  );
+  const serverSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/server.ts"),
+    "utf8",
+  );
+
+  assert.match(connectionsSource, /export class LegacyGameplayConnections/);
+  assert.match(serverSource, /new LegacyGameplayConnections/);
+  assert.doesNotMatch(serverSource, /new RoomCoordinator/);
+});
+
 test("room projection reads use a dedicated query adapter", async () => {
   const querySource = await readFile(
     path.join(
