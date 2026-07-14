@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { RedisClientType } from "redis";
-import { DomainError } from "../domain/errors.js";
+import { DomainError } from "../shared/service-error.js";
 
 const RELEASE_LEASE_SCRIPT =
   "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0";

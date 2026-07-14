@@ -1,6 +1,6 @@
 import type { RoomProjection } from "@three-zero-four/contracts";
 import type { GameEngine } from "@three-zero-four/game-engine";
-import { DomainError } from "../../../../domain/errors.js";
+import { DomainError } from "../../../../shared/service-error.js";
 import { presentGameAction } from "./game-action-presenter.js";
 
 type ProjectableStatus = "lobby" | "in_hand" | "hand_result";

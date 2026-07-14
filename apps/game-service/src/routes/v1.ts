@@ -27,8 +27,8 @@ import type { AuthenticatedSession } from "../contexts/player-access/application
 import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
-import { DomainError } from "../domain/errors.js";
 import type { RateLimiter } from "../infra/redis-coordination.js";
+import { DomainError } from "../shared/service-error.js";
 
 export interface V1RoomCoordinator {
   createRoom(

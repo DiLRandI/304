@@ -9,7 +9,7 @@ import type {
 } from "@three-zero-four/contracts";
 import { RoomExitResponseSchema } from "@three-zero-four/contracts";
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
-import { DomainError } from "../../../../domain/errors.js";
+import { DomainError } from "../../../../shared/service-error.js";
 import { projectRoomForPlayer } from "../../../gameplay/adapters/delivery/gameplay-room-presenter.js";
 import {
   createLobbyEngine,

@@ -1,5 +1,5 @@
 import type { GameAction } from "@three-zero-four/contracts";
-import { DomainError } from "../../../../domain/errors.js";
+import { DomainError } from "../../../../shared/service-error.js";
 
 function isString(value: unknown): value is string {
   return typeof value === "string";

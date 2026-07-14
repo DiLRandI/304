@@ -349,3 +349,15 @@ test("room coordination belongs to a Rooms orchestration adapter", async () => {
   const coordinatorSource = await readFile(roomCoordinatorFile, "utf8");
   assert.match(coordinatorSource, /export class RoomCoordinator/);
 });
+
+test("transport-aware service errors are not modeled as domain code", async () => {
+  const legacyDomainFiles = await collectSourceFiles(
+    "apps/game-service/src/domain",
+  );
+  assert.deepEqual(legacyDomainFiles, []);
+  const errorSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/shared/service-error.ts"),
+    "utf8",
+  );
+  assert.match(errorSource, /readonly statusCode: number/);
+});

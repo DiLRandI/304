@@ -1,7 +1,7 @@
 import type { RuleProfileId } from "@three-zero-four/contracts";
 import type { QueryResultRow } from "pg";
-import { DomainError } from "../../../../domain/errors.js";
 import type { Database } from "../../../../infra/database.js";
+import { DomainError } from "../../../../shared/service-error.js";
 import type {
   AutomationJobKind,
   ClaimedAutomationJob,

@@ -1,5 +1,5 @@
 import type { RoomProjection, RuleProfileId } from "@three-zero-four/contracts";
-import { DomainError } from "../../../../domain/errors.js";
+import { DomainError } from "../../../../shared/service-error.js";
 
 type ProjectableStatus = "lobby" | "in_hand" | "hand_result";
 

@@ -1,5 +1,5 @@
-import { DomainError } from "../../../../domain/errors.js";
 import type { Database } from "../../../../infra/database.js";
+import { DomainError } from "../../../../shared/service-error.js";
 import { AuthenticateSession } from "../../application/authenticate-session.js";
 import { CreateGuestSession } from "../../application/create-guest-session.js";
 import type {
