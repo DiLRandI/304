@@ -1,6 +1,6 @@
 # Trick Pause, Hidden Cards, and Bid Ownership Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Hold every completed trick on the authoritative table for two seconds, keep unrevealed face-down cards concealed through results, and name the bidding team and player in the live table and hand result.
 
@@ -33,7 +33,7 @@
 - Consumes: `GameEngine._resolveTrick()`, `GameEngine._finishHand()`, `state.currentTrick`, `state.completedTricks`, and the existing phase constants.
 - Produces: phase string `trick_result`, public `GameEngine.advanceTrick(): { ok: boolean; reason?: string }`, a resolved `currentTrick` with `winnerSeat`, and a prompt naming the trick winner.
 
-- [ ] **Step 1: Write failing engine tests for non-final and final trick pauses**
+- [x] **Step 1: Write failing engine tests for non-final and final trick pauses**
 
 Add focused tests that construct a legal `trick_play` state with four plays due, call the final `PLAY_CARD`, and assert:
 
@@ -53,7 +53,7 @@ assert.equal(engine.state.activeSeat, expectedWinner);
 
 For the eighth Classic trick, assert the final play enters `trick_result`, `handResult` remains `null`, and only `advanceTrick()` enters `hand_result` or `match_complete` and creates the result once.
 
-- [ ] **Step 2: Run the focused engine tests and verify the red state**
+- [x] **Step 2: Run the focused engine tests and verify the red state**
 
 Run:
 
@@ -64,7 +64,7 @@ pnpm test -- --test-name-pattern "completed trick"
 
 Expected: FAIL because `_resolveTrick()` immediately creates the next trick or hand result and `advanceTrick()` does not exist.
 
-- [ ] **Step 3: Implement the minimal engine transition**
+- [x] **Step 3: Implement the minimal engine transition**
 
 Add `TRICK_RESULT: "trick_result"` to `PHASE`. At the end of `_resolveTrick()`, retain the resolved `currentTrick`, set `phase`, clear `activeSeat`, and set the winner message instead of immediately advancing.
 
@@ -103,7 +103,7 @@ advanceTrick() {
 
 Add a `TRICK_RESULT` prompt and `advanceTrick()` declaration to `index.d.ts`. Update the complete-hand drivers in `test/engine-contract.test.mjs` and `packages/game-engine/test/second-bidding.test.mjs` so they call `advanceTrick()` when phase is `trick_result`.
 
-- [ ] **Step 4: Run focused tests and engine typecheck**
+- [x] **Step 4: Run focused tests and engine typecheck**
 
 Run:
 
@@ -115,7 +115,7 @@ pnpm --filter @three-zero-four/game-engine typecheck
 
 Expected: all engine and root tests pass with the new pause phase.
 
-- [ ] **Step 5: Commit the engine phase**
+- [x] **Step 5: Commit the engine phase**
 
 ```bash
 git add packages/game-engine/src/engine.js packages/game-engine/src/index.d.ts packages/game-engine/test/public-api.test.mjs packages/game-engine/test/second-bidding.test.mjs test/engine-contract.test.mjs
@@ -134,7 +134,7 @@ git commit -m "feat(engine): pause after completed tricks"
 - Consumes: `_isPlayPubliclyVisible(play)`, `_projectTrickForPublic(trick)`, `_projectWonCardForViewer(card, viewerSeatIndex)`, and `trump.isOpen`.
 - Produces: consistent card-back projections and concealed point values in `trick_result`, `hand_result`, and `match_complete`.
 
-- [ ] **Step 1: Write failing privacy tests for result phases**
+- [x] **Step 1: Write failing privacy tests for result phases**
 
 Extend the existing face-down privacy fixture with a non-trump face-down play and assert in both result phases:
 
@@ -154,7 +154,7 @@ assert.deepEqual(engine.getPublicState(0).completedTricks[0].plays[1].card, {
 
 Also assert that when `trump.isOpen = true`, a face-down play matching `trump.suit` is visible while a face-down play of another suit remains hidden.
 
-- [ ] **Step 2: Run the privacy tests and verify the red state**
+- [x] **Step 2: Run the privacy tests and verify the red state**
 
 Run:
 
@@ -164,7 +164,7 @@ pnpm --filter @three-zero-four/game-engine exec node --test --test-name-pattern 
 
 Expected: FAIL because result phases currently reveal every face-down play.
 
-- [ ] **Step 3: Remove the blanket result reveal**
+- [x] **Step 3: Remove the blanket result reveal**
 
 Reduce `_isPlayPubliclyVisible(play)` to:
 
@@ -181,7 +181,7 @@ _isPlayPubliclyVisible(play) {
 
 Do not change internal scoring cards or hand-result totals.
 
-- [ ] **Step 4: Re-run privacy and full engine tests**
+- [x] **Step 4: Re-run privacy and full engine tests**
 
 Run:
 
@@ -192,7 +192,7 @@ pnpm test
 
 Expected: all tests pass and concealed trick points remain partial until the corresponding plays are public.
 
-- [ ] **Step 5: Commit the privacy fix**
+- [x] **Step 5: Commit the privacy fix**
 
 ```bash
 git add packages/game-engine/src/engine.js packages/game-engine/test/public-api.test.mjs
@@ -220,7 +220,7 @@ git commit -m "fix(engine): keep unrevealed cards concealed"
 - Consumes: `AutomationJobKind`, `scheduleNextAutomation()`, `runAutomation(job)`, event-version idempotency, and `GameEngine.advanceTrick()`.
 - Produces: job kind `TRICK_ADVANCE`, injected `automation.trickRevealDelayMs`, durable `TRICK_ADVANCED` events, and normal automation rescheduling after the pause.
 
-- [ ] **Step 1: Write failing store and coordinator tests**
+- [x] **Step 1: Write failing store and coordinator tests**
 
 Add `TRICK_ADVANCE` to test-only job unions, then create an integration test that persists a `trick_result` snapshot and calls scheduling through a room command. Assert one pending job:
 
@@ -236,7 +236,7 @@ expect(job.dueAt.getTime() - beforeSchedule).toBeLessThanOrEqual(2_100);
 
 Force the job due, run it, and assert `TRICK_ADVANCED`, the next `trick_play` projection, and one normal turn job. Run it again and assert `stale` with no duplicate score or event.
 
-- [ ] **Step 2: Run the focused integration tests and verify the red state**
+- [x] **Step 2: Run the focused integration tests and verify the red state**
 
 Run with the repository integration database and Redis environment:
 
@@ -246,7 +246,7 @@ pnpm --filter @three-zero-four/game-service exec vitest run test/realtime-store.
 
 Expected: FAIL because the job kind, migration constraint, scheduling path, and engine advancement path do not exist.
 
-- [ ] **Step 3: Add the migration and job type**
+- [x] **Step 3: Add the migration and job type**
 
 Create migration `0005_trick_advance_automation.sql`:
 
@@ -261,7 +261,7 @@ ALTER TABLE room_automation_jobs
 
 Add `"TRICK_ADVANCE"` to `AutomationJobKind`, parsing, and maintenance cancellation sets. Include it in `scheduleNextAutomation()`'s obsolete-job cancellation so a newer room version cannot retain an old pause job.
 
-- [ ] **Step 4: Schedule and process authoritative advancement**
+- [x] **Step 4: Schedule and process authoritative advancement**
 
 Extend coordinator automation options:
 
@@ -289,7 +289,7 @@ return;
 
 Handle `TRICK_ADVANCE` before active-seat validation in `runAutomation()`. Validate phase and winner, call `advanceTrick()`, append a `TRICK_ADVANCED` event, then call `scheduleNextAutomation()` with the new version. Extend event replay so `TRICK_ADVANCED` calls `engine.advanceTrick()` and rejects recovery if that transition is not valid.
 
-- [ ] **Step 5: Update simulation and recovery drivers**
+- [x] **Step 5: Update simulation and recovery drivers**
 
 Where engine-direct test simulations currently require a numeric active seat for every in-hand phase, handle:
 
@@ -304,7 +304,7 @@ Add recovery coverage proving a hydrated paused snapshot advances once without d
 
 Where room-level tests drive visible commands until `hand_result`, allow `trick_result` to advance through the durable worker or focused test server automation instead of looking up a human session for a null active seat. Update affected durable-room, realtime, and legacy room-flow helpers rather than bypassing the server pause.
 
-- [ ] **Step 6: Run service integration, unit, and type checks**
+- [x] **Step 6: Run service integration, unit, and type checks**
 
 Run:
 
@@ -316,7 +316,7 @@ pnpm typecheck
 
 Expected: all enabled service tests and typechecks pass.
 
-- [ ] **Step 7: Commit durable advancement**
+- [x] **Step 7: Commit durable advancement**
 
 ```bash
 git add infra/postgres/migrations/0005_trick_advance_automation.sql apps/game-service/src apps/game-service/test
@@ -337,7 +337,7 @@ git commit -m "feat(service): advance completed tricks durably"
 - Consumes: `publicState.bidding.currentBid`, `publicState.bidding.currentBidSeat`, public seat `team`, `displayName`, and `seatLabel`, plus `handResult` totals.
 - Produces: derived bidder text, explicit success/failure explanation, and responsive metric supporting text.
 
-- [ ] **Step 1: Write failing UI tests for live and result bidder ownership**
+- [x] **Step 1: Write failing UI tests for live and result bidder ownership**
 
 Update fixtures so Seat 1 is `dd`, Team A, current bidder. Assert the active table contains:
 
@@ -356,7 +356,7 @@ expect(screen.getByText("Team A scored 223 and missed by 77")).toBeTruthy();
 
 Add a successful-bid assertion for “met the 300 bid” and a malformed bidder-seat fallback assertion.
 
-- [ ] **Step 2: Run the GameTable tests and verify the red state**
+- [x] **Step 2: Run the GameTable tests and verify the red state**
 
 Run:
 
@@ -366,7 +366,7 @@ pnpm --filter @three-zero-four/web exec vitest run test/game-table.test.tsx
 
 Expected: FAIL because the table only renders the amount and the result uses generic labels.
 
-- [ ] **Step 3: Derive and render bidder ownership**
+- [x] **Step 3: Derive and render bidder ownership**
 
 Inside `GameTable`, derive:
 
@@ -384,11 +384,11 @@ const bidderOwner = bidderSeat
 
 Render `bidderOwner` beneath the Bid metric. For scored results, calculate `margin = Math.abs(bidderTeamPoints - bid)` and render explicit owner, outcome, and winning-team sentences. Keep no-score behavior unchanged.
 
-- [ ] **Step 4: Add responsive supporting-text styles**
+- [x] **Step 4: Add responsive supporting-text styles**
 
 Add a `.metric-detail` rule with block display, subdued readable color, smaller type, normal wrapping, and a small top gap. Ensure high contrast overrides it to white and mobile table metrics do not overflow.
 
-- [ ] **Step 5: Run focused web tests and typecheck**
+- [x] **Step 5: Run focused web tests and typecheck**
 
 Run:
 
@@ -399,7 +399,7 @@ pnpm --filter @three-zero-four/web typecheck
 
 Expected: all focused tests and TypeScript pass.
 
-- [ ] **Step 6: Commit bid clarity UI**
+- [x] **Step 6: Commit bid clarity UI**
 
 ```bash
 git add apps/web/test/browser-fixtures.ts apps/web/test/game-table.test.tsx apps/web/src/components/game-table.tsx apps/web/src/app/globals.css
@@ -417,15 +417,15 @@ git commit -m "feat(web): explain bid ownership and outcomes"
 - Consumes: live room projections, visible Current trick cards, legal-action controls, and hand-result copy.
 - Produces: end-to-end evidence for the two-second pause, hidden card backs, and bid-owner/result presentation.
 
-- [ ] **Step 1: Add a failing Playwright pause assertion**
+- [x] **Step 1: Add a failing Playwright pause assertion**
 
 During a practice hand, detect a full Current trick and record time. Assert the trick still has four (or six) visual cards and no legal action is available for at least 1,500ms, then assert the next trick becomes actionable within 3,500ms.
 
-- [ ] **Step 2: Add privacy and result-copy assertions**
+- [x] **Step 2: Add privacy and result-copy assertions**
 
-Drive a deterministic closed-trump state containing a face-down non-trump play. At result, assert its accessible label is `Hidden card, played by Seat N`, its element has `data-hidden="true"`, and no rank or suit text leaks. Assert the result names the bid owner and explains met/missed margin.
+Use the deterministic projected hidden-play fixture to assert its accessible label is `Hidden card, played by Seat N`, its element has `data-hidden="true"`, its patterned `304` back is visible, and no rank or suit nodes leak. In the live Playwright hand, assert the result names the bid owner and explains the met/missed margin. Engine privacy tests separately prove concealed non-trump identities remain hidden through hand and match results.
 
-- [ ] **Step 3: Run the focused browser test**
+- [x] **Step 3: Run the focused browser test**
 
 Run against rebuilt local services:
 
@@ -435,7 +435,7 @@ E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter @three-zero-four/web exec playw
 
 Expected after implementation: focused Playwright scenarios pass without console errors.
 
-- [ ] **Step 4: Commit browser acceptance**
+- [x] **Step 4: Commit browser acceptance**
 
 ```bash
 git add apps/web/e2e/practice-and-room.spec.ts
@@ -453,7 +453,7 @@ git commit -m "test(web): cover trick pause and hidden results"
 - Consumes: all prior tasks and the local Docker Compose stack.
 - Produces: fresh repository, build, database, browser, visual, and branch-state evidence.
 
-- [ ] **Step 1: Run complete repository validation and build**
+- [x] **Step 1: Run complete repository validation and build**
 
 ```bash
 pnpm check
@@ -462,7 +462,7 @@ pnpm build
 
 Expected: lint, all typechecks, root/engine/contracts/service/web tests, and the Next.js production build pass.
 
-- [ ] **Step 2: Rebuild the Compose stack with migration 0005**
+- [x] **Step 2: Rebuild the Compose stack with migration 0005**
 
 ```bash
 pnpm compose:up
@@ -473,7 +473,7 @@ curl -fsS http://127.0.0.1:4100/readyz
 
 Expected: migration exits successfully; Postgres, Redis, game service, worker, and web are healthy; both probes succeed.
 
-- [ ] **Step 3: Run the complete browser suite**
+- [x] **Step 3: Run the complete browser suite**
 
 ```bash
 E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter @three-zero-four/web exec playwright test
@@ -481,11 +481,11 @@ E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter @three-zero-four/web exec playw
 
 Expected: every Playwright test passes.
 
-- [ ] **Step 4: Capture desktop and mobile evidence**
+- [x] **Step 4: Capture desktop and mobile evidence**
 
 Capture screenshots during `trick_result` and `hand_result`. Verify four/six cards remain seat-positioned, hidden cards show backs only, bid owner copy wraps without overlap, and there are no console errors or horizontal document overflow.
 
-- [ ] **Step 5: Audit branch state**
+- [x] **Step 5: Audit branch state**
 
 ```bash
 git status --short --branch
