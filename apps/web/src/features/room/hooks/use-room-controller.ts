@@ -7,7 +7,6 @@ import type {
   RoomProjection,
 } from "@three-zero-four/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GameServiceError } from "../api/game-service-transport";
 import { parseRealtimeServerMessage } from "../api/room-realtime";
 import {
   createBrowserRoomSocket,
@@ -17,6 +16,7 @@ import {
   type RoomSocketFactory,
 } from "../api/room-socket";
 import type { RoomGateway } from "../application/room-gateway";
+import { RoomGatewayError } from "../application/room-gateway-error";
 import { applyProjection } from "../model/room-state";
 
 const PING_INTERVAL_MS = 15_000;
@@ -31,7 +31,7 @@ export interface RoomControllerOptions {
 }
 
 function safeErrorMessage(error: unknown): string {
-  if (error instanceof GameServiceError) return error.message;
+  if (error instanceof RoomGatewayError) return error.message;
   return "The table could not be updated. Please try again.";
 }
 

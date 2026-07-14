@@ -3,7 +3,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GameServiceError } from "../src/features/room/api/game-service-transport.js";
+import { RoomGatewayError } from "../src/features/room/application/room-gateway-error.js";
 import { EntryFlow } from "../src/features/room/ui/entry-flow.js";
 import {
   activeProjection,
@@ -137,7 +137,7 @@ describe("EntryFlow", () => {
       createGuest: vi
         .fn()
         .mockRejectedValue(
-          new GameServiceError("RATE_LIMITED", 429, "Please wait a moment."),
+          new RoomGatewayError("RATE_LIMITED", 429, "Please wait a moment."),
         ),
       createRoom: vi.fn(),
       startRoom: vi.fn(),

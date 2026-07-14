@@ -6,7 +6,7 @@ import type {
   CreateRoomOptions,
   GuestSession,
 } from "../api/game-service-client";
-import { GameServiceError } from "../api/game-service-transport";
+import { RoomGatewayError } from "../application/room-gateway-error";
 
 export interface EntryClient {
   createGuest(displayName: string): Promise<GuestSession>;
@@ -17,7 +17,7 @@ export interface EntryClient {
 type EntryMode = "private" | "practice";
 
 function safeEntryError(error: unknown): string {
-  if (error instanceof GameServiceError) return error.message;
+  if (error instanceof RoomGatewayError) return error.message;
   return "We could not prepare that table. Please try again.";
 }
 

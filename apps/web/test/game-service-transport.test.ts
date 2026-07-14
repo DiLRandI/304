@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  type GameServiceError,
-  GameServiceTransport,
-} from "../src/features/room/api/game-service-transport.js";
+import { GameServiceTransport } from "../src/features/room/api/game-service-transport.js";
+import type { RoomGatewayError } from "../src/features/room/application/room-gateway-error.js";
 
 describe("GameServiceTransport", () => {
   it("maps network failures to a stable public error", async () => {
@@ -18,7 +16,7 @@ describe("GameServiceTransport", () => {
       message:
         "The game service could not be reached. Please check your connection.",
       status: 0,
-    } satisfies Partial<GameServiceError>);
+    } satisfies Partial<RoomGatewayError>);
   });
 
   it("does not expose malformed service errors", async () => {
@@ -37,6 +35,6 @@ describe("GameServiceTransport", () => {
       code: "GAME_SERVICE_ERROR",
       message: "The game service could not complete this request.",
       status: 500,
-    } satisfies Partial<GameServiceError>);
+    } satisfies Partial<RoomGatewayError>);
   });
 });

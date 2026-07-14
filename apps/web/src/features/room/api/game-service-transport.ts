@@ -1,31 +1,21 @@
 import { ServiceErrorResponseSchema } from "@three-zero-four/contracts";
+import { RoomGatewayError } from "../application/room-gateway-error";
 
 export type ClientFetcher = (
   input: string,
   init?: RequestInit,
 ) => Promise<Response>;
 
-export class GameServiceError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "GameServiceError";
-  }
-}
-
-function serviceError(body: unknown, status: number): GameServiceError {
+function serviceError(body: unknown, status: number): RoomGatewayError {
   const parsed = ServiceErrorResponseSchema.safeParse(body);
   if (parsed.success) {
-    return new GameServiceError(
+    return new RoomGatewayError(
       parsed.data.error.code,
       status,
       parsed.data.error.message,
     );
   }
-  return new GameServiceError(
+  return new RoomGatewayError(
     "GAME_SERVICE_ERROR",
     status,
     "The game service could not complete this request.",
@@ -72,7 +62,7 @@ export class GameServiceTransport {
         init,
       );
     } catch {
-      throw new GameServiceError(
+      throw new RoomGatewayError(
         "NETWORK_ERROR",
         0,
         "The game service could not be reached. Please check your connection.",

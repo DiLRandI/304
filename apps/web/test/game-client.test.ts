@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { GameClient } from "../src/features/room/api/game-service-client.js";
-import type { GameServiceError } from "../src/features/room/api/game-service-transport.js";
+import type { RoomGatewayError } from "../src/features/room/application/room-gateway-error.js";
 
 const roomProjection = {
   roomId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
@@ -165,6 +165,6 @@ describe("GameClient", () => {
       code: "ROOM_FULL",
       message: "Room is full",
       status: 409,
-    } satisfies Partial<GameServiceError>);
+    } satisfies Partial<RoomGatewayError>);
   });
 });
