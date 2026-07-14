@@ -231,3 +231,16 @@ test("room maintenance depends on an application-owned persistence port", async 
   assert.doesNotMatch(maintenanceSource, /from ["'].+room-store\.js["']/);
   assert.match(maintenanceSource, /\.\/room-maintenance-ports\.js/);
 });
+
+test("room coordination depends on application-owned lease and presence ports", async () => {
+  const coordinatorSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/domain/room-coordinator.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(coordinatorSource, /infra\/redis-coordination\.js/);
+  assert.match(
+    coordinatorSource,
+    /contexts\/rooms\/application\/room-coordination-ports\.js/,
+  );
+});

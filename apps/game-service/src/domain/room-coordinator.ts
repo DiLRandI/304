@@ -17,9 +17,12 @@ import {
 import { projectRoomForPlayer } from "../contexts/gameplay/adapters/delivery/gameplay-room-presenter.js";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { projectLobbyForViewer } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
+import type {
+  RoomLease,
+  RoomPresence,
+} from "../contexts/rooms/application/room-coordination-ports.js";
 import type { RoomIdentityProvider } from "../contexts/rooms/application/room-identity-provider.js";
 import type { RoomInviteCodeProvider } from "../contexts/rooms/application/room-invite-code-provider.js";
-import type { Presence, RoomLease } from "../infra/redis-coordination.js";
 import { DomainError } from "./errors.js";
 import type {
   ClaimedAutomationJob,
@@ -42,7 +45,7 @@ interface RoomCoordinatorDependencies {
   inviteCodes: RoomInviteCodeProvider;
   store: PostgresRoomStore;
   lease: RoomLease;
-  presence: Presence;
+  presence: RoomPresence;
   automation?: {
     botActionDelayMs: number;
     disconnectGraceSeconds?: number;
@@ -217,7 +220,7 @@ function ensureAvailable(room: StoredRoom, allowClosed = false): void {
 export class RoomCoordinator {
   private readonly store: PostgresRoomStore;
   private readonly lease: RoomLease;
-  private readonly presence: Presence;
+  private readonly presence: RoomPresence;
   private readonly automation: RoomCoordinatorDependencies["automation"];
   private readonly identities: RoomIdentityProvider;
   private readonly inviteCodes: RoomInviteCodeProvider;
