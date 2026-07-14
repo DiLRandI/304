@@ -1,5 +1,5 @@
 import type { Database } from "../../../../infra/database.js";
-import { DomainError } from "../../../../shared/service-error.js";
+import { ServiceError } from "../../../../shared/service-error.js";
 import { AuthenticateSession } from "../../application/authenticate-session.js";
 import { CreateGuestSession } from "../../application/create-guest-session.js";
 import type {
@@ -20,8 +20,8 @@ export interface PlayerAccessServiceOptions {
   ttlDays: number;
 }
 
-function sessionRequired(): DomainError {
-  return new DomainError(
+function sessionRequired(): ServiceError {
+  return new ServiceError(
     "SESSION_REQUIRED",
     401,
     "A guest session is required",
@@ -52,7 +52,7 @@ export class PlayerAccessService {
       return await this.createGuestSession.execute(displayName);
     } catch (error) {
       if (!(error instanceof InvalidDisplayNameError)) throw error;
-      throw new DomainError(
+      throw new ServiceError(
         "INVALID_DISPLAY_NAME",
         400,
         "Display name is invalid",

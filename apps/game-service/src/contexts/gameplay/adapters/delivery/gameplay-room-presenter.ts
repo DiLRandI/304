@@ -1,6 +1,6 @@
 import type { RoomProjection } from "@three-zero-four/contracts";
 import type { GameEngine } from "@three-zero-four/game-engine";
-import { DomainError } from "../../../../shared/service-error.js";
+import { ServiceError } from "../../../../shared/service-error.js";
 import { presentGameAction } from "./game-action-presenter.js";
 
 type ProjectableStatus = "lobby" | "in_hand" | "hand_result";
@@ -19,7 +19,7 @@ function projectableStatus(
   if (status === "lobby" || status === "in_hand" || status === "hand_result") {
     return status;
   }
-  throw new DomainError("ROOM_UNAVAILABLE", 503, "Room is unavailable");
+  throw new ServiceError("ROOM_UNAVAILABLE", 503, "Room is unavailable");
 }
 
 export function projectRoomForPlayer(
@@ -29,7 +29,7 @@ export function projectRoomForPlayer(
 ): RoomProjection {
   const privateSeat = engine.getSeatView(viewerSeatIndex);
   if (!privateSeat) {
-    throw new DomainError(
+    throw new ServiceError(
       "SEAT_REQUIRED",
       403,
       "You are not seated in this room",

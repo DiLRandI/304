@@ -1,5 +1,5 @@
 import type { RoomProjection, RuleProfileId } from "@three-zero-four/contracts";
-import { DomainError } from "../../../../shared/service-error.js";
+import { ServiceError } from "../../../../shared/service-error.js";
 
 type ProjectableStatus = "lobby" | "in_hand" | "hand_result";
 
@@ -26,7 +26,7 @@ function projectableStatus(
   if (status === "lobby" || status === "in_hand" || status === "hand_result") {
     return status;
   }
-  throw new DomainError("ROOM_UNAVAILABLE", 503, "Room is unavailable");
+  throw new ServiceError("ROOM_UNAVAILABLE", 503, "Room is unavailable");
 }
 
 export function projectLobbyForViewer(
