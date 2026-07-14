@@ -1,4 +1,7 @@
 import { buildApp, loadConfig } from "./app.js";
+import { PostgresRoomCommandRepository } from "./contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
+import { ExecuteRoomCommandHandler } from "./contexts/rooms/application/execute-room-command.js";
+import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
 import { RoomCoordinator } from "./domain/room-coordinator.js";
 import { PostgresRoomStore } from "./domain/room-store.js";
 import { SessionService } from "./domain/session-service.js";
@@ -26,17 +29,22 @@ const sessions = new SessionService(database, {
   pepper: config.SESSION_SECRET_PEPPER,
   ttlDays: config.SESSION_TTL_DAYS,
 });
+const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
 const coordinator = new RoomCoordinator({
   store,
   lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
-  presence: new Presence(redis, config.PRESENCE_TTL_SECONDS),
+  presence,
   automation: {
     botActionDelayMs: config.BOT_ACTION_DELAY_MS,
     disconnectGraceSeconds: config.DISCONNECT_GRACE_SECONDS,
   },
 });
+const roomCommands = new ExecuteRoomCommandHandler(
+  new PostgresRoomCommandRepository(database),
+);
 const game = {
   coordinator,
+  roomUseCases: { join: new JoinRoomHandler(roomCommands, presence) },
   sessions,
   rateLimiter: new RateLimiter(redis),
 };

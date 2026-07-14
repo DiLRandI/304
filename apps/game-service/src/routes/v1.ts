@@ -6,8 +6,15 @@ import {
   LeaveRoomRequestSchema,
   StartRoomRequestSchema,
 } from "@three-zero-four/contracts";
+import {
+  commandId,
+  eventVersion,
+  playerId,
+} from "@three-zero-four/room-domain";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { ServiceConfig } from "../config.js";
+import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
+import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import { DomainError } from "../domain/errors.js";
 import type { RoomCoordinator } from "../domain/room-coordinator.js";
 import type {
@@ -18,6 +25,9 @@ import type { RateLimiter } from "../infra/redis-coordination.js";
 
 export interface GameRuntime {
   coordinator: RoomCoordinator;
+  roomUseCases?: {
+    readonly join: Pick<JoinRoomHandler, "execute">;
+  };
   sessions: SessionService;
   rateLimiter: RateLimiter;
 }
@@ -112,6 +122,18 @@ export async function registerV1Routes(
         60,
       );
       const input = JoinRoomRequestSchema.parse(request.body);
+      if (runtime.roomUseCases) {
+        const projection = await runtime.roomUseCases.join.execute({
+          actor: {
+            displayName: session.displayName,
+            playerId: playerId(session.playerId),
+          },
+          commandId: commandId(input.commandId),
+          expectedVersion: eventVersion(input.expectedVersion),
+          roomReference: request.params.roomRef,
+        });
+        return presentLobbyRoom(projection);
+      }
       return runtime.coordinator.joinRoom(
         session,
         request.params.roomRef,
