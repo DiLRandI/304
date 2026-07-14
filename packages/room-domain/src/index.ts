@@ -22,6 +22,11 @@ export type {
 } from "./commands.js";
 export { executeRoomCommand } from "./commands.js";
 export type {
+  RoomProjection,
+  RoomSeatProjection,
+} from "./projection.js";
+export { projectRoom } from "./projection.js";
+export type {
   BotDifficulty,
   ConnectionStatus,
   RoomSeat,
