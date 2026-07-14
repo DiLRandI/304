@@ -15,10 +15,8 @@ import {
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { ServiceConfig } from "../config.js";
-import type {
-  AuthenticatedSession,
-  PlayerAccessService,
-} from "../contexts/player-access/adapters/delivery/player-access-service.js";
+import type { PlayerAccessService } from "../contexts/player-access/adapters/delivery/player-access-service.js";
+import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";

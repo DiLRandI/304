@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { ServiceConfig } from "../config.js";
-import type { AuthenticatedSession } from "../contexts/player-access/adapters/delivery/player-access-service.js";
+import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { DomainError } from "../domain/errors.js";
 import type { RoomSocketHub } from "../realtime/room-socket-hub.js";
 import type { GameRuntime } from "./v1.js";

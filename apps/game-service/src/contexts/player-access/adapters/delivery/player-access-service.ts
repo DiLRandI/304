@@ -2,6 +2,10 @@ import { DomainError } from "../../../../domain/errors.js";
 import type { Database } from "../../../../infra/database.js";
 import { AuthenticateSession } from "../../application/authenticate-session.js";
 import { CreateGuestSession } from "../../application/create-guest-session.js";
+import type {
+  AuthenticatedSession,
+  CreatedSession,
+} from "../../application/player-session-ports.js";
 import { InvalidDisplayNameError } from "../../domain/display-name.js";
 import { SessionRequiredError } from "../../domain/session-access.js";
 import { PostgresPlayerSessionReader } from "../persistence/postgres-player-session-reader.js";
@@ -10,17 +14,6 @@ import {
   NodeSessionSecrets,
   UuidIdentityProvider,
 } from "../security/node-player-access-security.js";
-
-export interface AuthenticatedSession {
-  sessionId: string;
-  playerId: string;
-  displayName: string;
-  expiresAt: Date;
-}
-
-export interface CreatedSession extends AuthenticatedSession {
-  cookieValue: string;
-}
 
 export interface PlayerAccessServiceOptions {
   pepper: string;

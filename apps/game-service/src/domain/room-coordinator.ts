@@ -15,7 +15,7 @@ import {
   type EngineState,
   GameEngine,
 } from "@three-zero-four/game-engine";
-import type { AuthenticatedSession } from "../contexts/player-access/adapters/delivery/player-access-service.js";
+import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import type { Presence, RoomLease } from "../infra/redis-coordination.js";
 import { DomainError } from "./errors.js";
 import {

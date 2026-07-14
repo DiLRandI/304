@@ -4,7 +4,7 @@ import {
   type RoomProjection,
 } from "@three-zero-four/contracts";
 import type WebSocket from "ws";
-import type { AuthenticatedSession } from "../contexts/player-access/adapters/delivery/player-access-service.js";
+import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { DomainError } from "../domain/errors.js";
 import type { RoomCoordinator } from "../domain/room-coordinator.js";
 import type { RoomChangedNotice } from "./room-change-bus.js";
