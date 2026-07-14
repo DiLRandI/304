@@ -46,13 +46,39 @@ export interface ExecuteRoomCommandInput {
 }
 
 export class RoomApplicationError extends Error {
+  readonly statusCode: number;
+
   constructor(
     readonly code: string,
     message: string,
   ) {
     super(message);
     this.name = "RoomApplicationError";
+    this.statusCode =
+      code === "ROOM_NOT_FOUND"
+        ? 404
+        : code === "HOST_REQUIRED" || code === "SEAT_REQUIRED"
+          ? 403
+          : 409;
   }
+}
+
+const expectedRepositoryErrors = new Set([
+  "COMMAND_ID_CONFLICT",
+  "ROOM_NOT_FOUND",
+  "VERSION_CONFLICT",
+]);
+
+function normalizeRepositoryError(error: unknown): RoomApplicationError | null {
+  if (
+    !(error instanceof Error) ||
+    !("code" in error) ||
+    typeof error.code !== "string" ||
+    !expectedRepositoryErrors.has(error.code)
+  ) {
+    return null;
+  }
+  return new RoomApplicationError(error.code, error.message);
 }
 
 function actorPlayerId(command: RoomCommand): PlayerId {
@@ -63,33 +89,38 @@ export class ExecuteRoomCommandHandler {
   constructor(private readonly repository: RoomCommandRepository) {}
 
   async execute(input: ExecuteRoomCommandInput): Promise<RoomProjection> {
-    const room = await this.repository.findByReference(input.roomReference);
-    if (!room) {
-      throw new RoomApplicationError("ROOM_NOT_FOUND", "Room was not found");
-    }
-    const actor = actorPlayerId(input.command);
-    const duplicate = await this.repository.findDuplicate(
-      room.id,
-      input.commandId,
-      actor,
-      input.command,
-    );
-    if (duplicate) return duplicate;
+    try {
+      const room = await this.repository.findByReference(input.roomReference);
+      if (!room) {
+        throw new RoomApplicationError("ROOM_NOT_FOUND", "Room was not found");
+      }
+      const actor = actorPlayerId(input.command);
+      const duplicate = await this.repository.findDuplicate(
+        room.id,
+        input.commandId,
+        actor,
+        input.command,
+      );
+      if (duplicate) return duplicate;
 
-    const result = executeRoomCommand(room, input.command);
-    if (!result.ok) {
-      throw new RoomApplicationError(result.error.code, result.error.message);
+      const result = executeRoomCommand(room, input.command);
+      if (!result.ok) {
+        throw new RoomApplicationError(result.error.code, result.error.message);
+      }
+      const response = projectRoom(result.room, actor);
+      await this.repository.commit({
+        actorPlayerId: actor,
+        commandId: input.commandId,
+        events: result.events,
+        expectedVersion: room.eventVersion,
+        request: input.command,
+        response,
+        room: result.room,
+      });
+      return response;
+    } catch (error) {
+      if (error instanceof RoomApplicationError) throw error;
+      throw normalizeRepositoryError(error) ?? error;
     }
-    const response = projectRoom(result.room, actor);
-    await this.repository.commit({
-      actorPlayerId: actor,
-      commandId: input.commandId,
-      events: result.events,
-      expectedVersion: room.eventVersion,
-      request: input.command,
-      response,
-      room: result.room,
-    });
-    return response;
   }
 }

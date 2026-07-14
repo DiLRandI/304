@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildApp, loadConfig, redactSensitiveRequestUrl } from "../src/app.js";
+import { RoomApplicationError } from "../src/contexts/rooms/application/execute-room-command.js";
 import type { RoomSocketHub } from "../src/realtime/room-socket-hub.js";
 import type { GameRuntime } from "../src/routes/v1.js";
 
@@ -208,6 +209,30 @@ describe("game service bootstrap", () => {
 });
 
 describe("game service health surface", () => {
+  it("presents room application errors through the public error contract", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/room-application-error", async () => {
+      throw new RoomApplicationError(
+        "VERSION_CONFLICT",
+        "Room state changed; refresh and retry",
+      );
+    });
+
+    const response = await app.inject("/room-application-error");
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "Room state changed; refresh and retry",
+      },
+    });
+    await app.close();
+  });
+
   it("uses forwarded client IPs only from the configured Caddy gateway", async () => {
     const app = await buildApp({
       config: loadConfig({

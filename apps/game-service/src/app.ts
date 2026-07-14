@@ -10,6 +10,7 @@ import Fastify, {
 } from "fastify";
 import { ZodError } from "zod";
 import type { ServiceConfig } from "./config.js";
+import { RoomApplicationError } from "./contexts/rooms/application/execute-room-command.js";
 import { DomainError } from "./domain/errors.js";
 import { createMetrics, type ServiceMetrics } from "./metrics.js";
 import type { RoomSocketHub } from "./realtime/room-socket-hub.js";
@@ -184,6 +185,11 @@ export async function buildApp({
       .send(await metrics.registry.metrics());
   });
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof RoomApplicationError) {
+      return reply
+        .code(error.statusCode)
+        .send({ error: { code: error.code, message: error.message } });
+    }
     if (error instanceof DomainError) {
       return reply
         .code(error.statusCode)

@@ -33,16 +33,20 @@ function room(): Room {
 
 class FakeRoomRepository implements RoomCommandRepository {
   commitCalls: RoomCommandCommit[] = [];
+  commitError: Error | null = null;
   duplicate: RoomProjection | null = null;
+  findError: Error | null = null;
 
   constructor(public current: Room | null = room()) {}
 
   async commit(input: RoomCommandCommit): Promise<void> {
+    if (this.commitError) throw this.commitError;
     this.commitCalls.push(input);
     this.current = input.room;
   }
 
   async findByReference(): Promise<Room | null> {
+    if (this.findError) throw this.findError;
     return this.current;
   }
 
@@ -117,6 +121,49 @@ describe("execute room command application handler", () => {
     );
   });
 
+  it("normalizes expected repository conflicts for delivery", async () => {
+    const repository = new FakeRoomRepository();
+    repository.commitError = Object.assign(new Error("Concurrent update"), {
+      code: "VERSION_CONFLICT",
+    });
+    const handler = new ExecuteRoomCommandHandler(repository);
+
+    await expect(
+      handler.execute({
+        command: {
+          actor: { displayName: "Bimal", playerId: guestId },
+          expectedVersion: eventVersion(1),
+          type: "JOIN_ROOM",
+        },
+        commandId: roomCommandId,
+        roomReference: "304-AbCdEfGhIjKl_123",
+      }),
+    ).rejects.toEqual(
+      new RoomApplicationError("VERSION_CONFLICT", "Concurrent update"),
+    );
+  });
+
+  it("does not expose unexpected persistence failures as application errors", async () => {
+    const repository = new FakeRoomRepository();
+    const failure = Object.assign(new Error("Corrupt response"), {
+      code: "INVALID_COMMAND_RESPONSE",
+    });
+    repository.findError = failure;
+    const handler = new ExecuteRoomCommandHandler(repository);
+
+    await expect(
+      handler.execute({
+        command: {
+          actor: hostId,
+          expectedVersion: eventVersion(1),
+          type: "START_ROOM",
+        },
+        commandId: roomCommandId,
+        roomReference: "304-AbCdEfGhIjKl_123",
+      }),
+    ).rejects.toBe(failure);
+  });
+
   it("promotes domain rejections to application errors", async () => {
     const handler = new ExecuteRoomCommandHandler(new FakeRoomRepository());
     await expect(
@@ -129,6 +176,6 @@ describe("execute room command application handler", () => {
         commandId: roomCommandId,
         roomReference: "304-AbCdEfGhIjKl_123",
       }),
-    ).rejects.toMatchObject({ code: "HOST_REQUIRED" });
+    ).rejects.toMatchObject({ code: "HOST_REQUIRED", statusCode: 403 });
   });
 });
