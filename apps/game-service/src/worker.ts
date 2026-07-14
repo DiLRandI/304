@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { loadConfig } from "./config.js";
+import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { NodeRoomInviteCodeProvider } from "./contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { RoomMaintenance } from "./contexts/rooms/application/room-maintenance.js";
 import { RoomCoordinator } from "./domain/room-coordinator.js";
@@ -22,6 +23,7 @@ const database = createDatabase(config.DATABASE_URL);
 const redis = await createRedis(config.REDIS_URL);
 const store = new PostgresRoomStore(database);
 const coordinator = new RoomCoordinator({
+  identities: new NodeRoomIdentityProvider(),
   inviteCodes: new NodeRoomInviteCodeProvider(),
   store,
   lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),

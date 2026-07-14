@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
+import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { RoomCoordinator } from "../src/domain/room-coordinator.js";
 import { PostgresRoomStore } from "../src/domain/room-store.js";
@@ -33,6 +34,7 @@ let sessions: PlayerAccessService;
 
 function createCoordinator(): RoomCoordinator {
   return new RoomCoordinator({
+    identities: new NodeRoomIdentityProvider(),
     inviteCodes: new NodeRoomInviteCodeProvider(),
     store: new PostgresRoomStore(database),
     lease: new RoomLease(redis, 5_000),

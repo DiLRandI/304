@@ -7,6 +7,7 @@ import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
+import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { RoomCoordinator } from "../src/domain/room-coordinator.js";
 import {
@@ -64,6 +65,7 @@ function coordinator(
   >[0]["automation"],
 ): RoomCoordinator {
   return new RoomCoordinator({
+    identities: new NodeRoomIdentityProvider(),
     inviteCodes: new NodeRoomInviteCodeProvider(),
     store,
     lease: new RoomLease(redis, 5_000),

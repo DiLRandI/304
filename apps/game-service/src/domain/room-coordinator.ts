@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type {
   CreateRoomRequest,
   GameCommand,
@@ -18,6 +17,7 @@ import {
 import { projectRoomForPlayer } from "../contexts/gameplay/adapters/delivery/gameplay-room-presenter.js";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { projectLobbyForViewer } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
+import type { RoomIdentityProvider } from "../contexts/rooms/application/room-identity-provider.js";
 import type { RoomInviteCodeProvider } from "../contexts/rooms/application/room-invite-code-provider.js";
 import type { Presence, RoomLease } from "../infra/redis-coordination.js";
 import { DomainError } from "./errors.js";
@@ -38,6 +38,7 @@ class RecoveryError extends Error {
 }
 
 interface RoomCoordinatorDependencies {
+  identities: RoomIdentityProvider;
   inviteCodes: RoomInviteCodeProvider;
   store: PostgresRoomStore;
   lease: RoomLease;
@@ -218,6 +219,7 @@ export class RoomCoordinator {
   private readonly lease: RoomLease;
   private readonly presence: Presence;
   private readonly automation: RoomCoordinatorDependencies["automation"];
+  private readonly identities: RoomIdentityProvider;
   private readonly inviteCodes: RoomInviteCodeProvider;
 
   constructor({
@@ -225,12 +227,14 @@ export class RoomCoordinator {
     lease,
     presence,
     automation,
+    identities,
     inviteCodes,
   }: RoomCoordinatorDependencies) {
     this.store = store;
     this.lease = lease;
     this.presence = presence;
     this.automation = automation;
+    this.identities = identities;
     this.inviteCodes = inviteCodes;
   }
 
@@ -269,7 +273,7 @@ export class RoomCoordinator {
               connectionStatus: "disconnected",
             },
     );
-    const roomId = randomUUID();
+    const roomId = this.identities.nextRoomId();
     const engine = createLobbyEngine(
       session,
       seats,
@@ -843,7 +847,7 @@ export class RoomCoordinator {
         {
           roomId: room.id,
           expectedVersion: room.eventVersion,
-          commandId: randomUUID(),
+          commandId: this.identities.nextCommandId(),
           actorPlayerId: session.playerId,
           eventType:
             storedSeat.connectionStatus === "autopilot"
@@ -888,7 +892,7 @@ export class RoomCoordinator {
         {
           roomId: room.id,
           expectedVersion: room.eventVersion,
-          commandId: randomUUID(),
+          commandId: this.identities.nextCommandId(),
           actorPlayerId: session.playerId,
           eventType: "PLAYER_DISCONNECTED",
           payload: { seatIndex: viewerSeatIndex },
@@ -991,7 +995,7 @@ export class RoomCoordinator {
       const winnerSeat = completedTrickWinner(engine);
       if (winnerSeat == null) return;
       await this.store.scheduleAutomation(transaction, {
-        id: randomUUID(),
+        id: this.identities.nextAutomationJobId(),
         roomId: room.id,
         expectedEventVersion: room.eventVersion,
         kind: "TRICK_ADVANCE",
@@ -1014,7 +1018,7 @@ export class RoomCoordinator {
     const botActionDelayMs =
       this.automation?.botActionDelayMs ?? DEFAULT_AUTOMATION.botActionDelayMs;
     await this.store.scheduleAutomation(transaction, {
-      id: randomUUID(),
+      id: this.identities.nextAutomationJobId(),
       roomId: room.id,
       expectedEventVersion: room.eventVersion,
       kind: isAutomated ? "BOT_ACTION" : "TURN_TIMEOUT",
@@ -1042,7 +1046,7 @@ export class RoomCoordinator {
         continue;
       }
       await this.store.scheduleAutomation(transaction, {
-        id: randomUUID(),
+        id: this.identities.nextAutomationJobId(),
         roomId: room.id,
         expectedEventVersion: room.eventVersion,
         kind: "DISCONNECT_GRACE",

@@ -1,6 +1,7 @@
 import { buildApp, loadConfig } from "./app.js";
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
 import { PostgresRoomCommandRepository } from "./contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
+import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { NodeRoomInviteCodeProvider } from "./contexts/rooms/adapters/security/node-room-invite-code-provider.js";
 import { ExecuteRoomCommandHandler } from "./contexts/rooms/application/execute-room-command.js";
 import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
@@ -33,6 +34,7 @@ const sessions = new PlayerAccessService(database, {
 });
 const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
 const coordinator = new RoomCoordinator({
+  identities: new NodeRoomIdentityProvider(),
   inviteCodes: new NodeRoomInviteCodeProvider(),
   store,
   lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
