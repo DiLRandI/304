@@ -31,6 +31,8 @@ export type GameplayEvent =
       readonly type: "BID_PLACED";
     }
   | { readonly actor: SeatIndex; readonly type: "BID_PASSED" }
+  | { readonly type: "BIDDING_CANCELLED" }
+  | { readonly type: "BIDDING_COMPLETED" }
   | {
       readonly actor: SeatIndex;
       readonly cardId: CardId;
@@ -58,7 +60,9 @@ export interface GameplayDecisionError {
     | "ACTION_NOT_ALLOWED"
     | "CARD_NOT_IN_HAND"
     | "INVALID_STATE"
+    | "INVALID_BID"
     | "NOT_ACTIVE_SEAT"
+    | "NOT_TRUMP_MAKER"
     | "RULE_VIOLATION";
   readonly message: string;
 }
