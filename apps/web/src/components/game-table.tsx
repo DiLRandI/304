@@ -118,6 +118,15 @@ export function GameTable({
     );
   }
   const publicState = view.publicState;
+  const bidderSeat =
+    publicState.bidderSeatIndex === null
+      ? null
+      : (publicState.seats.find(
+          (seat) => seat.index === publicState.bidderSeatIndex,
+        ) ?? null);
+  const bidderOwner = bidderSeat
+    ? `Team ${bidderSeat.team} · ${bidderSeat.displayName} (${bidderSeat.seatLabel})`
+    : null;
   const primaryCardActions = new Set(
     view.privateSeat.hand
       .map((card) => cardAction(card, view.legalActions))
@@ -216,7 +225,12 @@ export function GameTable({
             </div>
             <div>
               <dt>Bid</dt>
-              <dd>{publicState.bid || "—"}</dd>
+              <dd>
+                {publicState.bid || "—"}
+                {publicState.bid > 0 && bidderOwner ? (
+                  <span className="metric-detail">{bidderOwner}</span>
+                ) : null}
+              </dd>
             </div>
             <div>
               <dt>Trump</dt>
@@ -272,7 +286,22 @@ export function GameTable({
             </>
           ) : (
             <>
-              <h2>Winning team {publicState.handResult.winningTeam}</h2>
+              <h2>Team {publicState.handResult.winningTeam} wins the hand</h2>
+              <div className="hand-result-summary">
+                <p>
+                  {bidderSeat &&
+                  bidderSeat.team === publicState.handResult.bidderTeam
+                    ? bidderOwner
+                    : `Team ${publicState.handResult.bidderTeam}`}{" "}
+                  bid {publicState.handResult.bid}
+                </p>
+                <p>
+                  Team {publicState.handResult.bidderTeam}{" "}
+                  {publicState.handResult.success
+                    ? `met the ${publicState.handResult.bid} bid by ${publicState.handResult.bidderTeamPoints - publicState.handResult.bid}`
+                    : `scored ${publicState.handResult.bidderTeamPoints} and missed by ${publicState.handResult.bid - publicState.handResult.bidderTeamPoints}`}
+                </p>
+              </div>
               <dl>
                 <div>
                   <dt>Bid</dt>

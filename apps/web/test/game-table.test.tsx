@@ -185,6 +185,31 @@ describe("GameTable", () => {
     ).toBeTruthy();
   });
 
+  it("names the bidding team, player, and seat beside the live bid", () => {
+    const projection = activeProjection();
+    const publicState = projection.view.publicState as Record<string, unknown>;
+    publicState.bidding = { currentBid: 300, currentBidSeat: 0 };
+    const seats = publicState.seats as Array<Record<string, unknown>>;
+    seats[0] = {
+      ...seats[0],
+      displayName: "dd",
+      seatLabel: "Seat 1",
+      team: "A",
+    };
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("300")).toBeTruthy();
+    expect(screen.getByText("Team A · dd (Seat 1)")).toBeTruthy();
+  });
+
   it("renders played cards as accessible visuals at their player seats", () => {
     const projection = activeProjection();
     const publicState = projection.view.publicState as Record<string, unknown>;
@@ -239,7 +264,7 @@ describe("GameTable", () => {
     );
 
     const result = screen.getByRole("region", { name: "Hand result" });
-    expect(result.textContent).toContain("Winning team A");
+    expect(result.textContent).toContain("Team A wins the hand");
     expect(result.textContent).toContain("Bid160");
     expect(result.textContent).toContain("Bid met");
     expect(result.textContent).toContain("TrumpHidden");
@@ -250,6 +275,65 @@ describe("GameTable", () => {
     expect(screen.getByLabelText("Seat 1").getAttribute("data-hand-size")).toBe(
       "8",
     );
+  });
+
+  it("explains who owned a missed bid and why the other team won", () => {
+    const projection = resultProjection();
+    const publicState = projection.view.publicState as Record<string, unknown>;
+    publicState.bidding = { currentBid: 300, currentBidSeat: 0 };
+    const seats = publicState.seats as Array<Record<string, unknown>>;
+    seats[0] = {
+      ...seats[0],
+      displayName: "dd",
+      seatLabel: "Seat 1",
+      team: "A",
+    };
+    publicState.handResult = {
+      bidderTeam: "A",
+      bidderTeamPoints: 223,
+      bid: 300,
+      handNumber: 2,
+      matchComplete: false,
+      movement: 4,
+      otherTeamPoints: 81,
+      success: false,
+      tokens: [11, 11],
+      trickCount: 8,
+      winningTeam: "B",
+    };
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Team B wins the hand" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Team A · dd (Seat 1) bid 300")).toBeTruthy();
+    expect(screen.getByText("Team A scored 223 and missed by 77")).toBeTruthy();
+  });
+
+  it("falls back to the bidding team when the bidder seat is unavailable", () => {
+    const projection = resultProjection();
+    const publicState = projection.view.publicState as Record<string, unknown>;
+    publicState.bidding = { currentBid: 160, currentBidSeat: 99 };
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Team A bid 160")).toBeTruthy();
+    expect(screen.getByText("Team A met the 160 bid by 36")).toBeTruthy();
   });
 
   it("uses the rematch label only for a completed match and rejects overbroad result data", () => {

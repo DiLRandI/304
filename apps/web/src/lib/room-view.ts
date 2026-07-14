@@ -65,6 +65,7 @@ export interface GameRoomView {
   publicState: {
     activeSeat: number | null;
     bid: number;
+    bidderSeatIndex: number | null;
     handNumber: number;
     handResult: ProjectedHandResult | null;
     phase: string;
@@ -354,11 +355,13 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
   ) {
     return null;
   }
+  const bidderSeatIndex = nullableInteger(bidding.currentBidSeat);
   const maker = nullableInteger(trump.maker);
   const suit = nullableString(trump.suit);
   const tokens = publicState.tokens.map((value) => nonNegativeInteger(value));
   const [teamATokens, teamBTokens] = tokens;
   if (
+    bidderSeatIndex === undefined ||
     maker === undefined ||
     suit === undefined ||
     typeof trump.isOpen !== "boolean" ||
@@ -400,6 +403,7 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
     publicState: {
       activeSeat,
       bid: bidding.currentBid,
+      bidderSeatIndex,
       handNumber,
       handResult,
       phase: publicState.phase,

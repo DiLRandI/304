@@ -857,6 +857,15 @@ dd[data-state="missing"] {
   overflow-wrap: anywhere;
 }
 
+.metric-detail {
+  display: block;
+  margin-block-start: 0.18rem;
+  color: #c8dcc9;
+  font-size: 0.66rem;
+  font-weight: 560;
+  line-height: 1.25;
+}
+
 .turn-prompt {
   display: grid;
   gap: 0.32rem;
@@ -889,6 +898,17 @@ dd[data-state="missing"] {
   color: #fff5dd;
   font-size: clamp(1.2rem, 2vw, 1.55rem);
   letter-spacing: -0.03em;
+}
+
+.hand-result-summary {
+  display: grid;
+  gap: 0.2rem;
+  color: #f6edcf;
+  line-height: 1.45;
+}
+
+.hand-result-summary > p:last-child {
+  font-weight: 700;
 }
 
 .hand-result > p:last-child {
@@ -1304,7 +1324,9 @@ html[data-contrast="high"] .public-page p,
 html[data-contrast="high"] .seat-panel > p:last-child,
 html[data-contrast="high"] .trick-cards > p,
 html[data-contrast="high"] .hand-result > p:last-child,
+html[data-contrast="high"] .hand-result-summary,
 html[data-contrast="high"] .hand-result dd,
+html[data-contrast="high"] .metric-detail,
 html[data-contrast="high"] .consent-banner > p:not(.eyebrow) {
   color: #fff;
 }
