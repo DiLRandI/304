@@ -5,7 +5,8 @@ import { RulesDrawer } from "../../../components/rules-drawer";
 import type { ProjectedCard } from "../model/card-view";
 import type { ProjectedHandResult } from "../model/hand-result-view";
 import { readActiveRoomView } from "../model/room-view";
-import { CardButton, CardFace, cardLabel } from "./card";
+import { CardButton, cardLabel } from "./card";
+import { CurrentTrick } from "./current-trick";
 import { HandResult } from "./hand-result";
 import { TableMetrics } from "./table-metrics";
 
@@ -176,31 +177,10 @@ export function GameTable({
         ))}
 
         <div className="table-center">
-          <section aria-label="Current trick" className="trick-area">
-            <p className="eyebrow">Current trick</p>
-            <div
-              className="trick-cards"
-              data-seat-count={publicState.seatCount}
-            >
-              {view.publicState.trick.length === 0 ? (
-                <p>Waiting for the lead card.</p>
-              ) : (
-                view.publicState.trick.map((play) => (
-                  <div
-                    aria-label={`${cardLabel(play.card)}, played by Seat ${play.seatIndex + 1}`}
-                    className="trick-card"
-                    data-hidden={play.card.hidden || undefined}
-                    data-seat-index={play.seatIndex}
-                    data-suit={play.card.suit ?? undefined}
-                    key={`${play.seatIndex}-${play.card.cardId}`}
-                    role="img"
-                  >
-                    <CardFace card={play.card} />
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
+          <CurrentTrick
+            seatCount={publicState.seatCount}
+            trick={publicState.trick}
+          />
 
           <TableMetrics
             bidderOwner={bidderOwner}
