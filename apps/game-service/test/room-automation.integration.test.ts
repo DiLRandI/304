@@ -6,6 +6,9 @@ import { GameEngine } from "@three-zero-four/game-engine";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
+import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
+import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
+import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { RoomCoordinator } from "../src/contexts/rooms/adapters/orchestration/room-coordinator.js";
 import {
@@ -58,20 +61,44 @@ let database: Database;
 let redis: RedisClientType;
 let store: PostgresRoomStore;
 let sessions: PlayerAccessService;
+const connectionsByCoordinator = new WeakMap<
+  RoomCoordinator,
+  LegacyGameplayConnections
+>();
 
 function coordinator(
   automationOptions?: ConstructorParameters<
     typeof RoomCoordinator
   >[0]["automation"],
 ): RoomCoordinator {
-  return new RoomCoordinator({
-    identities: new NodeRoomIdentityProvider(),
+  const identities = new NodeRoomIdentityProvider();
+  const lease = new RoomLease(redis, 5_000);
+  const presence = new Presence(redis, 60);
+  const game = new RoomCoordinator({
+    identities,
     inviteCodes: new NodeRoomInviteCodeProvider(),
     store,
-    lease: new RoomLease(redis, 5_000),
-    presence: new Presence(redis, 60),
+    lease,
+    presence,
     automation: automationOptions,
   });
+  const recovery = new LegacyGameplayRecovery(store);
+  connectionsByCoordinator.set(
+    game,
+    new LegacyGameplayConnections({
+      automation: new LegacyGameplayAutomationScheduler({
+        ...(automationOptions ? { config: automationOptions } : {}),
+        identities,
+        store,
+      }),
+      identities,
+      lease,
+      presence,
+      recovery,
+      store,
+    }),
+  );
+  return game;
 }
 
 function automation(
@@ -85,13 +112,17 @@ function scheduler(coordinatorInstance: RoomCoordinator): AutomationScheduler {
 }
 
 function presence(coordinatorInstance: RoomCoordinator): PresenceCoordinator {
-  return coordinatorInstance as unknown as PresenceCoordinator;
+  const connections = connectionsByCoordinator.get(coordinatorInstance);
+  if (!connections) throw new Error("Expected realtime connections");
+  return connections;
 }
 
 function connection(
   coordinatorInstance: RoomCoordinator,
 ): ConnectionCoordinator {
-  return coordinatorInstance as unknown as ConnectionCoordinator;
+  const connections = connectionsByCoordinator.get(coordinatorInstance);
+  if (!connections) throw new Error("Expected realtime connections");
+  return connections;
 }
 
 async function createStartedClassicRoom(

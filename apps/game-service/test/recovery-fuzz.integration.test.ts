@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
+import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
@@ -55,19 +56,52 @@ let database: Database;
 let redis: RedisClientType;
 let sessions: PlayerAccessService;
 let store: PostgresRoomStore;
+const connectionsByCoordinator = new WeakMap<
+  RoomCoordinator,
+  LegacyGameplayConnections
+>();
 
 function coordinator(): RoomCoordinator {
-  return new RoomCoordinator({
-    identities: new NodeRoomIdentityProvider(),
+  const identities = new NodeRoomIdentityProvider();
+  const lease = new RoomLease(redis, 5_000);
+  const presence = new Presence(redis, 60);
+  const game = new RoomCoordinator({
+    identities,
     inviteCodes: new NodeRoomInviteCodeProvider(),
     store,
-    lease: new RoomLease(redis, 5_000),
-    presence: new Presence(redis, 60),
+    lease,
+    presence,
     automation: {
       botActionDelayMs: 250,
       disconnectGraceSeconds: 90,
     },
   });
+  const recovery = new LegacyGameplayRecovery(store);
+  connectionsByCoordinator.set(
+    game,
+    new LegacyGameplayConnections({
+      automation: new LegacyGameplayAutomationScheduler({
+        config: {
+          botActionDelayMs: 250,
+          disconnectGraceSeconds: 90,
+        },
+        identities,
+        store,
+      }),
+      identities,
+      lease,
+      presence,
+      recovery,
+      store,
+    }),
+  );
+  return game;
+}
+
+function connections(game: RoomCoordinator): LegacyGameplayConnections {
+  const value = connectionsByCoordinator.get(game);
+  if (!value) throw new Error("Expected realtime connections");
+  return value;
 }
 
 function gameplayCommands(): LegacyGameplayCommandExecutor {
@@ -163,7 +197,7 @@ async function applyWorkerAction(
   roomId: string,
 ): Promise<void> {
   const active = await activePlayer(game, players, roomId);
-  await game.markRealtimeDisconnected(active.player, roomId);
+  await connections(game).markRealtimeDisconnected(active.player, roomId);
   await database.query(
     "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'DISCONNECT_GRACE' AND state = 'pending'",
     [roomId],
@@ -189,7 +223,7 @@ async function currentSnapshots(
   roomId: string,
 ): Promise<Map<string, RoomProjection>> {
   for (const player of players) {
-    await game.markRealtimePresence(player, roomId);
+    await connections(game).markRealtimePresence(player, roomId);
   }
   const snapshots = new Map<string, RoomProjection>();
   for (const player of players) {

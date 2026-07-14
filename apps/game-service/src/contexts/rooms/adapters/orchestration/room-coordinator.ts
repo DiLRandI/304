@@ -15,11 +15,9 @@ import {
   createStartedEngine,
   seatCountForProfile,
 } from "../../../gameplay/adapters/engine/legacy-engine-factory.js";
-import {
-  applyConnectionState,
-  applyLobbySeat,
-} from "../../../gameplay/adapters/engine/legacy-engine-seat-mapper.js";
+import { applyLobbySeat } from "../../../gameplay/adapters/engine/legacy-engine-seat-mapper.js";
 import { LegacyGameplayAutomationScheduler } from "../../../gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
+import { LegacyGameplayConnections } from "../../../gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../../../gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import {
   activeRoomStatus,
@@ -83,6 +81,7 @@ export class RoomCoordinator {
   private readonly identities: RoomIdentityProvider;
   private readonly inviteCodes: RoomInviteCodeProvider;
   private readonly gameplayAutomation: LegacyGameplayAutomationScheduler;
+  private readonly gameplayConnections: LegacyGameplayConnections;
   private readonly gameplayRecovery: LegacyGameplayRecovery;
   private readonly roomQueries: LegacyRoomProjectionQueries;
 
@@ -105,6 +104,14 @@ export class RoomCoordinator {
       store,
     });
     this.gameplayRecovery = new LegacyGameplayRecovery(store);
+    this.gameplayConnections = new LegacyGameplayConnections({
+      automation: this.gameplayAutomation,
+      identities,
+      lease,
+      presence,
+      recovery: this.gameplayRecovery,
+      store,
+    });
     this.roomQueries = new LegacyRoomProjectionQueries({
       gameplayRecovery: this.gameplayRecovery,
       lease,
@@ -261,7 +268,7 @@ export class RoomCoordinator {
     roomId: string,
     request: StartRoomRequest,
   ): Promise<RoomProjection> {
-    await this.markRealtimePresence(session, roomId);
+    await this.gameplayConnections.markRealtimePresence(session, roomId);
     const projection = await this.withRoomCommand(
       roomId,
       session,
@@ -325,7 +332,7 @@ export class RoomCoordinator {
     session: AuthenticatedSession,
     roomId: string,
   ): Promise<RoomProjection> {
-    await this.markRealtimePresence(session, roomId);
+    await this.gameplayConnections.markRealtimePresence(session, roomId);
     return this.roomQueries.getSnapshot(session, roomId);
   }
 
@@ -609,96 +616,6 @@ export class RoomCoordinator {
       await this.gameplayAutomation.schedule(transaction, updatedRoom, engine);
       return "completed";
     });
-  }
-
-  async markRealtimePresence(
-    session: AuthenticatedSession,
-    roomId: string,
-  ): Promise<void> {
-    await this.withRoomLease(roomId, async (transaction, room) => {
-      const viewerSeatIndex = await this.store.requireHumanSeat(
-        transaction,
-        room.id,
-        session.playerId,
-      );
-      const seats = await this.store.loadSeats(room.id, transaction);
-      const storedSeat = seats.find(
-        (seat) => seat.seatIndex === viewerSeatIndex,
-      );
-      if (!storedSeat) throw new RecoveryError(room.id);
-      await this.presence.touch(room.id, session.playerId);
-      if (storedSeat.connectionStatus === "online") {
-        await this.store.markSeatOnline(transaction, room.id, session.playerId);
-        return;
-      }
-
-      const engine = await this.gameplayRecovery.recover(transaction, room);
-      applyConnectionState(engine, viewerSeatIndex, "online");
-      await this.store.markSeatOnline(transaction, room.id, session.playerId);
-      const status = activeRoomStatus(engine.state);
-      const eventVersion = await this.store.appendEventAndSnapshot(
-        transaction,
-        {
-          roomId: room.id,
-          expectedVersion: room.eventVersion,
-          commandId: this.identities.nextCommandId(),
-          actorPlayerId: session.playerId,
-          eventType:
-            storedSeat.connectionStatus === "autopilot"
-              ? "AUTOPILOT_CANCELLED"
-              : "PLAYER_RECONNECTED",
-          payload: { seatIndex: viewerSeatIndex },
-          snapshot: engine.getSnapshot(),
-          status,
-          ruleProfileId: room.ruleProfileId,
-        },
-      );
-      await this.gameplayAutomation.schedule(
-        transaction,
-        { ...room, eventVersion, status },
-        engine,
-      );
-    });
-  }
-
-  async markRealtimeDisconnected(
-    session: AuthenticatedSession,
-    roomId: string,
-  ): Promise<void> {
-    await this.withRoomLease(roomId, async (transaction, room) => {
-      const viewerSeatIndex = await this.store.requireHumanSeat(
-        transaction,
-        room.id,
-        session.playerId,
-      );
-      const seats = await this.store.loadSeats(room.id, transaction);
-      const storedSeat = seats.find(
-        (seat) => seat.seatIndex === viewerSeatIndex,
-      );
-      if (storedSeat?.connectionStatus !== "online") return;
-
-      const engine = await this.gameplayRecovery.recover(transaction, room);
-      applyConnectionState(engine, viewerSeatIndex, "disconnected");
-      await this.store.markSeatOffline(transaction, room.id, session.playerId);
-      const status = activeRoomStatus(engine.state);
-      const eventVersion = await this.store.appendEventAndSnapshot(
-        transaction,
-        {
-          roomId: room.id,
-          expectedVersion: room.eventVersion,
-          commandId: this.identities.nextCommandId(),
-          actorPlayerId: session.playerId,
-          eventType: "PLAYER_DISCONNECTED",
-          payload: { seatIndex: viewerSeatIndex },
-          snapshot: engine.getSnapshot(),
-          status,
-          ruleProfileId: room.ruleProfileId,
-        },
-      );
-      const updatedRoom = { ...room, eventVersion, status };
-      await this.gameplayAutomation.schedule(transaction, updatedRoom, engine);
-    });
-    await this.presence.remove(roomId, session.playerId);
   }
 
   private async withRoomCommand(

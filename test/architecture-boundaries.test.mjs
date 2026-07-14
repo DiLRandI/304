@@ -332,6 +332,16 @@ test("the web server composes realtime connections without a room coordinator", 
   assert.match(connectionsSource, /export class LegacyGameplayConnections/);
   assert.match(serverSource, /new LegacyGameplayConnections/);
   assert.doesNotMatch(serverSource, /new RoomCoordinator/);
+
+  const coordinatorSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/orchestration/room-coordinator.ts",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(coordinatorSource, /async markRealtimePresence/);
+  assert.doesNotMatch(coordinatorSource, /async markRealtimeDisconnected/);
 });
 
 test("room projection reads use a dedicated query adapter", async () => {
