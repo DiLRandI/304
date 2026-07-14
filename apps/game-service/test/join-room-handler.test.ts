@@ -10,11 +10,11 @@ import {
 } from "@three-zero-four/room-domain";
 import { describe, expect, it } from "vitest";
 import type { ExecuteRoomCommandInput } from "../src/contexts/rooms/application/execute-room-command.js";
-import {
-  JoinRoomHandler,
-  type RoomCommandExecutor,
-  type RoomPresence,
-} from "../src/contexts/rooms/application/join-room.js";
+import { JoinRoomHandler } from "../src/contexts/rooms/application/join-room.js";
+import type {
+  RoomCommandExecutor,
+  RoomPresence,
+} from "../src/contexts/rooms/application/room-command-ports.js";
 
 const hostId = playerId("9c9c7530-224f-4d5e-b354-1c78df2f063b");
 const guestId = playerId("28fc47b6-e8ef-4de7-8c43-7e027a41d70f");
@@ -47,6 +47,8 @@ class Presence implements RoomPresence {
   async touch(roomId: string, playerId: string): Promise<void> {
     this.calls.push({ playerId, roomId });
   }
+
+  async remove(): Promise<void> {}
 }
 
 describe("JoinRoomHandler", () => {

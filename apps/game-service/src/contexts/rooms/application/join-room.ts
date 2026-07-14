@@ -1,20 +1,13 @@
 import type {
   CommandId,
   EventVersion,
-  PlayerId,
-  RoomId,
   RoomPlayer,
   RoomProjection,
 } from "@three-zero-four/room-domain";
-import type { ExecuteRoomCommandInput } from "./execute-room-command.js";
-
-export interface RoomCommandExecutor {
-  execute(input: ExecuteRoomCommandInput): Promise<RoomProjection>;
-}
-
-export interface RoomPresence {
-  touch(roomId: RoomId, playerId: PlayerId): Promise<void>;
-}
+import type {
+  RoomCommandExecutor,
+  RoomPresence,
+} from "./room-command-ports.js";
 
 export interface JoinRoomInput {
   readonly actor: RoomPlayer;
