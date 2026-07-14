@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { loadConfig } from "./config.js";
+import { RoomMaintenance } from "./contexts/rooms/application/room-maintenance.js";
 import { RoomCoordinator } from "./domain/room-coordinator.js";
-import { RoomMaintenance } from "./domain/room-maintenance.js";
 import { PostgresRoomStore } from "./domain/room-store.js";
 import { createDatabase } from "./infra/database.js";
 import { createReadiness } from "./infra/readiness.js";

@@ -1,5 +1,5 @@
 import { roomClosureReason } from "@three-zero-four/room-domain";
-import type { RoomMaintenanceStore } from "../contexts/rooms/application/room-maintenance-ports.js";
+import type { RoomMaintenanceStore } from "./room-maintenance-ports.js";
 
 const ALL_AUTOMATION_KINDS = [
   "BOT_ACTION",

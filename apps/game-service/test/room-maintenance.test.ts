@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { RoomMaintenance } from "../src/contexts/rooms/application/room-maintenance.js";
 import type { RoomMaintenanceStore } from "../src/contexts/rooms/application/room-maintenance-ports.js";
-import { RoomMaintenance } from "../src/domain/room-maintenance.js";
 
 describe("RoomMaintenance", () => {
   it("uses the injected command identity when closing a stale room", async () => {

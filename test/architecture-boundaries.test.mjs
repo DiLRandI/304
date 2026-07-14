@@ -211,14 +211,23 @@ test("documents and enforces the DDD dependency direction", async () => {
 });
 
 test("room maintenance depends on an application-owned persistence port", async () => {
+  const legacyDomainFiles = await collectSourceFiles(
+    "apps/game-service/src/domain",
+  );
+  assert.equal(
+    legacyDomainFiles.includes(
+      "apps/game-service/src/domain/room-maintenance.ts",
+    ),
+    false,
+  );
   const maintenanceSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/domain/room-maintenance.ts"),
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/application/room-maintenance.ts",
+    ),
     "utf8",
   );
 
   assert.doesNotMatch(maintenanceSource, /from ["'].+room-store\.js["']/);
-  assert.match(
-    maintenanceSource,
-    /contexts\/rooms\/application\/room-maintenance-ports\.js/,
-  );
+  assert.match(maintenanceSource, /\.\/room-maintenance-ports\.js/);
 });
