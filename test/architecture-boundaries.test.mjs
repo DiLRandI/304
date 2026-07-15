@@ -616,6 +616,28 @@ test("HTTP v1 delivery depends on application use cases instead of a coordinator
   assert.match(routesSource, /SubmitGameplayCommandHandler/);
 });
 
+test("Fastify application assembly belongs to HTTP delivery", async () => {
+  const httpAppSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/delivery/http/http-app.ts"),
+    "utf8",
+  );
+  const compatibilitySource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/app.ts"),
+    "utf8",
+  );
+  const bootstrapSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/bootstrap/server-runtime.ts"),
+    "utf8",
+  );
+
+  assert.match(httpAppSource, /export async function buildApp/);
+  assert.match(httpAppSource, /from ["']fastify["']/);
+  assert.doesNotMatch(compatibilitySource, /from ["']fastify["']/);
+  assert.match(compatibilitySource, /delivery\/http\/http-app\.js/);
+  assert.match(bootstrapSource, /delivery\/http\/http-app\.js/);
+  assert.match(bootstrapSource, /\.\.\/config\.js/);
+});
+
 test("realtime delivery owns a narrow application runtime contract", async () => {
   const realtimeSource = await readFile(
     path.join(

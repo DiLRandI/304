@@ -1,4 +1,4 @@
-import { buildApp, loadConfig } from "../app.js";
+import { loadConfig } from "../config.js";
 import { LegacyStartedRoomAutomationFactory } from "../contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
@@ -24,6 +24,7 @@ import {
 import { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "../contexts/rooms/application/start-room.js";
+import { buildApp } from "../delivery/http/http-app.js";
 import { RoomSocketHub } from "../delivery/realtime/room-socket-hub.js";
 import { OutboxPublisher } from "../delivery/workers/outbox-publisher.js";
 import { createMetrics } from "../metrics.js";
