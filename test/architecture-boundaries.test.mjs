@@ -554,6 +554,18 @@ test("player access delivery is composed at the service bootstrap boundary", asy
   assert.match(bootstrapSource, /NodeSessionSecrets/);
 });
 
+test("Player Access persistence uses the platform database contract", async () => {
+  const persistenceFiles = await collectSourceFiles(
+    "apps/game-service/src/contexts/player-access/adapters/persistence",
+  );
+
+  for (const filename of persistenceFiles) {
+    const source = await readFile(path.join(repoRoot, filename), "utf8");
+    assert.doesNotMatch(source, /infra\/database\.js/, filename);
+    assert.match(source, /platform\/postgres\/database\.js/, filename);
+  }
+});
+
 test("durability integration coverage composes room application handlers", async () => {
   const integrationSource = await readFile(
     path.join(repoRoot, "apps/game-service/test/room-coordinator.test.ts"),

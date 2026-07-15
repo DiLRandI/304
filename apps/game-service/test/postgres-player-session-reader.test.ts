@@ -1,7 +1,7 @@
 import type { QueryResultRow } from "pg";
 import { describe, expect, it } from "vitest";
 import { PostgresPlayerSessionReader } from "../src/contexts/player-access/adapters/persistence/postgres-player-session-reader.js";
-import type { Database } from "../src/infra/database.js";
+import type { Database } from "../src/platform/postgres/database.js";
 
 interface QueryCall {
   readonly text: string;

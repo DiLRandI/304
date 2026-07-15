@@ -1,4 +1,4 @@
-import type { Database } from "../../../../infra/database.js";
+import type { Database } from "../../../../platform/postgres/database.js";
 import type { PlayerSessionWriter } from "../../application/player-session-ports.js";
 
 export class PostgresPlayerSessionWriter implements PlayerSessionWriter {
