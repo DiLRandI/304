@@ -18,6 +18,7 @@ import { LegacyGameplayConnections } from "../../src/contexts/gameplay/adapters/
 import { LegacyGameplayRecovery } from "../../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import type { AuthenticatedSession } from "../../src/contexts/player-access/application/player-session-ports.js";
 import { presentLobbyRoom } from "../../src/contexts/rooms/adapters/delivery/room-projection-presenter.js";
+import { GameplayRoomProjectionReader } from "../../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
 import { LegacyRoomProjectionQueries } from "../../src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import { LegacyStartedRoomAutomationFactory } from "../../src/contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
@@ -98,7 +99,7 @@ export class RoomTestRuntime {
       ),
     );
     const queries = new LegacyRoomProjectionQueries({
-      gameplayRecovery: recovery,
+      activeRoomProjection: new GameplayRoomProjectionReader(recovery),
       lease,
       store: this.store,
     });

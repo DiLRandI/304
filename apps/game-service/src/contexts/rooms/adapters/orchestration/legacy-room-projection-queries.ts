@@ -1,9 +1,10 @@
 import type { RoomProjection } from "@three-zero-four/contracts";
 import { ServiceError } from "../../../../shared/service-error.js";
-import { projectRoomForPlayer } from "../../../gameplay/adapters/delivery/gameplay-room-presenter.js";
-import { LegacyGameplayRecovery } from "../../../gameplay/adapters/persistence/legacy-gameplay-recovery.js";
-import { RecoveryError } from "../../../gameplay/application/gameplay-recovery-error.js";
 import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
+import {
+  ActiveRoomProjectionError,
+  type ActiveRoomProjectionReader,
+} from "../../application/active-room-projection-reader.js";
 import type { RoomLease } from "../../application/room-coordination-ports.js";
 import type { StoredRoom } from "../../application/room-persistence-model.js";
 import type {
@@ -13,7 +14,7 @@ import type {
 import { projectLobbyForViewer } from "../delivery/lobby-room-presenter.js";
 
 interface LegacyRoomProjectionQueryDependencies {
-  readonly gameplayRecovery?: Pick<LegacyGameplayRecovery, "recover">;
+  readonly activeRoomProjection: ActiveRoomProjectionReader;
   readonly lease: RoomLease;
   readonly store: RoomPersistenceStore;
 }
@@ -32,15 +33,9 @@ function ensureAvailable(room: StoredRoom): void {
 }
 
 export class LegacyRoomProjectionQueries {
-  private readonly gameplayRecovery: Pick<LegacyGameplayRecovery, "recover">;
-
   constructor(
     private readonly dependencies: LegacyRoomProjectionQueryDependencies,
-  ) {
-    this.gameplayRecovery =
-      dependencies.gameplayRecovery ??
-      new LegacyGameplayRecovery(dependencies.store);
-  }
+  ) {}
 
   async getSnapshot(
     session: AuthenticatedSession,
@@ -99,8 +94,11 @@ export class LegacyRoomProjectionQueries {
         viewerSeatIndex,
       );
     }
-    const engine = await this.gameplayRecovery.recover(transaction, room);
-    return projectRoomForPlayer(room, engine, viewerSeatIndex);
+    return this.dependencies.activeRoomProjection.project(
+      transaction,
+      room,
+      viewerSeatIndex,
+    );
   }
 
   private async withRoomLease<Result>(
@@ -120,7 +118,7 @@ export class LegacyRoomProjectionQueries {
         }),
       );
     } catch (error) {
-      if (error instanceof RecoveryError) {
+      if (error instanceof ActiveRoomProjectionError) {
         await this.dependencies.store.markRecoveryFailed(
           roomId,
           "Snapshot replay failed",

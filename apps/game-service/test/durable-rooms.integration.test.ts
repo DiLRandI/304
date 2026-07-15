@@ -13,6 +13,7 @@ import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orc
 import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
+import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
 import { LegacyRoomProjectionQueries } from "../src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
@@ -137,7 +138,7 @@ async function buildRealApp(): Promise<TestRuntime> {
     ),
   );
   const roomQueries = new LegacyRoomProjectionQueries({
-    gameplayRecovery,
+    activeRoomProjection: new GameplayRoomProjectionReader(gameplayRecovery),
     lease: roomLease,
     store,
   });

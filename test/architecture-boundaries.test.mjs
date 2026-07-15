@@ -360,6 +360,11 @@ test("room projection reads use a dedicated query adapter", async () => {
   );
 
   assert.match(querySource, /export class LegacyRoomProjectionQueries/);
+  assert.match(querySource, /ActiveRoomProjectionReader/);
+  assert.doesNotMatch(
+    querySource,
+    /contexts\/gameplay|\.\.\/\.\.\/\.\.\/gameplay/,
+  );
 });
 
 test("the PostgreSQL room store is a Rooms persistence adapter", async () => {

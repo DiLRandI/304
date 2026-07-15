@@ -5,6 +5,7 @@ import { LegacyGameplayConnections } from "./contexts/gameplay/adapters/orchestr
 import { LegacyGameplayRecovery } from "./contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "./contexts/gameplay/application/submit-gameplay-command.js";
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
+import { GameplayRoomProjectionReader } from "./contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
 import { LegacyRoomProjectionQueries } from "./contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import { LegacyStartedRoomAutomationFactory } from "./contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
@@ -79,7 +80,7 @@ const roomCommands = new ExecuteRoomCommandHandler(
   ),
 );
 const roomQueries = new LegacyRoomProjectionQueries({
-  gameplayRecovery,
+  activeRoomProjection: new GameplayRoomProjectionReader(gameplayRecovery),
   lease: roomLease,
   store,
 });

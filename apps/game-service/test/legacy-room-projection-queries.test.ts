@@ -2,6 +2,7 @@ import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
 import { RecoveryError } from "../src/contexts/gameplay/application/gameplay-recovery-error.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
+import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomProjectionQueries } from "../src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import type { RoomLease } from "../src/contexts/rooms/application/room-coordination-ports.js";
 import type {
@@ -79,7 +80,7 @@ function harness(
   return {
     markRecoveryFailed,
     queries: new LegacyRoomProjectionQueries({
-      gameplayRecovery: { recover },
+      activeRoomProjection: new GameplayRoomProjectionReader({ recover }),
       lease,
       store,
     }),
