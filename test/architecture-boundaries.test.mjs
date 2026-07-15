@@ -686,8 +686,18 @@ test("player access delivery is composed at the service bootstrap boundary", asy
   assert.doesNotMatch(deliverySource, /infra\/database\.js/);
   assert.doesNotMatch(deliverySource, /adapters\/persistence/);
   assert.doesNotMatch(deliverySource, /adapters\/security/);
+  assert.doesNotMatch(deliverySource, /shared\/service-error\.js/);
   assert.match(deliverySource, /AuthenticateSession/);
   assert.match(deliverySource, /CreateGuestSession/);
+  const applicationSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/player-access/application/player-access.ts",
+    ),
+    "utf8",
+  );
+  assert.match(applicationSource, /export class PlayerAccessError/);
+  assert.doesNotMatch(applicationSource, /statusCode/);
   assert.match(bootstrapSource, /PostgresPlayerSessionReader/);
   assert.match(bootstrapSource, /PostgresPlayerSessionWriter/);
   assert.match(bootstrapSource, /NodeSessionSecrets/);

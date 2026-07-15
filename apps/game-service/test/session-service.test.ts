@@ -3,7 +3,10 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
-import type { PlayerAccess } from "../src/contexts/player-access/application/player-access.js";
+import {
+  type PlayerAccess,
+  PlayerAccessError,
+} from "../src/contexts/player-access/application/player-access.js";
 import {
   createDatabase,
   type Database,
@@ -51,9 +54,6 @@ describeIntegration("durable guest sessions", () => {
     });
     await expect(
       sessions.require(`${created.sessionId}.not-the-secret`),
-    ).rejects.toMatchObject({
-      code: "SESSION_REQUIRED",
-      statusCode: 401,
-    });
+    ).rejects.toBeInstanceOf(PlayerAccessError);
   });
 });

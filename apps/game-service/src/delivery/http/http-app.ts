@@ -9,6 +9,7 @@ import Fastify, {
   LogController,
 } from "fastify";
 import { ZodError } from "zod";
+import { PlayerAccessError } from "../../contexts/player-access/application/player-access.js";
 import { RoomApplicationError } from "../../contexts/rooms/application/execute-room-command.js";
 import { RoomLeaseBusyError } from "../../contexts/rooms/application/room-coordination-ports.js";
 import type { ServiceConfig } from "../../platform/config/service-config.js";
@@ -191,6 +192,11 @@ export async function buildApp({
     if (error instanceof RoomApplicationError) {
       return reply
         .code(error.statusCode)
+        .send({ error: { code: error.code, message: error.message } });
+    }
+    if (error instanceof PlayerAccessError) {
+      return reply
+        .code(error.code === "SESSION_REQUIRED" ? 401 : 400)
         .send({ error: { code: error.code, message: error.message } });
     }
     if (error instanceof RoomLeaseBusyError) {

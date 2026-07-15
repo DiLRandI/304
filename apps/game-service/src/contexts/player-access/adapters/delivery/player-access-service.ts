@@ -1,7 +1,9 @@
-import { ServiceError } from "../../../../shared/service-error.js";
 import type { AuthenticateSession } from "../../application/authenticate-session.js";
 import type { CreateGuestSession } from "../../application/create-guest-session.js";
-import type { PlayerAccess } from "../../application/player-access.js";
+import {
+  type PlayerAccess,
+  PlayerAccessError,
+} from "../../application/player-access.js";
 import type {
   AuthenticatedSession,
   CreatedSession,
@@ -13,14 +15,6 @@ export interface PlayerAccessServiceDependencies {
   readonly createGuestSession: Pick<CreateGuestSession, "execute">;
 }
 
-function sessionRequired(): ServiceError {
-  return new ServiceError(
-    "SESSION_REQUIRED",
-    401,
-    "A guest session is required",
-  );
-}
-
 export class PlayerAccessService implements PlayerAccess {
   constructor(private readonly dependencies: PlayerAccessServiceDependencies) {}
 
@@ -29,11 +23,7 @@ export class PlayerAccessService implements PlayerAccess {
       return await this.dependencies.createGuestSession.execute(displayName);
     } catch (error) {
       if (!(error instanceof InvalidDisplayNameError)) throw error;
-      throw new ServiceError(
-        "INVALID_DISPLAY_NAME",
-        400,
-        "Display name is invalid",
-      );
+      throw new PlayerAccessError("INVALID_DISPLAY_NAME");
     }
   }
 
@@ -44,7 +34,7 @@ export class PlayerAccessService implements PlayerAccess {
       return await this.dependencies.authenticateSession.execute(cookieValue);
     } catch (error) {
       if (!(error instanceof SessionRequiredError)) throw error;
-      throw sessionRequired();
+      throw new PlayerAccessError("SESSION_REQUIRED");
     }
   }
 }

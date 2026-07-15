@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { PlayerAccessError } from "../src/contexts/player-access/application/player-access.js";
 import { RoomApplicationError } from "../src/contexts/rooms/application/execute-room-command.js";
 import { RoomLeaseBusyError } from "../src/contexts/rooms/application/room-coordination-ports.js";
 import {
@@ -215,6 +216,27 @@ describe("game service bootstrap", () => {
 });
 
 describe("game service health surface", () => {
+  it("maps Player Access errors at the HTTP delivery boundary", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/session-required", async () => {
+      throw new PlayerAccessError("SESSION_REQUIRED");
+    });
+
+    const response = await app.inject("/session-required");
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({
+      error: {
+        code: "SESSION_REQUIRED",
+        message: "A guest session is required",
+      },
+    });
+    await app.close();
+  });
+
   it("maps rate limiting at the HTTP delivery boundary", async () => {
     const app = await buildApp({
       config,
