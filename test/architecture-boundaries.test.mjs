@@ -284,6 +284,19 @@ test("the game action presenter raises Gameplay application errors", async () =>
   assert.match(presenterSource, /application\/gameplay-application-error\.js/);
 });
 
+test("the Gameplay room presenter raises application errors", async () => {
+  const presenterSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/delivery/gameplay-room-presenter.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(presenterSource, /shared\/service-error\.js/);
+  assert.match(presenterSource, /application\/gameplay-application-error\.js/);
+});
+
 test("gameplay recovery errors belong to the Gameplay application", async () => {
   const recoverySource = await readFile(
     path.join(

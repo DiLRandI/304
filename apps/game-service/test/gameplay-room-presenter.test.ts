@@ -52,7 +52,22 @@ describe("projectRoomForPlayer", () => {
     engine.getSeatView.mockReturnValue(null);
 
     expect(() => projectRoomForPlayer(room, engine as never, 0)).toThrow(
-      expect.objectContaining({ code: "SEAT_REQUIRED", statusCode: 403 }),
+      expect.objectContaining({ code: "SEAT_REQUIRED", kind: "forbidden" }),
+    );
+  });
+
+  it("rejects a room state that cannot be projected", () => {
+    expect(() =>
+      projectRoomForPlayer(
+        { ...room, status: "closed" },
+        engineFor("host-player") as never,
+        0,
+      ),
+    ).toThrow(
+      expect.objectContaining({
+        code: "ROOM_UNAVAILABLE",
+        kind: "unavailable",
+      }),
     );
   });
 });
