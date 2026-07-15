@@ -2,6 +2,7 @@ import type { RuleProfileId } from "@three-zero-four/contracts";
 import type { QueryResultRow } from "pg";
 import type { Database } from "../../../../platform/postgres/database.js";
 import { ServiceError } from "../../../../shared/service-error.js";
+import { RoomApplicationError } from "../../application/room-application-error.js";
 import type {
   AutomationJobKind,
   ClaimedAutomationJob,
@@ -180,14 +181,17 @@ const ruleProfileIds = new Set<RuleProfileId>(["classic_304_4p", "six_304_36"]);
 function toSafeNumber(value: string | number, field: string): number {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
-    throw new ServiceError("ROOM_DATA_INVALID", 500, `Invalid ${field}`);
+    throw new RoomApplicationError("ROOM_DATA_INVALID", `Invalid ${field}`);
   }
   return parsed;
 }
 
 function parseSettings(value: unknown): RoomSettings {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid room settings");
+    throw new RoomApplicationError(
+      "ROOM_DATA_INVALID",
+      "Invalid room settings",
+    );
   }
   const settings = value as Record<string, unknown>;
   const enableSecondBidding = settings.enableSecondBidding;
@@ -195,7 +199,10 @@ function parseSettings(value: unknown): RoomSettings {
     !["easy", "normal", "strong"].includes(settings.botDifficulty as string) ||
     typeof enableSecondBidding !== "boolean"
   ) {
-    throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid room settings");
+    throw new RoomApplicationError(
+      "ROOM_DATA_INVALID",
+      "Invalid room settings",
+    );
   }
   return {
     botDifficulty: settings.botDifficulty as RoomSettings["botDifficulty"],
@@ -205,12 +212,11 @@ function parseSettings(value: unknown): RoomSettings {
 
 function mapRoom(row: RoomRow): StoredRoom {
   if (!roomStatuses.has(row.status as RoomStatus)) {
-    throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid room status");
+    throw new RoomApplicationError("ROOM_DATA_INVALID", "Invalid room status");
   }
   if (!ruleProfileIds.has(row.rule_profile_id as RuleProfileId)) {
-    throw new ServiceError(
+    throw new RoomApplicationError(
       "ROOM_DATA_INVALID",
-      500,
       "Invalid room rule profile",
     );
   }
@@ -229,12 +235,11 @@ function mapRoom(row: RoomRow): StoredRoom {
 
 function mapSeat(row: SeatRow): StoredSeat {
   if (!seatTypes.has(row.occupant_type as StoredSeat["occupantType"])) {
-    throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid room seat");
+    throw new RoomApplicationError("ROOM_DATA_INVALID", "Invalid room seat");
   }
   if (!connectionStatuses.has(row.connection_status as ConnectionStatus)) {
-    throw new ServiceError(
+    throw new RoomApplicationError(
       "ROOM_DATA_INVALID",
-      500,
       "Invalid room connection status",
     );
   }
@@ -253,9 +258,8 @@ function mapSeat(row: SeatRow): StoredSeat {
 
 function mapSnapshot(row: SnapshotRow): StoredSnapshot {
   if (!ruleProfileIds.has(row.rule_profile_id as RuleProfileId)) {
-    throw new ServiceError(
+    throw new RoomApplicationError(
       "ROOM_DATA_INVALID",
-      500,
       "Invalid snapshot rule profile",
     );
   }
@@ -287,7 +291,10 @@ function mapRoomNotification(row: OutboxRow): PendingRoomNotification {
 
 function mapAutomationJob(row: AutomationJobRow): ClaimedAutomationJob {
   if (!automationJobKinds.has(row.kind as AutomationJobKind)) {
-    throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid automation job");
+    throw new RoomApplicationError(
+      "ROOM_DATA_INVALID",
+      "Invalid automation job",
+    );
   }
   return {
     id: row.id,
