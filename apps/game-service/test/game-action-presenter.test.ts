@@ -30,7 +30,7 @@ describe("presentGameAction", () => {
 
   it("rejects malformed engine actions at the delivery boundary", () => {
     expect(() => presentGameAction({ type: "BID", amount: "160" })).toThrow(
-      expect.objectContaining({ code: "ROOM_DATA_INVALID", statusCode: 500 }),
+      expect.objectContaining({ code: "ROOM_DATA_INVALID", kind: "internal" }),
     );
   });
 });

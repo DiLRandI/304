@@ -271,6 +271,19 @@ test("Gameplay application errors do not carry transport status", async () => {
   assert.match(deliverySource, /gameplayApplicationStatus\(error\.kind\)/);
 });
 
+test("the game action presenter raises Gameplay application errors", async () => {
+  const presenterSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/delivery/game-action-presenter.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(presenterSource, /shared\/service-error\.js/);
+  assert.match(presenterSource, /application\/gameplay-application-error\.js/);
+});
+
 test("gameplay recovery errors belong to the Gameplay application", async () => {
   const recoverySource = await readFile(
     path.join(

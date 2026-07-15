@@ -1,5 +1,5 @@
 import type { GameAction } from "@three-zero-four/contracts";
-import { ServiceError } from "../../../../shared/service-error.js";
+import { GameplayApplicationError } from "../../application/gameplay-application-error.js";
 
 function isString(value: unknown): value is string {
   return typeof value === "string";
@@ -38,5 +38,8 @@ export function presentGameAction(action: Record<string, unknown>): GameAction {
     default:
       break;
   }
-  throw new ServiceError("ROOM_DATA_INVALID", 500, "Invalid legal action");
+  throw new GameplayApplicationError(
+    "ROOM_DATA_INVALID",
+    "Invalid legal action",
+  );
 }
