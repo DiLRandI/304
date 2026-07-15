@@ -624,6 +624,17 @@ test("Rooms command persistence uses the platform database contract", async () =
   assert.match(repositorySource, /platform\/postgres\/database\.js/);
 });
 
+test("Rooms persistence adapters do not use the database compatibility shim", async () => {
+  const persistenceFiles = await collectSourceFiles(
+    "apps/game-service/src/contexts/rooms/adapters/persistence",
+  );
+
+  for (const filename of persistenceFiles) {
+    const source = await readFile(path.join(repoRoot, filename), "utf8");
+    assert.doesNotMatch(source, /infra\/database\.js/, filename);
+  }
+});
+
 test("durability integration coverage composes room application handlers", async () => {
   const integrationSource = await readFile(
     path.join(repoRoot, "apps/game-service/test/room-coordinator.test.ts"),

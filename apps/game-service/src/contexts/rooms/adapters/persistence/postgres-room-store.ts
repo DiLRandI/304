@@ -1,6 +1,6 @@
 import type { RuleProfileId } from "@three-zero-four/contracts";
 import type { QueryResultRow } from "pg";
-import type { Database } from "../../../../infra/database.js";
+import type { Database } from "../../../../platform/postgres/database.js";
 import { ServiceError } from "../../../../shared/service-error.js";
 import type {
   AutomationJobKind,
