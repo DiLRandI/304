@@ -872,8 +872,7 @@ export class GameEngine {
     const hasLeadSuit = leadSuit
       ? hand.some((card) => card.suit === leadSuit)
       : false;
-    const isFinalIndicatorLead =
-      isLeader &&
+    const isFinalIndicatorOnlyCard =
       hand.length === 0 &&
       this.state.completedTricks.length ===
         this.state.profile.cardBatch[0] + this.state.profile.cardBatch[1] - 1;
@@ -881,7 +880,7 @@ export class GameEngine {
       this.state.trump.card &&
       this.state.trumpClosed &&
       this.state.trump.maker === seatIndex &&
-      (isFinalIndicatorLead ||
+      (isFinalIndicatorOnlyCard ||
         (!isLeader &&
           !!leadSuit &&
           leadSuit !== this.state.trump.suit &&

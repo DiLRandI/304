@@ -279,6 +279,76 @@ test("a closed-trump maker can lead the final trick with only the indicator", ()
   assert.equal(engine.state.activeSeat, 0);
 });
 
+test("a closed-trump maker can follow the final trick with only the indicator", () => {
+  const engine = new GameEngine({
+    botDifficulty: "strong",
+    humanCount: 1,
+    ruleProfile: "classic_304_4p",
+  });
+  const indicator = {
+    cardId: "diamonds-J",
+    points: 30,
+    rank: "J",
+    suit: "diamonds",
+  };
+  engine.state.phase = "trick_play";
+  engine.state.activeSeat = 3;
+  engine.state.completedTricks = Array.from({ length: 7 }, (_, trickIndex) => ({
+    leaderSeat: 0,
+    plays: [],
+    trickIndex,
+    winnerSeat: 0,
+  }));
+  engine.state.currentLedSuit = "diamonds";
+  engine.state.currentTrick = {
+    leaderSeat: 0,
+    plays: [
+      {
+        card: {
+          cardId: "diamonds-7",
+          points: 0,
+          rank: "7",
+          suit: "diamonds",
+        },
+        faceDown: false,
+        fromIndicator: false,
+        seatIndex: 0,
+      },
+    ],
+    points: 0,
+    trickIndex: 7,
+  };
+  engine.state.seats[3].hand = [];
+  engine.state.trump = {
+    card: indicator,
+    indicatorVisible: false,
+    isOpen: false,
+    maker: 3,
+    suit: "diamonds",
+  };
+  engine.state.trumpCard = indicator;
+  engine.state.trumpClosed = true;
+  engine.state.trumpSuit = "diamonds";
+
+  const action = engine.getBotAction(3);
+  assert.deepEqual(action, {
+    type: "PLAY_CARD",
+    seatIndex: 3,
+    cardId: "__trump_indicator__",
+    card: indicator,
+    faceDown: true,
+    fromIndicator: true,
+    label: "Play hidden trump indicator face down",
+    ariaLabel: "Play hidden trump indicator face down",
+  });
+  assert.deepEqual(engine.applyAutomationAction(action, 3), { ok: true });
+  assert.equal(
+    engine.state.currentTrick.plays[1].card.cardId,
+    indicator.cardId,
+  );
+  assert.equal(engine.state.trump.card, null);
+});
+
 function engineAwaitingCompletedTrick({ final = false } = {}) {
   const engine = new GameEngine({
     humanCount: 4,
