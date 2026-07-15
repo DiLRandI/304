@@ -1,12 +1,12 @@
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
 import type { Room } from "@three-zero-four/room-domain";
+import type { RoomIdentityProvider } from "../../../rooms/application/room-identity-provider.js";
+import type { NewAutomationJob } from "../../../rooms/application/room-persistence-model.js";
+import type { StartedRoomAutomationFactory } from "../../../rooms/application/started-room-initialization.js";
 import {
   automationSeatIndex,
   phaseTimeoutMs,
-} from "../../../automation/application/automation-policy.js";
-import type { RoomIdentityProvider } from "../../application/room-identity-provider.js";
-import type { NewAutomationJob } from "../../application/room-persistence-model.js";
-import type { StartedRoomAutomationFactory } from "../../application/started-room-initialization.js";
+} from "../../application/automation-policy.js";
 
 export class LegacyStartedRoomAutomationError extends Error {
   constructor(message: string) {

@@ -570,12 +570,23 @@ test("started room initialization contracts belong to the Rooms application", as
     ),
     "utf8",
   );
+  const automationFactorySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.ts",
+    ),
+    "utf8",
+  );
 
   assert.match(portSource, /export interface StartedRoomSnapshotFactory/);
   assert.match(portSource, /export interface StartedRoomAutomationFactory/);
   assert.doesNotMatch(
     writerSource,
     /export interface StartedRoom(?:Snapshot|Automation)Factory/,
+  );
+  assert.match(
+    automationFactorySource,
+    /implements StartedRoomAutomationFactory/,
   );
 });
 

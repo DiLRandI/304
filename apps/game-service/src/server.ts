@@ -1,4 +1,5 @@
 import { buildApp, loadConfig } from "./app.js";
+import { LegacyStartedRoomAutomationFactory } from "./contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { LegacyGameplayAutomationScheduler } from "./contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
 import { LegacyGameplayConnections } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
@@ -7,7 +8,6 @@ import { SubmitGameplayCommandHandler } from "./contexts/gameplay/application/su
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
 import { GameplayRoomProjectionReader } from "./contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
-import { LegacyStartedRoomAutomationFactory } from "./contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
 import { LegacyStartedRoomSnapshotFactory } from "./contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
 import { RoomProjectionQueryAdapter } from "./contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import { PostgresRoomCommandRepository } from "./contexts/rooms/adapters/persistence/postgres-room-command-repository.js";

@@ -12,6 +12,7 @@ import {
 } from "@three-zero-four/room-domain";
 import type { RedisClientType } from "redis";
 import { LegacyGameplayAutomationExecutor } from "../../src/contexts/automation/adapters/execution/legacy-gameplay-automation-executor.js";
+import { LegacyStartedRoomAutomationFactory } from "../../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { LegacyGameplayAutomationScheduler } from "../../src/contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
 import { LegacyGameplayConnections } from "../../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
@@ -20,7 +21,6 @@ import type { AuthenticatedSession } from "../../src/contexts/player-access/appl
 import { presentLobbyRoom } from "../../src/contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import { GameplayRoomProjectionReader } from "../../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
-import { LegacyStartedRoomAutomationFactory } from "../../src/contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
 import { LegacyStartedRoomSnapshotFactory } from "../../src/contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
 import { RoomProjectionQueryAdapter } from "../../src/contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import { PostgresRoomCommandRepository } from "../../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
