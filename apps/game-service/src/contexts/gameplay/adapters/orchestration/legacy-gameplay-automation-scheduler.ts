@@ -10,6 +10,7 @@ import {
   completedTrickWinner,
   phaseTimeoutMs,
 } from "../../application/gameplay-automation-policy.js";
+import type { GameplayAutomationScheduler } from "../../application/gameplay-automation-scheduler.js";
 
 type AutomationStore = Pick<
   RoomPersistenceStore,
@@ -35,7 +36,9 @@ const DEFAULTS = {
   trickRevealDelayMs: 2_000,
 };
 
-export class LegacyGameplayAutomationScheduler {
+export class LegacyGameplayAutomationScheduler
+  implements GameplayAutomationScheduler
+{
   private readonly now: () => Date;
 
   constructor(

@@ -310,7 +310,7 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
   );
 });
 
-test("gameplay orchestration depends on an application recovery port", async () => {
+test("gameplay orchestration depends on application behavioral ports", async () => {
   const orchestrationFiles = await collectSourceFiles(
     "apps/game-service/src/contexts/gameplay/adapters/orchestration",
   );
@@ -318,18 +318,27 @@ test("gameplay orchestration depends on an application recovery port", async () 
     const source = await readFile(path.join(repoRoot, filename), "utf8");
     assert.doesNotMatch(
       source,
-      /persistence\/legacy-gameplay-recovery\.js/,
+      /persistence\/legacy-gameplay-recovery\.js|\.\/legacy-gameplay-automation-scheduler\.js/,
       filename,
     );
   }
-  const portSource = await readFile(
-    path.join(
-      repoRoot,
-      "apps/game-service/src/contexts/gameplay/application/gameplay-recovery.ts",
+  const [recoveryPortSource, schedulerPortSource] = await Promise.all(
+    ["gameplay-recovery.ts", "gameplay-automation-scheduler.ts"].map((file) =>
+      readFile(
+        path.join(
+          repoRoot,
+          "apps/game-service/src/contexts/gameplay/application",
+          file,
+        ),
+        "utf8",
+      ),
     ),
-    "utf8",
   );
-  assert.match(portSource, /export interface GameplayRecovery/);
+  assert.match(recoveryPortSource, /export interface GameplayRecovery/);
+  assert.match(
+    schedulerPortSource,
+    /export interface GameplayAutomationScheduler/,
+  );
 });
 
 test("the web server composes realtime connections without a room coordinator", async () => {

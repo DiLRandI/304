@@ -10,14 +10,14 @@ import type {
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
 import { activeRoomStatus } from "../../application/gameplay-automation-policy.js";
+import type { GameplayAutomationScheduler } from "../../application/gameplay-automation-scheduler.js";
 import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import type { GameplayCommandExecutor } from "../../application/submit-gameplay-command.js";
 import { projectRoomForPlayer } from "../delivery/gameplay-room-presenter.js";
-import type { LegacyGameplayAutomationScheduler } from "./legacy-gameplay-automation-scheduler.js";
 
 interface LegacyGameplayCommandDependencies {
-  readonly automation: Pick<LegacyGameplayAutomationScheduler, "schedule">;
+  readonly automation: GameplayAutomationScheduler;
   readonly lease: RoomLease;
   readonly recovery: GameplayRecovery;
   readonly store: RoomPersistenceStore;
