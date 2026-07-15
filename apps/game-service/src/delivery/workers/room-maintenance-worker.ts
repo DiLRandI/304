@@ -1,4 +1,4 @@
-import type { MaintenanceResult } from "../contexts/rooms/application/room-maintenance.js";
+import type { MaintenanceResult } from "../../contexts/rooms/application/room-maintenance.js";
 
 export interface MaintenanceRunner {
   runOnce(now?: Date): Promise<MaintenanceResult>;

@@ -9,7 +9,7 @@ import {
 import {
   type MaintenanceRunner,
   RoomMaintenanceWorker,
-} from "../src/worker/room-maintenance-worker.js";
+} from "../src/delivery/workers/room-maintenance-worker.js";
 
 function claimedJob(id: string, roomId: string): ClaimedAutomationJob {
   return {

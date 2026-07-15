@@ -9,6 +9,7 @@ import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgre
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { RoomMaintenance } from "./contexts/rooms/application/room-maintenance.js";
 import { AutomationWorker } from "./delivery/workers/automation-worker.js";
+import { RoomMaintenanceWorker } from "./delivery/workers/room-maintenance-worker.js";
 import { createReadiness } from "./platform/health/dependency-readiness.js";
 import {
   AutomationTelemetry,
@@ -17,7 +18,6 @@ import {
 } from "./platform/observability/redis-service-telemetry.js";
 import { createDatabase } from "./platform/postgres/database.js";
 import { createRedis } from "./platform/redis/redis-client.js";
-import { RoomMaintenanceWorker } from "./worker/room-maintenance-worker.js";
 
 const config = loadConfig();
 const database = createDatabase(config.DATABASE_URL);

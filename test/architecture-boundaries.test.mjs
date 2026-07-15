@@ -454,6 +454,20 @@ test("the automation worker depends on behavioral ports", async () => {
   assert.doesNotMatch(bootstrapSource, /RoomCoordinator/);
 });
 
+test("the room maintenance poller belongs to worker delivery", async () => {
+  const workerSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/delivery/workers/room-maintenance-worker.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(workerSource, /export interface MaintenanceRunner/);
+  assert.match(workerSource, /application\/room-maintenance\.js/);
+  assert.doesNotMatch(workerSource, /postgres-room-store\.js/);
+});
+
 test("the outbox publisher depends on a behavioral store port", async () => {
   const publisherSource = await readFile(
     path.join(
