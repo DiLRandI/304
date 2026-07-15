@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { loadConfig } from "../config.js";
 import { LegacyGameplayAutomationExecutor } from "../contexts/automation/adapters/execution/legacy-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayRecovery } from "../contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
@@ -10,6 +9,7 @@ import { NodeRoomIdentityProvider } from "../contexts/rooms/adapters/security/no
 import { RoomMaintenance } from "../contexts/rooms/application/room-maintenance.js";
 import { AutomationWorker } from "../delivery/workers/automation-worker.js";
 import { RoomMaintenanceWorker } from "../delivery/workers/room-maintenance-worker.js";
+import { loadConfig } from "../platform/config/service-config.js";
 import { createReadiness } from "../platform/health/dependency-readiness.js";
 import {
   AutomationTelemetry,

@@ -9,9 +9,9 @@ import Fastify, {
   LogController,
 } from "fastify";
 import { ZodError } from "zod";
-import type { ServiceConfig } from "../../config.js";
 import { RoomApplicationError } from "../../contexts/rooms/application/execute-room-command.js";
 import { createMetrics, type ServiceMetrics } from "../../metrics.js";
+import type { ServiceConfig } from "../../platform/config/service-config.js";
 import { ServiceError } from "../../shared/service-error.js";
 import { registerRealtimeRoutes } from "../realtime/realtime-routes.js";
 import type { RoomSocketHub } from "../realtime/room-socket-hub.js";

@@ -6,7 +6,6 @@ import { createClient, type RedisClientType } from "redis";
 import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
-import { loadConfig } from "../src/config.js";
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
@@ -35,6 +34,7 @@ import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.j
 import { buildApp } from "../src/delivery/http/http-app.js";
 import { RoomSocketHub } from "../src/delivery/realtime/room-socket-hub.js";
 import { OutboxPublisher } from "../src/delivery/workers/outbox-publisher.js";
+import { loadConfig } from "../src/platform/config/service-config.js";
 import {
   createDatabase,
   type Database,

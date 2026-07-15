@@ -1,8 +1,8 @@
 import type { RoomProjection } from "@three-zero-four/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { loadConfig } from "../src/config.js";
 import { buildApp } from "../src/delivery/http/http-app.js";
 import type { GameRuntime } from "../src/delivery/http/v1-routes.js";
+import { loadConfig } from "../src/platform/config/service-config.js";
 
 const config = loadConfig({
   CORS_ORIGINS: "http://127.0.0.1:3000",

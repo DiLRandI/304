@@ -80,6 +80,7 @@ const EnvironmentSchema = z.object({
     .default(24),
 });
 
+/** Validated runtime configuration shared by bootstrap and delivery adapters. */
 export type ServiceConfig = z.infer<typeof EnvironmentSchema> & {
   corsOrigins: ReadonlySet<string>;
   trustedProxyIps: readonly string[];

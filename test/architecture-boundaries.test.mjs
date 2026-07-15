@@ -634,7 +634,25 @@ test("Fastify application assembly belongs to HTTP delivery", async () => {
     false,
   );
   assert.match(bootstrapSource, /delivery\/http\/http-app\.js/);
-  assert.match(bootstrapSource, /\.\.\/config\.js/);
+  assert.match(bootstrapSource, /platform\/config\/service-config\.js/);
+});
+
+test("service configuration belongs to the platform layer", async () => {
+  const configSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/platform/config/service-config.ts",
+    ),
+    "utf8",
+  );
+  const serviceSourceFiles = await collectSourceFiles("apps/game-service/src");
+
+  assert.match(configSource, /export function loadConfig/);
+  assert.match(configSource, /from ["']zod["']/);
+  assert.equal(
+    serviceSourceFiles.includes("apps/game-service/src/config.ts"),
+    false,
+  );
 });
 
 test("realtime delivery owns a narrow application runtime contract", async () => {

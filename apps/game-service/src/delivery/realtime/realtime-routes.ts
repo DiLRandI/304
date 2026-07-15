@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { ServiceConfig } from "../../config.js";
 import type { PlayerAccess } from "../../contexts/player-access/application/player-access.js";
 import type { AuthenticatedSession } from "../../contexts/player-access/application/player-session-ports.js";
 import type { GetRoomSnapshotHandler } from "../../contexts/rooms/application/get-room-projection.js";
+import type { ServiceConfig } from "../../platform/config/service-config.js";
 import { ServiceError } from "../../shared/service-error.js";
 import type { RoomSocketHub } from "./room-socket-hub.js";
 
