@@ -282,7 +282,7 @@ test("legacy gameplay automation executes through an Automation adapter", async 
     "utf8",
   );
   const workerSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/worker.ts"),
+    path.join(repoRoot, "apps/game-service/src/bootstrap/worker-runtime.ts"),
     "utf8",
   );
 
@@ -442,7 +442,7 @@ test("the automation worker depends on behavioral ports", async () => {
     "utf8",
   );
   const bootstrapSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/worker.ts"),
+    path.join(repoRoot, "apps/game-service/src/bootstrap/worker-runtime.ts"),
     "utf8",
   );
 
@@ -452,6 +452,25 @@ test("the automation worker depends on behavioral ports", async () => {
   assert.match(workerSource, /export interface AutomationExecutor/);
   assert.doesNotMatch(workerSource, /coordinator/i);
   assert.doesNotMatch(bootstrapSource, /RoomCoordinator/);
+});
+
+test("the worker entrypoint delegates composition to bootstrap", async () => {
+  const entrypointSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/worker.ts"),
+    "utf8",
+  );
+  const bootstrapSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/bootstrap/worker-runtime.ts"),
+    "utf8",
+  );
+
+  assert.match(
+    entrypointSource,
+    /import ["']\.\/bootstrap\/worker-runtime\.js["']/,
+  );
+  assert.doesNotMatch(entrypointSource, /\bnew\s+/);
+  assert.match(bootstrapSource, /new AutomationWorker/);
+  assert.match(bootstrapSource, /new RoomMaintenanceWorker/);
 });
 
 test("the room maintenance poller belongs to worker delivery", async () => {
