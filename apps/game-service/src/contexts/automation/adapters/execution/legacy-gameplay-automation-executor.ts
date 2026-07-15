@@ -1,10 +1,7 @@
 import { ServiceError } from "../../../../shared/service-error.js";
-import {
-  activeSeatIndex,
-  completedTrickWinner,
-  isResultPhase,
-} from "../../../automation/application/automation-policy.js";
-import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
+import type { GameplayRecovery } from "../../../gameplay/application/gameplay-recovery.js";
+import { RecoveryError } from "../../../gameplay/application/gameplay-recovery-error.js";
+import { activeRoomStatus } from "../../../gameplay/application/gameplay-room-status.js";
 import type {
   RoomLease,
   RoomPresence,
@@ -17,9 +14,12 @@ import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
-import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
-import { RecoveryError } from "../../application/gameplay-recovery-error.js";
-import { activeRoomStatus } from "../../application/gameplay-room-status.js";
+import {
+  activeSeatIndex,
+  completedTrickWinner,
+  isResultPhase,
+} from "../../application/automation-policy.js";
+import type { AutomationScheduler } from "../../application/automation-scheduler.js";
 
 interface LegacyGameplayAutomationDependencies {
   readonly automation: AutomationScheduler;

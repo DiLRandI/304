@@ -1,6 +1,6 @@
 import type { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
-import { LegacyGameplayAutomationExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.js";
+import { LegacyGameplayAutomationExecutor } from "../src/contexts/automation/adapters/execution/legacy-gameplay-automation-executor.js";
 import type { RoomLease } from "../src/contexts/rooms/application/room-coordination-ports.js";
 import type {
   ClaimedAutomationJob,

@@ -273,11 +273,11 @@ test("legacy gameplay automation scheduling belongs to an Automation adapter", a
   assert.match(schedulerSource, /implements AutomationScheduler/);
 });
 
-test("legacy gameplay automation executes through a Gameplay adapter", async () => {
+test("legacy gameplay automation executes through an Automation adapter", async () => {
   const executorSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.ts",
+      "apps/game-service/src/contexts/automation/adapters/execution/legacy-gameplay-automation-executor.ts",
     ),
     "utf8",
   );
@@ -555,11 +555,11 @@ test("room persistence records are owned by the Rooms application", async () => 
   assert.doesNotMatch(storeSource, /export interface StoredSeat/);
 });
 
-test("gameplay adapters depend on an application-owned room store port", async () => {
+test("automation adapters depend on an application-owned room store port", async () => {
   const executorSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.ts",
+      "apps/game-service/src/contexts/automation/adapters/execution/legacy-gameplay-automation-executor.ts",
     ),
     "utf8",
   );
