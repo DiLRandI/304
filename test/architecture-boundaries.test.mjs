@@ -643,14 +643,8 @@ test("Redis room leasing is a Rooms coordination adapter", async () => {
     ),
     "utf8",
   );
-  const legacyCoordinationSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/infra/redis-coordination.ts"),
-    "utf8",
-  );
-
   assert.match(leaseSource, /export class RedisRoomLease/);
   assert.match(leaseSource, /application\/room-coordination-ports\.js/);
-  assert.doesNotMatch(legacyCoordinationSource, /class RoomLease/);
 });
 
 test("Redis room presence is a Rooms coordination adapter", async () => {
@@ -661,14 +655,8 @@ test("Redis room presence is a Rooms coordination adapter", async () => {
     ),
     "utf8",
   );
-  const legacyCoordinationSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/infra/redis-coordination.ts"),
-    "utf8",
-  );
-
   assert.match(presenceSource, /export class RedisRoomPresence/);
   assert.match(presenceSource, /application\/room-coordination-ports\.js/);
-  assert.doesNotMatch(legacyCoordinationSource, /class Presence/);
 });
 
 test("durability integration coverage composes room application handlers", async () => {
@@ -886,14 +874,27 @@ test("request rate limiting is a dedicated Redis platform adapter", async () => 
     ),
     "utf8",
   );
-  const legacyCoordinationSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/infra/redis-coordination.ts"),
-    "utf8",
-  );
-
   assert.match(rateLimiterSource, /export class RateLimiter/);
   assert.match(rateLimiterSource, /FIXED_WINDOW_INCREMENT_SCRIPT/);
-  assert.doesNotMatch(legacyCoordinationSource, /class RateLimiter/);
+});
+
+test("Redis service telemetry is a platform observability adapter", async () => {
+  const telemetrySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/platform/observability/redis-service-telemetry.ts",
+    ),
+    "utf8",
+  );
+  const infraFiles = await collectSourceFiles("apps/game-service/src/infra");
+
+  assert.match(telemetrySource, /class AutomationTelemetry/);
+  assert.match(telemetrySource, /class MaintenanceTelemetry/);
+  assert.match(telemetrySource, /class WorkerTelemetry/);
+  assert.equal(
+    infraFiles.includes("apps/game-service/src/infra/redis-coordination.ts"),
+    false,
+  );
 });
 
 test("PostgreSQL connection management is a platform adapter", async () => {

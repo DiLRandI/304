@@ -6,9 +6,9 @@ const WORKER_HEARTBEAT_METRICS_KEY = "g304:metrics:worker-heartbeat";
 
 export type AutomationOutcomeMetric = "completed" | "stale" | "failed";
 export interface MaintenanceTelemetrySnapshot {
-  closedRooms: number;
-  purgedRooms: number;
-  revokedSessions: number;
+  readonly closedRooms: number;
+  readonly purgedRooms: number;
+  readonly revokedSessions: number;
 }
 
 export class AutomationTelemetry {

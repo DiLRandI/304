@@ -25,13 +25,13 @@ import {
 import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "./contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "./contexts/rooms/application/start-room.js";
+import { createMetrics } from "./metrics.js";
+import { createReadiness } from "./platform/health/dependency-readiness.js";
 import {
   AutomationTelemetry,
   MaintenanceTelemetry,
   WorkerTelemetry,
-} from "./infra/redis-coordination.js";
-import { createMetrics } from "./metrics.js";
-import { createReadiness } from "./platform/health/dependency-readiness.js";
+} from "./platform/observability/redis-service-telemetry.js";
 import { createDatabase } from "./platform/postgres/database.js";
 import { createRedis } from "./platform/redis/redis-client.js";
 import { RateLimiter } from "./platform/redis/request-rate-limiter.js";

@@ -7,7 +7,7 @@ import {
   AutomationTelemetry,
   MaintenanceTelemetry,
   WorkerTelemetry,
-} from "../src/infra/redis-coordination.js";
+} from "../src/platform/observability/redis-service-telemetry.js";
 import { RateLimiter } from "../src/platform/redis/request-rate-limiter.js";
 
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
