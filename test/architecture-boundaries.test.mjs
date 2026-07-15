@@ -1043,25 +1043,26 @@ test("the legacy room coordinator is retired", async () => {
   );
 });
 
-test("transport-aware service errors are not modeled as domain code", async () => {
+test("application and domain errors remain transport agnostic", async () => {
   const legacyDomainFiles = await collectSourceFiles(
     "apps/game-service/src/domain",
   );
   assert.deepEqual(legacyDomainFiles, []);
-  const errorSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/shared/service-error.ts"),
-    "utf8",
+  const sharedFiles = await collectSourceFiles("apps/game-service/src/shared");
+  assert.deepEqual(sharedFiles, []);
+  const contextFiles = await collectSourceFiles(
+    "apps/game-service/src/contexts",
   );
-  assert.match(errorSource, /readonly statusCode: number/);
-  assert.match(errorSource, /export class ServiceError/);
-  const serviceFiles = await collectSourceFiles("apps/game-service/src");
-  for (const filename of serviceFiles) {
+  for (const filename of contextFiles.filter(
+    (candidate) =>
+      candidate.includes("/application/") || candidate.includes("/domain/"),
+  )) {
     const source = await readFile(path.join(repoRoot, filename), "utf8");
-    assert.doesNotMatch(source, /DomainError/, filename);
+    assert.doesNotMatch(source, /statusCode/, filename);
   }
 });
 
-test("delivery adapters use the shared service error name", async () => {
+test("context delivery adapters do not import shared errors", async () => {
   const deliveryFiles = (
     await Promise.all(
       ["gameplay", "player-access", "rooms"].map((context) =>
@@ -1074,13 +1075,14 @@ test("delivery adapters use the shared service error name", async () => {
   for (const filename of deliveryFiles) {
     const source = await readFile(path.join(repoRoot, filename), "utf8");
     assert.doesNotMatch(source, /DomainError/, filename);
+    assert.doesNotMatch(source, /shared\/service-error\.js/, filename);
   }
 });
 
-test("runtime adapters use the shared service error name", async () => {
+test("bootstrap and platform adapters do not import shared errors", async () => {
   const runtimeFiles = (
     await Promise.all(
-      ["infra", "realtime"].map((directory) =>
+      ["bootstrap", "platform"].map((directory) =>
         collectSourceFiles(`apps/game-service/src/${directory}`),
       ),
     )
@@ -1088,10 +1090,11 @@ test("runtime adapters use the shared service error name", async () => {
   for (const filename of runtimeFiles) {
     const source = await readFile(path.join(repoRoot, filename), "utf8");
     assert.doesNotMatch(source, /DomainError/, filename);
+    assert.doesNotMatch(source, /shared\/service-error\.js/, filename);
   }
 });
 
-test("transport delivery uses the shared service error name", async () => {
+test("transport delivery owns transport-aware errors", async () => {
   const deliveryFiles = await collectSourceFiles(
     "apps/game-service/src/delivery",
   );
