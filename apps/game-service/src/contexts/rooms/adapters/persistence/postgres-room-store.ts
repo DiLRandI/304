@@ -320,9 +320,8 @@ export class PostgresRoomStore {
   async createRoom(input: NewRoomInput): Promise<StoredRoom> {
     const expectedSeatCount = input.ruleProfileId === "six_304_36" ? 6 : 4;
     if (input.seats.length !== expectedSeatCount) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "ROOM_DATA_INVALID",
-        500,
         "Room seat count does not match its rule profile",
       );
     }
@@ -333,9 +332,8 @@ export class PostgresRoomStore {
           [input.sessionId],
         );
         if (!lockedSession.rows[0]) {
-          throw new ServiceError(
+          throw new RoomApplicationError(
             "SESSION_REQUIRED",
-            401,
             "A guest session is required",
           );
         }
@@ -347,9 +345,8 @@ export class PostgresRoomStore {
         if (duplicate) {
           const existing = await this.loadRoom(duplicate.roomId, transaction);
           if (existing) return existing;
-          throw new ServiceError(
+          throw new RoomApplicationError(
             "ROOM_DATA_INVALID",
-            500,
             "Duplicate room command has no room",
           );
         }
