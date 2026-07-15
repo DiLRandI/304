@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { RoomChangePublisher } from "./room-change-bus.js";
+import type { RoomChangePublisher } from "../contexts/rooms/application/room-change-notification.js";
 
 export interface PendingRoomNotification {
   readonly eventVersion: number;

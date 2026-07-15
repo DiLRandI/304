@@ -1,5 +1,9 @@
 import type { RedisClientType } from "redis";
 import { z } from "zod";
+import type {
+  RoomChangedNotice,
+  RoomChangePublisher,
+} from "../contexts/rooms/application/room-change-notification.js";
 
 export const ROOM_CHANGED_CHANNEL = "g304:room-changed";
 
@@ -9,12 +13,6 @@ const RoomChangedNoticeSchema = z
     eventVersion: z.number().int().positive(),
   })
   .strict();
-
-export type RoomChangedNotice = z.infer<typeof RoomChangedNoticeSchema>;
-
-export interface RoomChangePublisher {
-  publish(notice: RoomChangedNotice): Promise<void>;
-}
 
 function parseRoomChangedNotice(rawNotice: string): RoomChangedNotice | null {
   try {

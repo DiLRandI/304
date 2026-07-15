@@ -5,7 +5,7 @@ import {
 } from "@three-zero-four/contracts";
 import type WebSocket from "ws";
 import type { AuthenticatedSession } from "../../contexts/player-access/application/player-session-ports.js";
-import type { RoomChangedNotice } from "../../realtime/room-change-bus.js";
+import type { RoomChangedNotice } from "../../contexts/rooms/application/room-change-notification.js";
 import { ServiceError } from "../../shared/service-error.js";
 
 export interface RoomSocketSnapshotQuery {

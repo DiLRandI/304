@@ -462,6 +462,33 @@ test("the outbox publisher depends on a behavioral store port", async () => {
   assert.match(publisherSource, /export interface PendingRoomNotification/);
 });
 
+test("room change notifications belong to the Rooms application", async () => {
+  const notificationSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/application/room-change-notification.ts",
+    ),
+    "utf8",
+  );
+  const hubSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/delivery/realtime/room-socket-hub.ts",
+    ),
+    "utf8",
+  );
+  const publisherSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/realtime/outbox-publisher.ts"),
+    "utf8",
+  );
+
+  assert.match(notificationSource, /export interface RoomChangedNotice/);
+  assert.match(notificationSource, /export interface RoomChangePublisher/);
+  assert.doesNotMatch(notificationSource, /from ["'](?:redis|zod)["']/);
+  assert.match(hubSource, /application\/room-change-notification\.js/);
+  assert.match(publisherSource, /application\/room-change-notification\.js/);
+});
+
 test("the websocket hub separates snapshot queries from connection mutations", async () => {
   const hubSource = await readFile(
     path.join(
