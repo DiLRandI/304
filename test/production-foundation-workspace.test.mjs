@@ -47,6 +47,10 @@ test("declares the pinned production workspace toolchain", () => {
     /CMD \["\/usr\/local\/bin\/node", "dist\/src\/server\.js"\]/,
   );
   assert.match(
+    gameServiceDockerfile,
+    /RUN pnpm --filter @three-zero-four\/gameplay build[\s\S]*RUN pnpm --filter @three-zero-four\/room-domain build[\s\S]*RUN pnpm --filter @three-zero-four\/contracts build[\s\S]*RUN pnpm --filter @three-zero-four\/game-service build/,
+  );
+  assert.match(
     webDockerfile,
     /CMD \["\/usr\/local\/bin\/node", "apps\/web\/server\.js"\]/,
   );

@@ -9,6 +9,8 @@ COPY apps ./apps
 COPY infra ./infra
 
 RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @three-zero-four/gameplay build
+RUN pnpm --filter @three-zero-four/room-domain build
 RUN pnpm --filter @three-zero-four/contracts build
 RUN pnpm --filter @three-zero-four/game-service build
 
