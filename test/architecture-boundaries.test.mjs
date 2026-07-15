@@ -518,7 +518,10 @@ test("HTTP v1 delivery depends on application use cases instead of a coordinator
 
 test("realtime delivery owns a narrow application runtime contract", async () => {
   const realtimeSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/routes/realtime.ts"),
+    path.join(
+      repoRoot,
+      "apps/game-service/src/delivery/realtime/realtime-routes.ts",
+    ),
     "utf8",
   );
 
@@ -723,10 +726,10 @@ test("runtime adapters use the shared service error name", async () => {
   }
 });
 
-test("HTTP delivery uses the shared service error name", async () => {
+test("transport delivery uses the shared service error name", async () => {
   const deliveryFiles = [
     "apps/game-service/src/app.ts",
-    ...(await collectSourceFiles("apps/game-service/src/routes")),
+    ...(await collectSourceFiles("apps/game-service/src/delivery")),
   ];
   for (const filename of deliveryFiles) {
     const source = await readFile(path.join(repoRoot, filename), "utf8");

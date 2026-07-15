@@ -15,9 +15,9 @@ import {
   type GameRuntime,
   registerV1Routes,
 } from "./delivery/http/v1-routes.js";
+import { registerRealtimeRoutes } from "./delivery/realtime/realtime-routes.js";
 import { createMetrics, type ServiceMetrics } from "./metrics.js";
 import type { RoomSocketHub } from "./realtime/room-socket-hub.js";
-import { registerRealtimeRoutes } from "./routes/realtime.js";
 import { ServiceError } from "./shared/service-error.js";
 
 export { loadConfig } from "./config.js";
