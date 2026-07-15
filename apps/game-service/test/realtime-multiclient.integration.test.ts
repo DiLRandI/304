@@ -14,6 +14,7 @@ import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persis
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
 import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
+import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
@@ -150,6 +151,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
   const gameplayCommands = new LegacyGameplayCommandExecutor({
     automation: gameplayAutomation,
     lease: roomLease,
+    lobbyProjection: new LobbyRoomProjectionPresenter(),
     recovery: gameplayRecovery,
     store,
   });

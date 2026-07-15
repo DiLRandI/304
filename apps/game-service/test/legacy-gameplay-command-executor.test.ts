@@ -70,6 +70,7 @@ describe("LegacyGameplayCommandExecutor", () => {
     const executor = new LegacyGameplayCommandExecutor({
       automation: { schedule },
       lease,
+      lobbyProjection: { project: vi.fn() },
       recovery: { recover: vi.fn(async () => engine) },
       store,
     });

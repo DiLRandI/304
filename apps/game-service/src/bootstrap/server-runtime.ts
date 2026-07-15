@@ -6,6 +6,7 @@ import { LegacyGameplayRecovery } from "../contexts/gameplay/adapters/persistenc
 import { SubmitGameplayCommandHandler } from "../contexts/gameplay/application/submit-gameplay-command.js";
 import { RedisRoomLease } from "../contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../contexts/rooms/adapters/coordination/redis-room-presence.js";
+import { LobbyRoomProjectionPresenter } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import { GameplayRoomProjectionReader } from "../contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { LegacyStartedRoomSnapshotFactory } from "../contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
@@ -91,6 +92,7 @@ const roomPresence = {
 const gameplayCommands = new LegacyGameplayCommandExecutor({
   automation: gameplayAutomation,
   lease: roomLease,
+  lobbyProjection: new LobbyRoomProjectionPresenter(),
   recovery: gameplayRecovery,
   store,
 });

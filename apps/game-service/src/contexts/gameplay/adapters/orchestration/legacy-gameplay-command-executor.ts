@@ -2,7 +2,7 @@ import type { GameCommand, RoomProjection } from "@three-zero-four/contracts";
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
 import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
 import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
-import { projectLobbyForViewer } from "../../../rooms/adapters/delivery/lobby-room-presenter.js";
+import type { LobbyRoomProjector } from "../../../rooms/application/lobby-room-projector.js";
 import type { RoomLease } from "../../../rooms/application/room-coordination-ports.js";
 import type { StoredRoom } from "../../../rooms/application/room-persistence-model.js";
 import type {
@@ -19,6 +19,7 @@ import { projectRoomForPlayer } from "../delivery/gameplay-room-presenter.js";
 interface LegacyGameplayCommandDependencies {
   readonly automation: AutomationScheduler;
   readonly lease: RoomLease;
+  readonly lobbyProjection: LobbyRoomProjector;
   readonly recovery: GameplayRecovery;
   readonly store: RoomPersistenceStore;
 }
@@ -158,7 +159,7 @@ export class LegacyGameplayCommandExecutor implements GameplayCommandExecutor {
     const status = activeRoomStatus(engine.state);
     const snapshotRoom = { ...room, eventVersion, status };
     if (status === "lobby") {
-      return projectLobbyForViewer(
+      return this.dependencies.lobbyProjection.project(
         snapshotRoom,
         await this.dependencies.store.loadSeats(room.id, transaction),
         viewerSeatIndex,

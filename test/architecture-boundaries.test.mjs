@@ -373,6 +373,11 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
   assert.match(executorSource, /export class LegacyGameplayCommandExecutor/);
   assert.doesNotMatch(executorSource, /shared\/service-error\.js/);
   assert.match(executorSource, /application\/gameplay-application-error\.js/);
+  assert.doesNotMatch(
+    executorSource,
+    /rooms\/adapters\/delivery\/lobby-room-presenter\.js/,
+  );
+  assert.match(executorSource, /application\/lobby-room-projector\.js/);
   assert.match(serverSource, /new LegacyGameplayCommandExecutor/);
   assert.match(
     serverSource,

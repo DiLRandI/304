@@ -20,6 +20,7 @@ import { LegacyGameplayRecovery } from "../../src/contexts/gameplay/adapters/per
 import type { AuthenticatedSession } from "../../src/contexts/player-access/application/player-session-ports.js";
 import { RedisRoomLease } from "../../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
+import { LobbyRoomProjectionPresenter } from "../../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import { presentLobbyRoom } from "../../src/contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import { GameplayRoomProjectionReader } from "../../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
@@ -122,6 +123,7 @@ export class RoomTestRuntime {
     this.gameplayCommands = new LegacyGameplayCommandExecutor({
       automation: this.scheduler,
       lease,
+      lobbyProjection: new LobbyRoomProjectionPresenter(),
       recovery,
       store: this.store,
     });
