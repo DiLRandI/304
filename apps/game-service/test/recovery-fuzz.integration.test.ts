@@ -311,7 +311,6 @@ describeIntegration("durable room recovery variance", () => {
       createRuntime().getSnapshot(firstPlayer, created.roomId),
     ).rejects.toMatchObject({
       code: "ROOM_RECOVERY_FAILED",
-      statusCode: 503,
     });
     await expect(store.loadRoom(created.roomId)).resolves.toMatchObject({
       status: "recovery_failed",

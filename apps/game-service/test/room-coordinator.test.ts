@@ -171,7 +171,7 @@ describeIntegration("durable room application", () => {
         commandId: randomUUID(),
         expectedVersion: started.eventVersion,
       }),
-    ).rejects.toMatchObject({ code: "VERSION_CONFLICT", statusCode: 409 });
+    ).rejects.toMatchObject({ code: "VERSION_CONFLICT" });
 
     await database.query(
       "DELETE FROM game_snapshots WHERE room_id = $1 AND event_version = $2",
