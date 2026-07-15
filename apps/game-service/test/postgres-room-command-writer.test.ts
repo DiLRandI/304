@@ -15,7 +15,7 @@ import {
   RoomCommandPersistenceError,
 } from "../src/contexts/rooms/adapters/persistence/postgres-room-command-writer.js";
 import type { RoomCommandCommit } from "../src/contexts/rooms/application/execute-room-command.js";
-import type { Database } from "../src/infra/database.js";
+import type { Database } from "../src/platform/postgres/database.js";
 
 const hostId = playerId("9c9c7530-224f-4d5e-b354-1c78df2f063b");
 const guestId = playerId("28fc47b6-e8ef-4de7-8c43-7e027a41d70f");

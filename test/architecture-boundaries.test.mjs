@@ -598,6 +598,19 @@ test("Rooms query persistence uses the platform database contract", async () => 
   assert.match(querySource, /platform\/postgres\/database\.js/);
 });
 
+test("Rooms command writing uses the platform database contract", async () => {
+  const writerSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/persistence/postgres-room-command-writer.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(writerSource, /infra\/database\.js/);
+  assert.match(writerSource, /platform\/postgres\/database\.js/);
+});
+
 test("durability integration coverage composes room application handlers", async () => {
   const integrationSource = await readFile(
     path.join(repoRoot, "apps/game-service/test/room-coordinator.test.ts"),
