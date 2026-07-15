@@ -998,7 +998,14 @@ test("transport delivery uses the shared service error name", async () => {
   for (const filename of deliveryFiles) {
     const source = await readFile(path.join(repoRoot, filename), "utf8");
     assert.doesNotMatch(source, /DomainError/, filename);
+    assert.doesNotMatch(source, /shared\/service-error\.js/, filename);
   }
+  const errorSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/delivery/delivery-error.ts"),
+    "utf8",
+  );
+  assert.match(errorSource, /export class DeliveryError/);
+  assert.match(errorSource, /readonly statusCode: number/);
 });
 
 test("dependency readiness is a platform health adapter", async () => {

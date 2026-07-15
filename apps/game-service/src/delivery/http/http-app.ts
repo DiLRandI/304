@@ -17,7 +17,7 @@ import {
   createMetrics,
   type ServiceMetrics,
 } from "../../platform/observability/service-metrics.js";
-import { ServiceError } from "../../shared/service-error.js";
+import { DeliveryError } from "../delivery-error.js";
 import { registerRealtimeRoutes } from "../realtime/realtime-routes.js";
 import type { RoomSocketHub } from "../realtime/room-socket-hub.js";
 import { RequestRateLimitError } from "./request-rate-limiter.js";
@@ -148,7 +148,7 @@ export async function buildApp({
       }
       const origin = request.headers.origin;
       if (!origin || !config.corsOrigins.has(origin)) {
-        throw new ServiceError(
+        throw new DeliveryError(
           "ORIGIN_DENIED",
           403,
           "Request origin is not allowed",
@@ -209,7 +209,7 @@ export async function buildApp({
         .code(error.code === "RATE_LIMITED" ? 429 : 503)
         .send({ error: { code: error.code, message: error.message } });
     }
-    if (error instanceof ServiceError) {
+    if (error instanceof DeliveryError) {
       return reply
         .code(error.statusCode)
         .send({ error: { code: error.code, message: error.message } });

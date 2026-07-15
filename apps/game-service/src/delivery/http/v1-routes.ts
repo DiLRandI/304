@@ -27,7 +27,7 @@ import type { JoinRoomHandler } from "../../contexts/rooms/application/join-room
 import type { LeaveRoomHandler } from "../../contexts/rooms/application/leave-room.js";
 import type { StartRoomHandler } from "../../contexts/rooms/application/start-room.js";
 import type { ServiceConfig } from "../../platform/config/service-config.js";
-import { ServiceError } from "../../shared/service-error.js";
+import { DeliveryError } from "../delivery-error.js";
 import type { RequestRateLimiter } from "./request-rate-limiter.js";
 
 export interface GameRuntime {
@@ -241,7 +241,7 @@ export async function registerV1Routes(
       );
       const input = GameCommandSchema.parse(request.body);
       if (input.roomId !== request.params.roomId) {
-        throw new ServiceError(
+        throw new DeliveryError(
           "ROOM_ID_MISMATCH",
           400,
           "Room id does not match request path",

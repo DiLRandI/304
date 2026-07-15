@@ -4,7 +4,7 @@ import type { AuthenticatedSession } from "../../contexts/player-access/applicat
 import type { GetRoomSnapshotHandler } from "../../contexts/rooms/application/get-room-projection.js";
 import { RoomLeaseBusyError } from "../../contexts/rooms/application/room-coordination-ports.js";
 import type { ServiceConfig } from "../../platform/config/service-config.js";
-import { ServiceError } from "../../shared/service-error.js";
+import { DeliveryError } from "../delivery-error.js";
 import type { RoomSocketHub } from "./room-socket-hub.js";
 
 export interface RealtimeGameRuntime {
@@ -52,7 +52,7 @@ export async function registerRealtimeRoutes(
       preValidation: async (request) => {
         const origin = request.headers.origin;
         if (!origin || !config.corsOrigins.has(origin)) {
-          throw new ServiceError(
+          throw new DeliveryError(
             "ORIGIN_DENIED",
             403,
             "Request origin is not allowed",
