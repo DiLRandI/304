@@ -30,12 +30,15 @@ import {
 import { JoinRoomHandler } from "../src/contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "../src/contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
 import {
   Presence,
   RateLimiter,
   RoomLease,
 } from "../src/infra/redis-coordination.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
 import { OutboxPublisher } from "../src/realtime/outbox-publisher.js";
 import {
   RedisRoomChangeBus,

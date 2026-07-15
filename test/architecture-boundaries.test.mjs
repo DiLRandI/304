@@ -867,3 +867,17 @@ test("migration tooling uses the platform database adapter", async () => {
   assert.doesNotMatch(migrationSource, /infra\/database\.js/);
   assert.match(migrationSource, /platform\/postgres\/database\.js/);
 });
+
+test("realtime integration fixtures use the platform database adapter", async () => {
+  for (const filename of [
+    "realtime-multiclient.integration.test.ts",
+    "realtime-store.integration.test.ts",
+  ]) {
+    const source = await readFile(
+      path.join(repoRoot, "apps/game-service/test", filename),
+      "utf8",
+    );
+    assert.doesNotMatch(source, /infra\/database\.js/, filename);
+    assert.match(source, /platform\/postgres\/database\.js/, filename);
+  }
+});

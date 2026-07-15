@@ -7,7 +7,10 @@ import {
   PostgresRoomStore,
   type StoredSeat,
 } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const describeIntegration = databaseUrl ? describe : describe.skip;
