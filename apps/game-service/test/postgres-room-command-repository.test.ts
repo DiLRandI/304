@@ -10,7 +10,7 @@ import {
 import type { QueryResultRow } from "pg";
 import { describe, expect, it } from "vitest";
 import { PostgresRoomCommandRepository } from "../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
-import type { Database } from "../src/infra/database.js";
+import type { Database } from "../src/platform/postgres/database.js";
 
 const actor = playerId("9c9c7530-224f-4d5e-b354-1c78df2f063b");
 const aggregateId = roomId("12f8e3e8-6729-4c46-b78a-d1a0e804c55a");

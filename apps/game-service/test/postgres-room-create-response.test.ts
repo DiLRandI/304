@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
-import type { Database } from "../src/infra/database.js";
+import type { Database } from "../src/platform/postgres/database.js";
 
 interface QueryCall {
   readonly text: string;

@@ -6,7 +6,7 @@ import type {
   RoomId,
   RoomProjection,
 } from "@three-zero-four/room-domain";
-import type { Database } from "../../../../infra/database.js";
+import type { Database } from "../../../../platform/postgres/database.js";
 import type {
   RoomCommandCommit,
   RoomCommandRepository,
