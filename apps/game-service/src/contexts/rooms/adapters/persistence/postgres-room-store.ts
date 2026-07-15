@@ -503,9 +503,8 @@ export class PostgresRoomStore {
         (seat) => seat.seatIndex === existingSeatIndex,
       );
       if (existing) return existing;
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "ROOM_DATA_INVALID",
-        500,
         "Existing room seat is missing",
       );
     }
@@ -515,7 +514,7 @@ export class PostgresRoomStore {
     );
     const row = openSeat.rows[0];
     if (!row) {
-      throw new ServiceError("ROOM_FULL", 409, "Room is full");
+      throw new RoomApplicationError("ROOM_FULL", "Room is full");
     }
     await transaction.query(
       "UPDATE room_seats SET player_id = $3, occupant_type = 'human', bot_difficulty = NULL, joined_at = now(), connection_status = 'online', last_presence_at = now(), disconnected_at = NULL, autopilot_started_at = NULL WHERE room_id = $1 AND seat_index = $2",
@@ -524,9 +523,8 @@ export class PostgresRoomStore {
     const seats = await this.loadSeats(roomId, transaction);
     const assigned = seats.find((seat) => seat.seatIndex === row.seat_index);
     if (!assigned) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "ROOM_DATA_INVALID",
-        500,
         "Assigned room seat is missing",
       );
     }
@@ -554,18 +552,16 @@ export class PostgresRoomStore {
       [roomId, seatIndex],
     );
     if (updated.rows.length !== 1) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "SEAT_REQUIRED",
-        403,
         "You are not seated in this room",
       );
     }
     const seats = await this.loadSeats(roomId, transaction);
     const seat = seats.find((candidate) => candidate.seatIndex === seatIndex);
     if (!seat) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "ROOM_DATA_INVALID",
-        500,
         "Cleared room seat is missing",
       );
     }
@@ -583,18 +579,16 @@ export class PostgresRoomStore {
       [roomId, seatIndex, botDifficulty],
     );
     if (updated.rows.length !== 1) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "SEAT_REQUIRED",
-        403,
         "You are not seated in this room",
       );
     }
     const seats = await this.loadSeats(roomId, transaction);
     const seat = seats.find((candidate) => candidate.seatIndex === seatIndex);
     if (!seat) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "ROOM_DATA_INVALID",
-        500,
         "Replaced room seat is missing",
       );
     }
@@ -622,9 +616,8 @@ export class PostgresRoomStore {
       [roomId, playerId],
     );
     if (updated.rows.length !== 1) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "ROOM_DATA_INVALID",
-        500,
         "New room host is not seated",
       );
     }
@@ -721,9 +714,8 @@ export class PostgresRoomStore {
     );
     const row = result.rows[0];
     if (!row) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "SEAT_REQUIRED",
-        403,
         "You are not seated in this room",
       );
     }
