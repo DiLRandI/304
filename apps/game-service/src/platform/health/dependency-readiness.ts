@@ -1,5 +1,5 @@
 import type { RedisClientType } from "redis";
-import type { Database } from "../../infra/database.js";
+import type { Database } from "../postgres/database.js";
 
 export function createReadiness(database: Database, redis: RedisClientType) {
   return {

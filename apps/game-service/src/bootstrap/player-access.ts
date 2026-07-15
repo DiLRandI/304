@@ -7,7 +7,7 @@ import {
 } from "../contexts/player-access/adapters/security/node-player-access-security.js";
 import { AuthenticateSession } from "../contexts/player-access/application/authenticate-session.js";
 import { CreateGuestSession } from "../contexts/player-access/application/create-guest-session.js";
-import type { Database } from "../infra/database.js";
+import type { Database } from "../platform/postgres/database.js";
 
 export interface PlayerAccessBootstrapOptions {
   pepper: string;

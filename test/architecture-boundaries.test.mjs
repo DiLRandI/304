@@ -760,3 +760,19 @@ test("Redis connection creation is a platform adapter", async () => {
   assert.match(redisSource, /reconnectStrategy/);
   assert.match(redisSource, /client\.connect\(\)/);
 });
+
+test("PostgreSQL connection management is a platform adapter", async () => {
+  const databaseSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/platform/postgres/database.ts"),
+    "utf8",
+  );
+  const compatibilitySource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/infra/database.ts"),
+    "utf8",
+  );
+
+  assert.match(databaseSource, /new Pool/);
+  assert.match(databaseSource, /transaction<T>/);
+  assert.doesNotMatch(compatibilitySource, /new Pool/);
+  assert.match(compatibilitySource, /platform\/postgres\/database\.js/);
+});

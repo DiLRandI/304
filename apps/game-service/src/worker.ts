@@ -6,7 +6,6 @@ import { LegacyGameplayRecovery } from "./contexts/gameplay/adapters/persistence
 import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { RoomMaintenance } from "./contexts/rooms/application/room-maintenance.js";
-import { createDatabase } from "./infra/database.js";
 import {
   AutomationTelemetry,
   MaintenanceTelemetry,
@@ -15,6 +14,7 @@ import {
   WorkerTelemetry,
 } from "./infra/redis-coordination.js";
 import { createReadiness } from "./platform/health/dependency-readiness.js";
+import { createDatabase } from "./platform/postgres/database.js";
 import { createRedis } from "./platform/redis/redis-client.js";
 import { AutomationWorker } from "./worker/automation-worker.js";
 import { RoomMaintenanceWorker } from "./worker/room-maintenance-worker.js";

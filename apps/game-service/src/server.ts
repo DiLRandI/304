@@ -23,7 +23,6 @@ import {
 import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "./contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "./contexts/rooms/application/start-room.js";
-import { createDatabase } from "./infra/database.js";
 import {
   AutomationTelemetry,
   MaintenanceTelemetry,
@@ -34,6 +33,7 @@ import {
 } from "./infra/redis-coordination.js";
 import { createMetrics } from "./metrics.js";
 import { createReadiness } from "./platform/health/dependency-readiness.js";
+import { createDatabase } from "./platform/postgres/database.js";
 import { createRedis } from "./platform/redis/redis-client.js";
 import { OutboxPublisher } from "./realtime/outbox-publisher.js";
 import { RedisRoomChangeBus } from "./realtime/room-change-bus.js";
