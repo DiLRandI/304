@@ -253,7 +253,7 @@ describeIntegration("durable room recovery variance", () => {
     it(`replays exact private ${ruleProfileId} projections after each of twelve snapshot-loss variants`, async () => {
       const { created, game, players } =
         await createStartedHumanRoom(ruleProfileId);
-      await applyHumanCommands(game, players, created.roomId, 5);
+      await applyHumanCommands(game, players, created.roomId, 7);
       await applyWorkerAction(game, players, created.roomId);
 
       const canonical = await currentSnapshots(game, players, created.roomId);
