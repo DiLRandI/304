@@ -27,7 +27,7 @@ import type {
 import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
 import type { StartRoomHandler } from "../contexts/rooms/application/start-room.js";
-import type { RateLimiter } from "../infra/redis-coordination.js";
+import type { RequestRateLimiter } from "../delivery/http/request-rate-limiter.js";
 import { ServiceError } from "../shared/service-error.js";
 
 export interface GameRuntime {
@@ -43,7 +43,7 @@ export interface GameRuntime {
     readonly start: Pick<StartRoomHandler, "execute">;
   };
   sessions: PlayerAccess;
-  rateLimiter: RateLimiter;
+  rateLimiter: RequestRateLimiter;
 }
 
 const RoomIdPathSchema = z.uuid();

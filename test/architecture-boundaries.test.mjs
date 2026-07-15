@@ -511,6 +511,8 @@ test("the v1 routes depend on application use cases instead of a coordinator", a
   assert.doesNotMatch(routesSource, /V1RoomCoordinator/);
   assert.doesNotMatch(routesSource, /player-access\/adapters\/delivery/);
   assert.match(routesSource, /player-access\/application\/player-access\.js/);
+  assert.doesNotMatch(routesSource, /infra\/redis-coordination\.js/);
+  assert.match(routesSource, /delivery\/http\/request-rate-limiter\.js/);
   assert.match(routesSource, /SubmitGameplayCommandHandler/);
 });
 
