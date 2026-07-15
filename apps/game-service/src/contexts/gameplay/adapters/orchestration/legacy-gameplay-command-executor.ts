@@ -1,6 +1,5 @@
 import type { GameCommand, RoomProjection } from "@three-zero-four/contracts";
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
-import { ServiceError } from "../../../../shared/service-error.js";
 import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
 import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import { projectLobbyForViewer } from "../../../rooms/adapters/delivery/lobby-room-presenter.js";
@@ -10,6 +9,7 @@ import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
+import { GameplayApplicationError } from "../../application/gameplay-application-error.js";
 import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import { activeRoomStatus } from "../../application/gameplay-room-status.js";
@@ -23,16 +23,23 @@ interface LegacyGameplayCommandDependencies {
   readonly store: RoomPersistenceStore;
 }
 
-function roomNotFound(): ServiceError {
-  return new ServiceError("ROOM_NOT_FOUND", 404, "Room was not found");
+function roomNotFound(): GameplayApplicationError {
+  return new GameplayApplicationError("ROOM_NOT_FOUND", "Room was not found");
 }
 
 function ensureAvailable(room: StoredRoom): void {
   if (room.status === "recovery_failed") {
-    throw new ServiceError("ROOM_RECOVERY_FAILED", 503, "Room is unavailable");
+    throw new GameplayApplicationError(
+      "ROOM_RECOVERY_FAILED",
+      "Room is unavailable",
+    );
   }
   if (room.status === "closed") {
-    throw new ServiceError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
+    throw new GameplayApplicationError(
+      "ROOM_UNAVAILABLE",
+      "Room is unavailable",
+      "conflict",
+    );
   }
 }
 
@@ -61,9 +68,8 @@ export class LegacyGameplayCommandExecutor implements GameplayCommandExecutor {
         );
       }
       if (room.eventVersion !== command.expectedVersion) {
-        throw new ServiceError(
+        throw new GameplayApplicationError(
           "VERSION_CONFLICT",
-          409,
           "Room state changed; refresh and retry",
         );
       }
@@ -73,15 +79,17 @@ export class LegacyGameplayCommandExecutor implements GameplayCommandExecutor {
         session.playerId,
       );
       if (room.status !== "in_hand" && room.status !== "hand_result") {
-        throw new ServiceError("ROOM_NOT_ACTIVE", 409, "Room is not active");
+        throw new GameplayApplicationError(
+          "ROOM_NOT_ACTIVE",
+          "Room is not active",
+        );
       }
       if (
         command.action.type === "ACK_RESULT" &&
         room.hostPlayerId !== session.playerId
       ) {
-        throw new ServiceError(
+        throw new GameplayApplicationError(
           "HOST_REQUIRED",
-          403,
           "Only the host can continue",
         );
       }
@@ -95,9 +103,8 @@ export class LegacyGameplayCommandExecutor implements GameplayCommandExecutor {
         actorSeatIndex: viewerSeatIndex,
       });
       if (!result.ok) {
-        throw new ServiceError(
+        throw new GameplayApplicationError(
           "ACTION_REJECTED",
-          409,
           result.reason ?? "Action was rejected",
         );
       }
@@ -182,9 +189,8 @@ export class LegacyGameplayCommandExecutor implements GameplayCommandExecutor {
           roomId,
           "Snapshot replay failed",
         );
-        throw new ServiceError(
+        throw new GameplayApplicationError(
           "ROOM_RECOVERY_FAILED",
-          503,
           "Room is unavailable",
         );
       }
