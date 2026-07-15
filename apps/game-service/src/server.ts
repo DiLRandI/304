@@ -27,7 +27,6 @@ import {
   AutomationTelemetry,
   MaintenanceTelemetry,
   Presence,
-  RateLimiter,
   RoomLease,
   WorkerTelemetry,
 } from "./infra/redis-coordination.js";
@@ -35,6 +34,7 @@ import { createMetrics } from "./metrics.js";
 import { createReadiness } from "./platform/health/dependency-readiness.js";
 import { createDatabase } from "./platform/postgres/database.js";
 import { createRedis } from "./platform/redis/redis-client.js";
+import { RateLimiter } from "./platform/redis/request-rate-limiter.js";
 import { OutboxPublisher } from "./realtime/outbox-publisher.js";
 import { RedisRoomChangeBus } from "./realtime/room-change-bus.js";
 import { RoomSocketHub } from "./realtime/room-socket-hub.js";

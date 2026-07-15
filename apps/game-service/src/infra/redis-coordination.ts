@@ -5,8 +5,6 @@ import { ServiceError } from "../shared/service-error.js";
 const RELEASE_LEASE_SCRIPT =
   "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0";
 const ROOM_LEASE_RETRY_DELAYS_MS = [25, 75, 150, 250] as const;
-const FIXED_WINDOW_INCREMENT_SCRIPT =
-  "local count = redis.call('INCR', KEYS[1]); if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end return count";
 const AUTOMATION_OUTCOME_METRICS_KEY = "g304:metrics:automation-outcomes";
 const MAINTENANCE_METRICS_KEY = "g304:metrics:maintenance";
 const WORKER_HEARTBEAT_METRICS_KEY = "g304:metrics:worker-heartbeat";
@@ -91,42 +89,6 @@ export class Presence {
     return new Set(
       playerIds.filter((_playerId, index) => values[index] === "1"),
     );
-  }
-}
-
-export class RateLimiter {
-  constructor(
-    private readonly redis: RedisClientType,
-    private readonly keyPrefix = "g304",
-  ) {}
-
-  async consume(
-    scope: string,
-    subject: string,
-    limit: number,
-    windowSeconds: number,
-  ): Promise<void> {
-    const key = `${this.keyPrefix}:rate:${redisKeyPart(scope)}:${redisKeyPart(subject)}`;
-    const count = Number(
-      await this.redis.eval(FIXED_WINDOW_INCREMENT_SCRIPT, {
-        keys: [key],
-        arguments: [String(windowSeconds)],
-      }),
-    );
-    if (!Number.isSafeInteger(count) || count < 1) {
-      throw new ServiceError(
-        "RATE_LIMIT_UNAVAILABLE",
-        503,
-        "Rate limit is unavailable",
-      );
-    }
-    if (count > limit) {
-      throw new ServiceError(
-        "RATE_LIMITED",
-        429,
-        "Too many requests; retry shortly",
-      );
-    }
   }
 }
 

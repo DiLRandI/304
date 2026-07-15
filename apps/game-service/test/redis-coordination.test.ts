@@ -5,10 +5,10 @@ import {
   AutomationTelemetry,
   MaintenanceTelemetry,
   Presence,
-  RateLimiter,
   RoomLease,
   WorkerTelemetry,
 } from "../src/infra/redis-coordination.js";
+import { RateLimiter } from "../src/platform/redis/request-rate-limiter.js";
 
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
 const describeIntegration = redisUrl ? describe : describe.skip;

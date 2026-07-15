@@ -842,6 +842,24 @@ test("Redis connection creation is a platform adapter", async () => {
   assert.match(redisSource, /client\.connect\(\)/);
 });
 
+test("request rate limiting is a dedicated Redis platform adapter", async () => {
+  const rateLimiterSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/platform/redis/request-rate-limiter.ts",
+    ),
+    "utf8",
+  );
+  const legacyCoordinationSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/infra/redis-coordination.ts"),
+    "utf8",
+  );
+
+  assert.match(rateLimiterSource, /export class RateLimiter/);
+  assert.match(rateLimiterSource, /FIXED_WINDOW_INCREMENT_SCRIPT/);
+  assert.doesNotMatch(legacyCoordinationSource, /class RateLimiter/);
+});
+
 test("PostgreSQL connection management is a platform adapter", async () => {
   const databaseSource = await readFile(
     path.join(repoRoot, "apps/game-service/src/platform/postgres/database.ts"),

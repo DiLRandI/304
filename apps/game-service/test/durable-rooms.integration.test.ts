@@ -31,15 +31,12 @@ import {
 import { JoinRoomHandler } from "../src/contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "../src/contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.js";
-import {
-  Presence,
-  RateLimiter,
-  RoomLease,
-} from "../src/infra/redis-coordination.js";
+import { Presence, RoomLease } from "../src/infra/redis-coordination.js";
 import {
   createDatabase,
   type Database,
 } from "../src/platform/postgres/database.js";
+import { RateLimiter } from "../src/platform/redis/request-rate-limiter.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
