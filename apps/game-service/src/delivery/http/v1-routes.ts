@@ -14,21 +14,21 @@ import {
 } from "@three-zero-four/room-domain";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import type { ServiceConfig } from "../config.js";
-import type { SubmitGameplayCommandHandler } from "../contexts/gameplay/application/submit-gameplay-command.js";
-import type { PlayerAccess } from "../contexts/player-access/application/player-access.js";
-import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
-import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
-import type { CreateRoomHandler } from "../contexts/rooms/application/create-room.js";
+import type { ServiceConfig } from "../../config.js";
+import type { SubmitGameplayCommandHandler } from "../../contexts/gameplay/application/submit-gameplay-command.js";
+import type { PlayerAccess } from "../../contexts/player-access/application/player-access.js";
+import type { AuthenticatedSession } from "../../contexts/player-access/application/player-session-ports.js";
+import { presentLobbyRoom } from "../../contexts/rooms/adapters/delivery/room-projection-presenter.js";
+import type { CreateRoomHandler } from "../../contexts/rooms/application/create-room.js";
 import type {
   GetRoomHandler,
   GetRoomSnapshotHandler,
-} from "../contexts/rooms/application/get-room-projection.js";
-import type { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
-import type { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
-import type { StartRoomHandler } from "../contexts/rooms/application/start-room.js";
-import type { RequestRateLimiter } from "../delivery/http/request-rate-limiter.js";
-import { ServiceError } from "../shared/service-error.js";
+} from "../../contexts/rooms/application/get-room-projection.js";
+import type { JoinRoomHandler } from "../../contexts/rooms/application/join-room.js";
+import type { LeaveRoomHandler } from "../../contexts/rooms/application/leave-room.js";
+import type { StartRoomHandler } from "../../contexts/rooms/application/start-room.js";
+import { ServiceError } from "../../shared/service-error.js";
+import type { RequestRateLimiter } from "./request-rate-limiter.js";
 
 export interface GameRuntime {
   gameplayUseCases: {

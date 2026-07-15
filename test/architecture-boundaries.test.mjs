@@ -501,9 +501,9 @@ test("the room client loads gameplay UI only after the lobby", async () => {
   );
 });
 
-test("the v1 routes depend on application use cases instead of a coordinator", async () => {
+test("HTTP v1 delivery depends on application use cases instead of a coordinator", async () => {
   const routesSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/routes/v1.ts"),
+    path.join(repoRoot, "apps/game-service/src/delivery/http/v1-routes.ts"),
     "utf8",
   );
 
@@ -512,7 +512,7 @@ test("the v1 routes depend on application use cases instead of a coordinator", a
   assert.doesNotMatch(routesSource, /player-access\/adapters\/delivery/);
   assert.match(routesSource, /player-access\/application\/player-access\.js/);
   assert.doesNotMatch(routesSource, /infra\/redis-coordination\.js/);
-  assert.match(routesSource, /delivery\/http\/request-rate-limiter\.js/);
+  assert.match(routesSource, /\.\/request-rate-limiter\.js/);
   assert.match(routesSource, /SubmitGameplayCommandHandler/);
 });
 

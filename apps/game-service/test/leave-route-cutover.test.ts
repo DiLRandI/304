@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildApp, loadConfig } from "../src/app.js";
-import type { GameRuntime } from "../src/routes/v1.js";
+import type { GameRuntime } from "../src/delivery/http/v1-routes.js";
 
 const config = loadConfig({
   NODE_ENV: "test",
