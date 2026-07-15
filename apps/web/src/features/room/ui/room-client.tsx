@@ -3,8 +3,8 @@
 import type { GameAction } from "@three-zero-four/contracts";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
-import { GameClient } from "../api/game-service-client";
+import type { GameClient } from "../api/game-service-client";
+import { useGameClient } from "../hooks/use-game-client";
 import { useRoomController } from "../hooks/use-room-controller";
 import { RoomLobby } from "./room-lobby";
 
@@ -26,14 +26,7 @@ export function RoomClient({
   roomReference: string;
   serviceOrigin: string | undefined;
 }) {
-  const client = useMemo(() => {
-    if (!serviceOrigin) return null;
-    try {
-      return new GameClient(serviceOrigin);
-    } catch {
-      return null;
-    }
-  }, [serviceOrigin]);
+  const client = useGameClient(serviceOrigin);
 
   if (!client) {
     return (

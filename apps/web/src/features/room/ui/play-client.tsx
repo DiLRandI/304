@@ -1,8 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
-import { GameClient } from "../api/game-service-client";
+import { useGameClient } from "../hooks/use-game-client";
 import { EntryFlow } from "./entry-flow";
 
 export function PlayClient({
@@ -11,14 +10,7 @@ export function PlayClient({
   serviceOrigin: string | undefined;
 }) {
   const router = useRouter();
-  const client = useMemo(() => {
-    if (!serviceOrigin) return null;
-    try {
-      return new GameClient(serviceOrigin);
-    } catch {
-      return null;
-    }
-  }, [serviceOrigin]);
+  const client = useGameClient(serviceOrigin);
 
   if (!client) {
     return (
