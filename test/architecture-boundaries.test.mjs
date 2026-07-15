@@ -847,15 +847,14 @@ test("PostgreSQL connection management is a platform adapter", async () => {
     path.join(repoRoot, "apps/game-service/src/platform/postgres/database.ts"),
     "utf8",
   );
-  const compatibilitySource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/infra/database.ts"),
-    "utf8",
-  );
+  const infraFiles = await collectSourceFiles("apps/game-service/src/infra");
 
   assert.match(databaseSource, /new Pool/);
   assert.match(databaseSource, /transaction<T>/);
-  assert.doesNotMatch(compatibilitySource, /new Pool/);
-  assert.match(compatibilitySource, /platform\/postgres\/database\.js/);
+  assert.equal(
+    infraFiles.includes("apps/game-service/src/infra/database.ts"),
+    false,
+  );
 });
 
 test("migration tooling uses the platform database adapter", async () => {
