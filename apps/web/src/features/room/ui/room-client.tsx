@@ -36,7 +36,13 @@ export function RoomClient({
     );
   }
 
-  return <ConnectedRoom client={client} roomReference={roomReference} />;
+  return (
+    <ConnectedRoom
+      key={roomReference}
+      client={client}
+      roomReference={roomReference}
+    />
+  );
 }
 
 function ConnectedRoom({

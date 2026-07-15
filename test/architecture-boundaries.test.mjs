@@ -726,6 +726,7 @@ test("the room client loads gameplay UI only after the lobby", async () => {
     roomClientSource,
     /import \{ GameTable \} from ["']\.\/game-table["']/,
   );
+  assert.match(roomClientSource, /key=\{roomReference\}/);
 });
 
 test("HTTP v1 delivery depends on application use cases instead of a coordinator", async () => {
