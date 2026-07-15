@@ -1,4 +1,5 @@
 import { ServiceError } from "../../../../shared/service-error.js";
+import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
 import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import type {
   RoomLease,
@@ -10,14 +11,13 @@ import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
-import type { GameplayAutomationScheduler } from "../../application/gameplay-automation-scheduler.js";
 import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import { activeRoomStatus } from "../../application/gameplay-room-status.js";
 import { applyConnectionState } from "../engine/legacy-engine-seat-mapper.js";
 
 interface LegacyGameplayConnectionDependencies {
-  readonly automation: GameplayAutomationScheduler;
+  readonly automation: AutomationScheduler;
   readonly identities: Pick<RoomIdentityProvider, "nextCommandId">;
   readonly lease: RoomLease;
   readonly presence: RoomPresence;

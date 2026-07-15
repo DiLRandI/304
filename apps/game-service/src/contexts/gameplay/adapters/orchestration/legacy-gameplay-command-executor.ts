@@ -1,6 +1,7 @@
 import type { GameCommand, RoomProjection } from "@three-zero-four/contracts";
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
 import { ServiceError } from "../../../../shared/service-error.js";
+import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
 import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import { projectLobbyForViewer } from "../../../rooms/adapters/delivery/lobby-room-presenter.js";
 import type { RoomLease } from "../../../rooms/application/room-coordination-ports.js";
@@ -9,7 +10,6 @@ import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
-import type { GameplayAutomationScheduler } from "../../application/gameplay-automation-scheduler.js";
 import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import { activeRoomStatus } from "../../application/gameplay-room-status.js";
@@ -17,7 +17,7 @@ import type { GameplayCommandExecutor } from "../../application/submit-gameplay-
 import { projectRoomForPlayer } from "../delivery/gameplay-room-presenter.js";
 
 interface LegacyGameplayCommandDependencies {
-  readonly automation: GameplayAutomationScheduler;
+  readonly automation: AutomationScheduler;
   readonly lease: RoomLease;
   readonly recovery: GameplayRecovery;
   readonly store: RoomPersistenceStore;

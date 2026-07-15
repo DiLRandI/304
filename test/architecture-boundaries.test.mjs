@@ -322,23 +322,24 @@ test("gameplay orchestration depends on application behavioral ports", async () 
       filename,
     );
   }
-  const [recoveryPortSource, schedulerPortSource] = await Promise.all(
-    ["gameplay-recovery.ts", "gameplay-automation-scheduler.ts"].map((file) =>
-      readFile(
-        path.join(
-          repoRoot,
-          "apps/game-service/src/contexts/gameplay/application",
-          file,
-        ),
-        "utf8",
+  const [recoveryPortSource, schedulerPortSource] = await Promise.all([
+    readFile(
+      path.join(
+        repoRoot,
+        "apps/game-service/src/contexts/gameplay/application/gameplay-recovery.ts",
       ),
+      "utf8",
     ),
-  );
+    readFile(
+      path.join(
+        repoRoot,
+        "apps/game-service/src/contexts/automation/application/automation-scheduler.ts",
+      ),
+      "utf8",
+    ),
+  ]);
   assert.match(recoveryPortSource, /export interface GameplayRecovery/);
-  assert.match(
-    schedulerPortSource,
-    /export interface GameplayAutomationScheduler/,
-  );
+  assert.match(schedulerPortSource, /export interface AutomationScheduler/);
 });
 
 test("automation policy belongs to the Automation capability", async () => {
