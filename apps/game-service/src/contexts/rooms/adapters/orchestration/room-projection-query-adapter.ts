@@ -5,6 +5,7 @@ import {
   ActiveRoomProjectionError,
   type ActiveRoomProjectionReader,
 } from "../../application/active-room-projection-reader.js";
+import type { RoomProjectionQueries } from "../../application/get-room-projection.js";
 import type { RoomLease } from "../../application/room-coordination-ports.js";
 import type { StoredRoom } from "../../application/room-persistence-model.js";
 import type {
@@ -13,7 +14,7 @@ import type {
 } from "../../application/room-persistence-store.js";
 import { projectLobbyForViewer } from "../delivery/lobby-room-presenter.js";
 
-interface LegacyRoomProjectionQueryDependencies {
+interface RoomProjectionQueryDependencies {
   readonly activeRoomProjection: ActiveRoomProjectionReader;
   readonly lease: RoomLease;
   readonly store: RoomPersistenceStore;
@@ -32,10 +33,8 @@ function ensureAvailable(room: StoredRoom): void {
   }
 }
 
-export class LegacyRoomProjectionQueries {
-  constructor(
-    private readonly dependencies: LegacyRoomProjectionQueryDependencies,
-  ) {}
+export class RoomProjectionQueryAdapter implements RoomProjectionQueries {
+  constructor(private readonly dependencies: RoomProjectionQueryDependencies) {}
 
   async getSnapshot(
     session: AuthenticatedSession,

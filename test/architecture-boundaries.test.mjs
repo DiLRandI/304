@@ -354,12 +354,13 @@ test("room projection reads use a dedicated query adapter", async () => {
   const querySource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.ts",
+      "apps/game-service/src/contexts/rooms/adapters/orchestration/room-projection-query-adapter.ts",
     ),
     "utf8",
   );
 
-  assert.match(querySource, /export class LegacyRoomProjectionQueries/);
+  assert.match(querySource, /export class RoomProjectionQueryAdapter/);
+  assert.match(querySource, /implements RoomProjectionQueries/);
   assert.match(querySource, /ActiveRoomProjectionReader/);
   assert.doesNotMatch(
     querySource,

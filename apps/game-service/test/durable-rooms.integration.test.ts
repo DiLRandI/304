@@ -15,9 +15,9 @@ import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/applicati
 import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
-import { LegacyRoomProjectionQueries } from "../src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
 import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
+import { RoomProjectionQueryAdapter } from "../src/contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import { PostgresRoomCommandRepository } from "../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/security/node-room-identity-provider.js";
@@ -137,7 +137,7 @@ async function buildRealApp(): Promise<TestRuntime> {
       new LegacyStartedRoomAutomationFactory(identities, () => new Date(), 0),
     ),
   );
-  const roomQueries = new LegacyRoomProjectionQueries({
+  const roomQueries = new RoomProjectionQueryAdapter({
     activeRoomProjection: new GameplayRoomProjectionReader(gameplayRecovery),
     lease: roomLease,
     store,

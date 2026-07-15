@@ -7,9 +7,9 @@ import { SubmitGameplayCommandHandler } from "./contexts/gameplay/application/su
 import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
 import { GameplayRoomProjectionReader } from "./contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
-import { LegacyRoomProjectionQueries } from "./contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
 import { LegacyStartedRoomAutomationFactory } from "./contexts/rooms/adapters/orchestration/legacy-started-room-automation-factory.js";
 import { LegacyStartedRoomSnapshotFactory } from "./contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
+import { RoomProjectionQueryAdapter } from "./contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import { PostgresRoomCommandRepository } from "./contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
@@ -79,7 +79,7 @@ const roomCommands = new ExecuteRoomCommandHandler(
     ),
   ),
 );
-const roomQueries = new LegacyRoomProjectionQueries({
+const roomQueries = new RoomProjectionQueryAdapter({
   activeRoomProjection: new GameplayRoomProjectionReader(gameplayRecovery),
   lease: roomLease,
   store,

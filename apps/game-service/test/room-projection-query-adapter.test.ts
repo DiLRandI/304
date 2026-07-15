@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { RecoveryError } from "../src/contexts/gameplay/application/gameplay-recovery-error.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
-import { LegacyRoomProjectionQueries } from "../src/contexts/rooms/adapters/orchestration/legacy-room-projection-queries.js";
+import { RoomProjectionQueryAdapter } from "../src/contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import type { RoomLease } from "../src/contexts/rooms/application/room-coordination-ports.js";
 import type {
   StoredRoom,
@@ -79,7 +79,7 @@ function harness(
   const recover = vi.fn(overrides.recovery ?? (async () => new GameEngine()));
   return {
     markRecoveryFailed,
-    queries: new LegacyRoomProjectionQueries({
+    queries: new RoomProjectionQueryAdapter({
       activeRoomProjection: new GameplayRoomProjectionReader({ recover }),
       lease,
       store,
@@ -88,7 +88,7 @@ function harness(
   };
 }
 
-describe("LegacyRoomProjectionQueries", () => {
+describe("RoomProjectionQueryAdapter", () => {
   it("projects a lobby snapshot without invoking gameplay recovery", async () => {
     const { queries, recover } = harness();
 
