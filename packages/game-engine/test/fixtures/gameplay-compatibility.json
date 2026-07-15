@@ -1,0 +1,110 @@
+{
+  "classic_304_4p": {
+    "deck": {
+      "cardCount": 32,
+      "points": 304,
+      "ranks": ["7", "8", "9", "10", "J", "Q", "K", "A"]
+    },
+    "profile": {
+      "cardBatch": [4, 4],
+      "id": "classic_304_4p",
+      "seatCount": 4,
+      "teams": ["A", "B", "A", "B"],
+      "tokens": [11, 11]
+    },
+    "projection": {
+      "activeSeat": 1,
+      "legalActions": [
+        {
+          "cardId": "C_9",
+          "faceDown": false,
+          "fromIndicator": false,
+          "type": "PLAY_CARD"
+        }
+      ],
+      "opponentHand": ["C_9", "H_A"],
+      "opponentTrump": {
+        "maker": 0,
+        "suit": null,
+        "isOpen": false,
+        "indicatorVisible": false
+      },
+      "publicHandSizes": [1, 2, 0, 0],
+      "publicTrickCard": "C_J",
+      "trumpMakerSuit": "spades",
+      "viewerlessHasSeatIdentity": false,
+      "viewerlessTrumpSuit": null
+    },
+    "roundTrip": {
+      "legalActions": [
+        {
+          "cardId": "C_9",
+          "faceDown": false,
+          "fromIndicator": false,
+          "type": "PLAY_CARD"
+        }
+      ],
+      "opponentHand": ["C_9", "H_A"],
+      "opponentTrump": {
+        "maker": 0,
+        "suit": null,
+        "isOpen": false,
+        "indicatorVisible": false
+      }
+    }
+  },
+  "six_304_36": {
+    "deck": {
+      "cardCount": 36,
+      "points": 304,
+      "ranks": ["7", "8", "9", "10", "J", "Q", "K", "A", "6"]
+    },
+    "profile": {
+      "cardBatch": [4, 2],
+      "id": "six_304_36",
+      "seatCount": 6,
+      "teams": ["A", "B", "A", "B", "A", "B"],
+      "tokens": [11, 11]
+    },
+    "projection": {
+      "activeSeat": 1,
+      "legalActions": [
+        {
+          "cardId": "C_9",
+          "faceDown": false,
+          "fromIndicator": false,
+          "type": "PLAY_CARD"
+        }
+      ],
+      "opponentHand": ["C_9", "H_A"],
+      "opponentTrump": {
+        "maker": 0,
+        "suit": null,
+        "isOpen": false,
+        "indicatorVisible": false
+      },
+      "publicHandSizes": [1, 2, 0, 0, 0, 0],
+      "publicTrickCard": "C_J",
+      "trumpMakerSuit": "spades",
+      "viewerlessHasSeatIdentity": false,
+      "viewerlessTrumpSuit": null
+    },
+    "roundTrip": {
+      "legalActions": [
+        {
+          "cardId": "C_9",
+          "faceDown": false,
+          "fromIndicator": false,
+          "type": "PLAY_CARD"
+        }
+      ],
+      "opponentHand": ["C_9", "H_A"],
+      "opponentTrump": {
+        "maker": 0,
+        "suit": null,
+        "isOpen": false,
+        "indicatorVisible": false
+      }
+    }
+  }
+}
