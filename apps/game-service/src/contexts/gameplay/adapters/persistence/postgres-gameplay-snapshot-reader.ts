@@ -1,6 +1,6 @@
 import type { RuleProfileId } from "@three-zero-four/gameplay";
 import type { QueryResultRow } from "pg";
-import type { Database } from "../../../../infra/database.js";
+import type { Database } from "../../../../platform/postgres/database.js";
 import type {
   GameplaySnapshotReader,
   LoadedGameplaySnapshot,

@@ -566,6 +566,25 @@ test("Player Access persistence uses the platform database contract", async () =
   }
 });
 
+test("Gameplay persistence uses the platform database contract", async () => {
+  const persistenceFiles = await collectSourceFiles(
+    "apps/game-service/src/contexts/gameplay/adapters/persistence",
+  );
+
+  for (const filename of persistenceFiles) {
+    const source = await readFile(path.join(repoRoot, filename), "utf8");
+    assert.doesNotMatch(source, /infra\/database\.js/, filename);
+  }
+  const postgresReader = persistenceFiles.find((filename) =>
+    filename.endsWith("postgres-gameplay-snapshot-reader.ts"),
+  );
+  assert.ok(postgresReader);
+  assert.match(
+    await readFile(path.join(repoRoot, postgresReader), "utf8"),
+    /platform\/postgres\/database\.js/,
+  );
+});
+
 test("durability integration coverage composes room application handlers", async () => {
   const integrationSource = await readFile(
     path.join(repoRoot, "apps/game-service/test/room-coordinator.test.ts"),

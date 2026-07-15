@@ -12,7 +12,7 @@ import {
   GameplaySnapshotReadError,
   PostgresGameplaySnapshotReader,
 } from "../src/contexts/gameplay/adapters/persistence/postgres-gameplay-snapshot-reader.js";
-import type { Database } from "../src/infra/database.js";
+import type { Database } from "../src/platform/postgres/database.js";
 
 const roomId = "12f8e3e8-6729-4c46-b78a-d1a0e804c55a";
 const profile = getRuleProfile("classic_304_4p");
