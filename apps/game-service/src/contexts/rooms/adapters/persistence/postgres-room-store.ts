@@ -671,9 +671,8 @@ export class PostgresRoomStore {
     const row = result.rows[0];
     if (!row) return null;
     if (row.actor_player_id !== actorPlayerId) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "COMMAND_ID_CONFLICT",
-        409,
         "Command id belongs to another player",
       );
     }
@@ -732,9 +731,8 @@ export class PostgresRoomStore {
       [input.roomId, nextVersion, input.status, input.expectedVersion],
     );
     if (updated.rows.length !== 1) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "VERSION_CONFLICT",
-        409,
         "Room state changed; refresh and retry",
       );
     }
