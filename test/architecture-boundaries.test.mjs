@@ -446,6 +446,11 @@ test("the web server composes realtime connections without a room coordinator", 
   );
 
   assert.match(connectionsSource, /export class LegacyGameplayConnections/);
+  assert.doesNotMatch(connectionsSource, /shared\/service-error\.js/);
+  assert.match(
+    connectionsSource,
+    /application\/gameplay-application-error\.js/,
+  );
   assert.match(serverSource, /new LegacyGameplayConnections/);
   assert.doesNotMatch(serverSource, /new RoomCoordinator/);
 });

@@ -1,4 +1,3 @@
-import { ServiceError } from "../../../../shared/service-error.js";
 import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
 import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import type {
@@ -11,6 +10,7 @@ import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
+import { GameplayApplicationError } from "../../application/gameplay-application-error.js";
 import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import { activeRoomStatus } from "../../application/gameplay-room-status.js";
@@ -25,16 +25,23 @@ interface LegacyGameplayConnectionDependencies {
   readonly store: RoomPersistenceStore;
 }
 
-function roomNotFound(): ServiceError {
-  return new ServiceError("ROOM_NOT_FOUND", 404, "Room was not found");
+function roomNotFound(): GameplayApplicationError {
+  return new GameplayApplicationError("ROOM_NOT_FOUND", "Room was not found");
 }
 
 function ensureAvailable(room: StoredRoom): void {
   if (room.status === "recovery_failed") {
-    throw new ServiceError("ROOM_RECOVERY_FAILED", 503, "Room is unavailable");
+    throw new GameplayApplicationError(
+      "ROOM_RECOVERY_FAILED",
+      "Room is unavailable",
+    );
   }
   if (room.status === "closed") {
-    throw new ServiceError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
+    throw new GameplayApplicationError(
+      "ROOM_UNAVAILABLE",
+      "Room is unavailable",
+      "conflict",
+    );
   }
 }
 
@@ -182,9 +189,8 @@ export class LegacyGameplayConnections {
           roomId,
           "Snapshot replay failed",
         );
-        throw new ServiceError(
+        throw new GameplayApplicationError(
           "ROOM_RECOVERY_FAILED",
-          503,
           "Room is unavailable",
         );
       }
