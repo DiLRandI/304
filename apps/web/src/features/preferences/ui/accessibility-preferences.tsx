@@ -3,12 +3,12 @@
 import { useEffect, useSyncExternalStore } from "react";
 import {
   applyDisplayPreferences,
-  type CardSize,
   readDisplayPreferences,
   readServerDisplayPreferences,
   subscribeToDisplayPreferences,
   writeDisplayPreference,
-} from "../model/display-preferences";
+} from "../api/browser-display-preferences";
+import type { CardSize } from "../model/display-preferences";
 
 export function AccessibilityPreferences() {
   const preferences = useSyncExternalStore(

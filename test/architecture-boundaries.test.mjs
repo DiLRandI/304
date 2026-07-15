@@ -225,6 +225,21 @@ test("the consent model remains browser agnostic", async () => {
   }
 });
 
+test("the preferences model remains browser agnostic", async () => {
+  const modelFiles = await collectSourceFiles(
+    "apps/web/src/features/preferences/model",
+  );
+
+  for (const filename of modelFiles) {
+    const source = await readFile(path.join(repoRoot, filename), "utf8");
+    assert.doesNotMatch(
+      source,
+      /\b(?:document|fetch|navigator|window)\b|process\.env|lib\/browser-storage/,
+      filename,
+    );
+  }
+});
+
 test("room maintenance depends on an application-owned persistence port", async () => {
   const legacyDomainFiles = await collectSourceFiles(
     "apps/game-service/src/domain",
