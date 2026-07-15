@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { LegacyGameplayAutomationExecutor } from "../contexts/automation/adapters/execution/legacy-gameplay-automation-executor.js";
+import { LegacyGameplayAutomationExecutor } from "../contexts/automation/adapters/integration/legacy-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayRecovery } from "../contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { RedisRoomLease } from "../contexts/rooms/adapters/coordination/redis-room-lease.js";

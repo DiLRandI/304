@@ -434,7 +434,7 @@ test("legacy gameplay automation executes through an Automation adapter", async 
   const executorSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/automation/adapters/execution/legacy-gameplay-automation-executor.ts",
+      "apps/game-service/src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.ts",
     ),
     "utf8",
   );
@@ -1168,7 +1168,7 @@ test("automation adapters depend on an application-owned room store port", async
   const executorSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/automation/adapters/execution/legacy-gameplay-automation-executor.ts",
+      "apps/game-service/src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.ts",
     ),
     "utf8",
   );
