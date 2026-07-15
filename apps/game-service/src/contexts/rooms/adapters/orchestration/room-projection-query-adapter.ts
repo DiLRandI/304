@@ -1,11 +1,11 @@
 import type { RoomProjection } from "@three-zero-four/contracts";
-import { ServiceError } from "../../../../shared/service-error.js";
 import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import {
   ActiveRoomProjectionError,
   type ActiveRoomProjectionReader,
 } from "../../application/active-room-projection-reader.js";
 import type { RoomProjectionQueries } from "../../application/get-room-projection.js";
+import { RoomApplicationError } from "../../application/room-application-error.js";
 import type { RoomLease } from "../../application/room-coordination-ports.js";
 import type { StoredRoom } from "../../application/room-persistence-model.js";
 import type {
@@ -20,16 +20,19 @@ interface RoomProjectionQueryDependencies {
   readonly store: RoomPersistenceStore;
 }
 
-function roomNotFound(): ServiceError {
-  return new ServiceError("ROOM_NOT_FOUND", 404, "Room was not found");
+function roomNotFound(): RoomApplicationError {
+  return new RoomApplicationError("ROOM_NOT_FOUND", "Room was not found");
 }
 
 function ensureAvailable(room: StoredRoom): void {
   if (room.status === "recovery_failed") {
-    throw new ServiceError("ROOM_RECOVERY_FAILED", 503, "Room is unavailable");
+    throw new RoomApplicationError(
+      "ROOM_RECOVERY_FAILED",
+      "Room is unavailable",
+    );
   }
   if (room.status === "closed") {
-    throw new ServiceError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
+    throw new RoomApplicationError("ROOM_UNAVAILABLE", "Room is unavailable");
   }
 }
 
@@ -67,9 +70,8 @@ export class RoomProjectionQueryAdapter implements RoomProjectionQueries {
         return this.projectCurrent(transaction, room, viewerSeatIndex);
       }
       if (room.status !== "lobby") {
-        throw new ServiceError(
+        throw new RoomApplicationError(
           "SEAT_REQUIRED",
-          403,
           "You are not seated in this room",
         );
       }
@@ -122,9 +124,8 @@ export class RoomProjectionQueryAdapter implements RoomProjectionQueries {
           roomId,
           "Snapshot replay failed",
         );
-        throw new ServiceError(
+        throw new RoomApplicationError(
           "ROOM_RECOVERY_FAILED",
-          503,
           "Room is unavailable",
         );
       }

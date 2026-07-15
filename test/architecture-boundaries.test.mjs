@@ -427,6 +427,8 @@ test("room projection reads use a dedicated query adapter", async () => {
     ),
     "utf8",
   );
+  assert.doesNotMatch(querySource, /shared\/service-error\.js/);
+  assert.match(querySource, /application\/room-application-error\.js/);
 
   assert.match(querySource, /export class RoomProjectionQueryAdapter/);
   assert.match(querySource, /implements RoomProjectionQueries/);

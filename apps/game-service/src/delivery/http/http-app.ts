@@ -82,7 +82,8 @@ function serializeRequestForLog(request: FastifyRequest): SerializedRequestLog {
   return serialized;
 }
 
-function roomApplicationStatus(code: string): 403 | 404 | 409 {
+function roomApplicationStatus(code: string): 403 | 404 | 409 | 503 {
+  if (code === "ROOM_RECOVERY_FAILED") return 503;
   if (code === "ROOM_NOT_FOUND") return 404;
   if (code === "HOST_REQUIRED" || code === "SEAT_REQUIRED") return 403;
   return 409;

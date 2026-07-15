@@ -156,7 +156,7 @@ describe("RoomProjectionQueryAdapter", () => {
 
     await expect(
       queries.getSnapshot(session, activeRoom.id),
-    ).rejects.toMatchObject({ code: "ROOM_RECOVERY_FAILED", statusCode: 503 });
+    ).rejects.toMatchObject({ code: "ROOM_RECOVERY_FAILED" });
     expect(markRecoveryFailed).toHaveBeenCalledWith(
       activeRoom.id,
       "Snapshot replay failed",
