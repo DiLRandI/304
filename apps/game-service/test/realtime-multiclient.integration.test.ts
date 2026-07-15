@@ -32,6 +32,7 @@ import {
 import { JoinRoomHandler } from "../src/contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "../src/contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.js";
+import { RoomSocketHub } from "../src/delivery/realtime/room-socket-hub.js";
 import {
   createDatabase,
   type Database,
@@ -42,7 +43,6 @@ import {
   RedisRoomChangeBus,
   ROOM_CHANGED_CHANNEL,
 } from "../src/realtime/room-change-bus.js";
-import { RoomSocketHub } from "../src/realtime/room-socket-hub.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";

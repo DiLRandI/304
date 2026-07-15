@@ -464,7 +464,10 @@ test("the outbox publisher depends on a behavioral store port", async () => {
 
 test("the websocket hub separates snapshot queries from connection mutations", async () => {
   const hubSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/realtime/room-socket-hub.ts"),
+    path.join(
+      repoRoot,
+      "apps/game-service/src/delivery/realtime/room-socket-hub.ts",
+    ),
     "utf8",
   );
 

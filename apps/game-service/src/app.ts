@@ -16,8 +16,8 @@ import {
   registerV1Routes,
 } from "./delivery/http/v1-routes.js";
 import { registerRealtimeRoutes } from "./delivery/realtime/realtime-routes.js";
+import type { RoomSocketHub } from "./delivery/realtime/room-socket-hub.js";
 import { createMetrics, type ServiceMetrics } from "./metrics.js";
-import type { RoomSocketHub } from "./realtime/room-socket-hub.js";
 import { ServiceError } from "./shared/service-error.js";
 
 export { loadConfig } from "./config.js";

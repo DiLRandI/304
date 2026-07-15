@@ -25,6 +25,7 @@ import {
 import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "./contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "./contexts/rooms/application/start-room.js";
+import { RoomSocketHub } from "./delivery/realtime/room-socket-hub.js";
 import { createMetrics } from "./metrics.js";
 import { createReadiness } from "./platform/health/dependency-readiness.js";
 import {
@@ -37,7 +38,6 @@ import { createRedis } from "./platform/redis/redis-client.js";
 import { RateLimiter } from "./platform/redis/request-rate-limiter.js";
 import { OutboxPublisher } from "./realtime/outbox-publisher.js";
 import { RedisRoomChangeBus } from "./realtime/room-change-bus.js";
-import { RoomSocketHub } from "./realtime/room-socket-hub.js";
 
 const config = loadConfig();
 const database = createDatabase(config.DATABASE_URL);
