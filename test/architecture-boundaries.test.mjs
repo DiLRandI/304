@@ -749,3 +749,14 @@ test("dependency readiness is a platform health adapter", async () => {
   assert.match(readinessSource, /database\.health\(\)/);
   assert.match(readinessSource, /redis\.ping\(\)/);
 });
+
+test("Redis connection creation is a platform adapter", async () => {
+  const redisSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/platform/redis/redis-client.ts"),
+    "utf8",
+  );
+
+  assert.match(redisSource, /createClient/);
+  assert.match(redisSource, /reconnectStrategy/);
+  assert.match(redisSource, /client\.connect\(\)/);
+});
