@@ -453,7 +453,7 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
   const executorSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.ts",
+      "apps/game-service/src/contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.ts",
     ),
     "utf8",
   );

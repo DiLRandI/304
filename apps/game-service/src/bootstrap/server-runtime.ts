@@ -1,6 +1,6 @@
 import { LegacyStartedRoomAutomationFactory } from "../contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
-import { LegacyGameplayCommandExecutor } from "../contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
+import { LegacyGameplayCommandExecutor } from "../contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.js";
 import { LegacyGameplayConnections } from "../contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../contexts/gameplay/application/submit-gameplay-command.js";

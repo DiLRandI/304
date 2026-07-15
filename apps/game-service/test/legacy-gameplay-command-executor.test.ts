@@ -1,7 +1,7 @@
 import type { GameCommand } from "@three-zero-four/contracts";
 import type { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
-import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
+import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import type { RoomLease } from "../src/contexts/rooms/application/room-coordination-ports.js";
 import type { StoredRoom } from "../src/contexts/rooms/application/room-persistence-model.js";
