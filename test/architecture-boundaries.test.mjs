@@ -1016,6 +1016,24 @@ test("request rate limiting is a dedicated Redis platform adapter", async () => 
   assert.match(rateLimiterSource, /FIXED_WINDOW_INCREMENT_SCRIPT/);
 });
 
+test("service metrics belong to platform observability", async () => {
+  const metricsSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/platform/observability/service-metrics.ts",
+    ),
+    "utf8",
+  );
+  const serviceSourceFiles = await collectSourceFiles("apps/game-service/src");
+
+  assert.match(metricsSource, /export function createMetrics/);
+  assert.match(metricsSource, /from ["']prom-client["']/);
+  assert.equal(
+    serviceSourceFiles.includes("apps/game-service/src/metrics.ts"),
+    false,
+  );
+});
+
 test("Redis service telemetry is a platform observability adapter", async () => {
   const telemetrySource = await readFile(
     path.join(

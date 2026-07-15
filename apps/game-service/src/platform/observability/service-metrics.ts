@@ -1,5 +1,6 @@
 import { Counter, collectDefaultMetrics, Gauge, Registry } from "prom-client";
 
+/** Creates the process-local metrics registry exposed by HTTP delivery. */
 export function createMetrics() {
   const registry = new Registry();
   collectDefaultMetrics({ register: registry, prefix: "three_zero_four_" });

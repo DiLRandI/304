@@ -26,7 +26,6 @@ import { StartRoomHandler } from "../contexts/rooms/application/start-room.js";
 import { buildApp } from "../delivery/http/http-app.js";
 import { RoomSocketHub } from "../delivery/realtime/room-socket-hub.js";
 import { OutboxPublisher } from "../delivery/workers/outbox-publisher.js";
-import { createMetrics } from "../metrics.js";
 import { loadConfig } from "../platform/config/service-config.js";
 import { createReadiness } from "../platform/health/dependency-readiness.js";
 import {
@@ -34,6 +33,7 @@ import {
   MaintenanceTelemetry,
   WorkerTelemetry,
 } from "../platform/observability/redis-service-telemetry.js";
+import { createMetrics } from "../platform/observability/service-metrics.js";
 import { createDatabase } from "../platform/postgres/database.js";
 import { createRedis } from "../platform/redis/redis-client.js";
 import { RedisRoomChangeBus } from "../platform/redis/redis-room-change-bus.js";
