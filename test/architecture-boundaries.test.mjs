@@ -210,6 +210,21 @@ test("documents and enforces the DDD dependency direction", async () => {
   assertAcyclic(graph);
 });
 
+test("the consent model remains browser agnostic", async () => {
+  const modelFiles = await collectSourceFiles(
+    "apps/web/src/features/consent/model",
+  );
+
+  for (const filename of modelFiles) {
+    const source = await readFile(path.join(repoRoot, filename), "utf8");
+    assert.doesNotMatch(
+      source,
+      /\b(?:document|fetch|navigator|window)\b|process\.env|lib\/browser-storage/,
+      filename,
+    );
+  }
+});
+
 test("room maintenance depends on an application-owned persistence port", async () => {
   const legacyDomainFiles = await collectSourceFiles(
     "apps/game-service/src/domain",

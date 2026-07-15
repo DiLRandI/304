@@ -2,12 +2,12 @@
 
 import { useState, useSyncExternalStore } from "react";
 import {
-  type ConsentState,
   readConsent,
   readServerConsent,
   subscribeToConsent,
   writeConsent,
-} from "../model/consent";
+} from "../api/browser-consent-store";
+import type { ConsentState } from "../model/consent";
 
 export function ConsentBanner({
   onChoice,
