@@ -14,6 +14,7 @@ import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orc
 import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
 import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
+import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
@@ -31,7 +32,6 @@ import {
 import { JoinRoomHandler } from "../src/contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "../src/contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.js";
-import { Presence } from "../src/infra/redis-coordination.js";
 import {
   createDatabase,
   type Database,
@@ -106,7 +106,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
     pepper: config.SESSION_SECRET_PEPPER,
     ttlDays: config.SESSION_TTL_DAYS,
   });
-  const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
+  const presence = new RedisRoomPresence(redis, config.PRESENCE_TTL_SECONDS);
   const identities = new NodeRoomIdentityProvider();
   const inviteCodes = new NodeRoomInviteCodeProvider();
   const roomLease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);

@@ -653,6 +653,24 @@ test("Redis room leasing is a Rooms coordination adapter", async () => {
   assert.doesNotMatch(legacyCoordinationSource, /class RoomLease/);
 });
 
+test("Redis room presence is a Rooms coordination adapter", async () => {
+  const presenceSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/coordination/redis-room-presence.ts",
+    ),
+    "utf8",
+  );
+  const legacyCoordinationSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/infra/redis-coordination.ts"),
+    "utf8",
+  );
+
+  assert.match(presenceSource, /export class RedisRoomPresence/);
+  assert.match(presenceSource, /application\/room-coordination-ports\.js/);
+  assert.doesNotMatch(legacyCoordinationSource, /class Presence/);
+});
+
 test("durability integration coverage composes room application handlers", async () => {
   const integrationSource = await readFile(
     path.join(repoRoot, "apps/game-service/test/room-coordinator.test.ts"),

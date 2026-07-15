@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
+import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
 import {
   AutomationTelemetry,
   MaintenanceTelemetry,
-  Presence,
   WorkerTelemetry,
 } from "../src/infra/redis-coordination.js";
 import { RateLimiter } from "../src/platform/redis/request-rate-limiter.js";
@@ -49,7 +49,7 @@ describeIntegration("Redis game coordination", () => {
     const roomId = randomUUID();
     const playerId = randomUUID();
     const lease = new RedisRoomLease(redis, 5_000);
-    const presence = new Presence(redis, 30);
+    const presence = new RedisRoomPresence(redis, 30);
 
     await expect(lease.withLease(roomId, async () => "accepted")).resolves.toBe(
       "accepted",
