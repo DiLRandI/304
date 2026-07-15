@@ -6,6 +6,7 @@ import { LegacyGameplayCommandExecutor } from "./contexts/gameplay/adapters/orch
 import { LegacyGameplayConnections } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "./contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "./contexts/gameplay/application/submit-gameplay-command.js";
+import { RedisRoomLease } from "./contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { GameplayRoomProjectionReader } from "./contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { LegacyStartedRoomSnapshotFactory } from "./contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
@@ -27,7 +28,6 @@ import {
   AutomationTelemetry,
   MaintenanceTelemetry,
   Presence,
-  RoomLease,
   WorkerTelemetry,
 } from "./infra/redis-coordination.js";
 import { createMetrics } from "./metrics.js";
@@ -50,7 +50,7 @@ const sessions = createPlayerAccessService(database, {
 const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
 const identities = new NodeRoomIdentityProvider();
 const inviteCodes = new NodeRoomInviteCodeProvider();
-const roomLease = new RoomLease(redis, config.ROOM_LEASE_TTL_MS);
+const roomLease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);
 const gameplayRecovery = new LegacyGameplayRecovery(store);
 const gameplayAutomation = new LegacyGameplayAutomationScheduler({
   config: {

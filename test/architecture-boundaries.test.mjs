@@ -635,6 +635,24 @@ test("Rooms persistence adapters do not use the database compatibility shim", as
   }
 });
 
+test("Redis room leasing is a Rooms coordination adapter", async () => {
+  const leaseSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/coordination/redis-room-lease.ts",
+    ),
+    "utf8",
+  );
+  const legacyCoordinationSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/infra/redis-coordination.ts"),
+    "utf8",
+  );
+
+  assert.match(leaseSource, /export class RedisRoomLease/);
+  assert.match(leaseSource, /application\/room-coordination-ports\.js/);
+  assert.doesNotMatch(legacyCoordinationSource, /class RoomLease/);
+});
+
 test("durability integration coverage composes room application handlers", async () => {
   const integrationSource = await readFile(
     path.join(repoRoot, "apps/game-service/test/room-coordinator.test.ts"),

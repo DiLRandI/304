@@ -3,6 +3,7 @@ import { loadConfig } from "./config.js";
 import { LegacyGameplayAutomationExecutor } from "./contexts/automation/adapters/execution/legacy-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "./contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayRecovery } from "./contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
+import { RedisRoomLease } from "./contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { RoomMaintenance } from "./contexts/rooms/application/room-maintenance.js";
@@ -10,7 +11,6 @@ import {
   AutomationTelemetry,
   MaintenanceTelemetry,
   Presence,
-  RoomLease,
   WorkerTelemetry,
 } from "./infra/redis-coordination.js";
 import { createReadiness } from "./platform/health/dependency-readiness.js";
@@ -24,7 +24,7 @@ const database = createDatabase(config.DATABASE_URL);
 const redis = await createRedis(config.REDIS_URL);
 const store = new PostgresRoomStore(database);
 const identities = new NodeRoomIdentityProvider();
-const lease = new RoomLease(redis, config.ROOM_LEASE_TTL_MS);
+const lease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);
 const presence = new Presence(redis, config.PRESENCE_TTL_SECONDS);
 const automation = new LegacyGameplayAutomationScheduler({
   config: {

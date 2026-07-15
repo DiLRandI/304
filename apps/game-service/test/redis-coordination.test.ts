@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
 import {
   AutomationTelemetry,
   MaintenanceTelemetry,
   Presence,
-  RoomLease,
   WorkerTelemetry,
 } from "../src/infra/redis-coordination.js";
 import { RateLimiter } from "../src/platform/redis/request-rate-limiter.js";
@@ -25,7 +25,7 @@ describeIntegration("Redis game coordination", () => {
   it("does not execute a room mutation when another owner holds its lease", async () => {
     const roomId = randomUUID();
     await redis.set(`g304:lease:${roomId}`, "other-owner", { PX: 5_000 });
-    const lease = new RoomLease(redis, 5_000);
+    const lease = new RedisRoomLease(redis, 5_000);
 
     await expect(
       lease.withLease(roomId, async () => "accepted"),
@@ -38,7 +38,7 @@ describeIntegration("Redis game coordination", () => {
   it("waits briefly for a contended lease that is about to expire", async () => {
     const roomId = randomUUID();
     await redis.set(`g304:lease:${roomId}`, "other-owner", { PX: 75 });
-    const lease = new RoomLease(redis, 5_000);
+    const lease = new RedisRoomLease(redis, 5_000);
 
     await expect(
       lease.withLease(roomId, async () => "accepted-after-contention"),
@@ -48,7 +48,7 @@ describeIntegration("Redis game coordination", () => {
   it("releases only its own lease and tracks expiring presence", async () => {
     const roomId = randomUUID();
     const playerId = randomUUID();
-    const lease = new RoomLease(redis, 5_000);
+    const lease = new RedisRoomLease(redis, 5_000);
     const presence = new Presence(redis, 30);
 
     await expect(lease.withLease(roomId, async () => "accepted")).resolves.toBe(

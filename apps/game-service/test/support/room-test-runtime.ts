@@ -18,6 +18,7 @@ import { LegacyGameplayCommandExecutor } from "../../src/contexts/gameplay/adapt
 import { LegacyGameplayConnections } from "../../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import type { AuthenticatedSession } from "../../src/contexts/player-access/application/player-session-ports.js";
+import { RedisRoomLease } from "../../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { presentLobbyRoom } from "../../src/contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import { GameplayRoomProjectionReader } from "../../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
@@ -32,7 +33,7 @@ import { ExecuteRoomCommandHandler } from "../../src/contexts/rooms/application/
 import { GetRoomSnapshotHandler } from "../../src/contexts/rooms/application/get-room-projection.js";
 import { JoinRoomHandler } from "../../src/contexts/rooms/application/join-room.js";
 import { StartRoomHandler } from "../../src/contexts/rooms/application/start-room.js";
-import { Presence, RoomLease } from "../../src/infra/redis-coordination.js";
+import { Presence } from "../../src/infra/redis-coordination.js";
 import type { Database } from "../../src/platform/postgres/database.js";
 
 export interface RoomTestRuntimeOptions {
@@ -64,7 +65,7 @@ export class RoomTestRuntime {
     this.store = new PostgresRoomStore(database);
     const identities = new NodeRoomIdentityProvider();
     const inviteCodes = new NodeRoomInviteCodeProvider();
-    const lease = new RoomLease(redis, options.leaseTtlMs ?? 5_000);
+    const lease = new RedisRoomLease(redis, options.leaseTtlMs ?? 5_000);
     const presence = new Presence(redis, options.presenceTtlSeconds ?? 60);
     const recovery = new LegacyGameplayRecovery(this.store);
     this.scheduler = new LegacyGameplayAutomationScheduler({
