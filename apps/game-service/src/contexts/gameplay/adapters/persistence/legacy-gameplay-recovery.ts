@@ -1,10 +1,7 @@
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
 import type {
-  RoomPersistenceStore,
-  RoomTransaction,
-} from "../../../rooms/application/room-persistence-store.js";
-import type {
   GameplayRecovery,
+  GameplayRecoveryStore,
   RecoverableGameplayRoom,
 } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
@@ -14,16 +11,11 @@ import {
   isBotDifficulty,
 } from "../engine/legacy-engine-seat-mapper.js";
 
-type RecoveryStore = Pick<
-  RoomPersistenceStore,
-  "findSeatIndex" | "loadEventsAfter" | "loadSeats" | "loadSnapshot"
->;
-
 export class LegacyGameplayRecovery implements GameplayRecovery {
-  constructor(private readonly store: RecoveryStore) {}
+  constructor(private readonly store: GameplayRecoveryStore) {}
 
   async recover(
-    transaction: RoomTransaction,
+    transaction: unknown,
     room: RecoverableGameplayRoom,
   ): Promise<GameEngine> {
     const snapshot = await this.store.loadSnapshot(room.id, transaction);

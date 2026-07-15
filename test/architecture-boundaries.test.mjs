@@ -376,6 +376,19 @@ test("gameplay recovery errors belong to the Gameplay application", async () => 
   assert.match(recoverySource, /application\/gameplay-recovery-error\.js/);
 });
 
+test("Gameplay recovery persistence depends on a Gameplay-owned store port", async () => {
+  const recoverySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(recoverySource, /rooms\/application/);
+  assert.match(recoverySource, /GameplayRecoveryStore/);
+});
+
 test("the Gameplay recovery port owns its recovery input", async () => {
   const recoveryPortSource = await readFile(
     path.join(
