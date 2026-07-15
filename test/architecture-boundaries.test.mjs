@@ -435,7 +435,10 @@ test("the PostgreSQL room store is a Rooms persistence adapter", async () => {
 
 test("the automation worker depends on behavioral ports", async () => {
   const workerSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/worker/automation-worker.ts"),
+    path.join(
+      repoRoot,
+      "apps/game-service/src/delivery/workers/automation-worker.ts",
+    ),
     "utf8",
   );
   const bootstrapSource = await readFile(

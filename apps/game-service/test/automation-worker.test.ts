@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AutomationWorker,
   type ClaimedAutomationJob,
-} from "../src/worker/automation-worker.js";
+} from "../src/delivery/workers/automation-worker.js";
 import {
   type MaintenanceRunner,
   RoomMaintenanceWorker,

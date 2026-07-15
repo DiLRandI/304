@@ -8,6 +8,7 @@ import { RedisRoomPresence } from "./contexts/rooms/adapters/coordination/redis-
 import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { RoomMaintenance } from "./contexts/rooms/application/room-maintenance.js";
+import { AutomationWorker } from "./delivery/workers/automation-worker.js";
 import { createReadiness } from "./platform/health/dependency-readiness.js";
 import {
   AutomationTelemetry,
@@ -16,7 +17,6 @@ import {
 } from "./platform/observability/redis-service-telemetry.js";
 import { createDatabase } from "./platform/postgres/database.js";
 import { createRedis } from "./platform/redis/redis-client.js";
-import { AutomationWorker } from "./worker/automation-worker.js";
 import { RoomMaintenanceWorker } from "./worker/room-maintenance-worker.js";
 
 const config = loadConfig();

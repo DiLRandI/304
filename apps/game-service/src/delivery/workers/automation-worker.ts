@@ -44,6 +44,7 @@ function errorMessage(error: unknown): string {
   return "Automation job failed";
 }
 
+/** Drives durable automation jobs through application-facing behavioral ports. */
 export class AutomationWorker {
   private active: Promise<void> | undefined;
   private readonly ownerId: string;
