@@ -246,7 +246,8 @@ test("Rooms application errors do not carry transport status", async () => {
   );
 
   assert.doesNotMatch(applicationSource, /statusCode/);
-  assert.match(deliverySource, /roomApplicationStatus/);
+  assert.match(applicationSource, /readonly kind: RoomApplicationErrorKind/);
+  assert.match(deliverySource, /roomApplicationStatus\(error\.kind\)/);
 });
 
 test("gameplay recovery errors belong to the Gameplay application", async () => {

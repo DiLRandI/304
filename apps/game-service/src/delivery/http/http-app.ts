@@ -10,7 +10,10 @@ import Fastify, {
 } from "fastify";
 import { ZodError } from "zod";
 import { PlayerAccessError } from "../../contexts/player-access/application/player-access.js";
-import { RoomApplicationError } from "../../contexts/rooms/application/room-application-error.js";
+import {
+  RoomApplicationError,
+  type RoomApplicationErrorKind,
+} from "../../contexts/rooms/application/room-application-error.js";
 import { RoomLeaseBusyError } from "../../contexts/rooms/application/room-coordination-ports.js";
 import type { ServiceConfig } from "../../platform/config/service-config.js";
 import {
@@ -82,10 +85,13 @@ function serializeRequestForLog(request: FastifyRequest): SerializedRequestLog {
   return serialized;
 }
 
-function roomApplicationStatus(code: string): 403 | 404 | 409 | 503 {
-  if (code === "ROOM_RECOVERY_FAILED") return 503;
-  if (code === "ROOM_NOT_FOUND") return 404;
-  if (code === "HOST_REQUIRED" || code === "SEAT_REQUIRED") return 403;
+function roomApplicationStatus(
+  kind: RoomApplicationErrorKind,
+): 403 | 404 | 409 | 500 | 503 {
+  if (kind === "forbidden") return 403;
+  if (kind === "not_found") return 404;
+  if (kind === "internal") return 500;
+  if (kind === "unavailable") return 503;
   return 409;
 }
 
@@ -198,7 +204,7 @@ export async function buildApp({
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof RoomApplicationError) {
       return reply
-        .code(roomApplicationStatus(error.code))
+        .code(roomApplicationStatus(error.kind))
         .send({ error: { code: error.code, message: error.message } });
     }
     if (error instanceof PlayerAccessError) {
