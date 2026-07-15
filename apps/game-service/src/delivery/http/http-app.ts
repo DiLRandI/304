@@ -91,7 +91,8 @@ function serializeRequestForLog(request: FastifyRequest): SerializedRequestLog {
 
 function roomApplicationStatus(
   kind: RoomApplicationErrorKind,
-): 403 | 404 | 409 | 500 | 503 {
+): 401 | 403 | 404 | 409 | 500 | 503 {
+  if (kind === "unauthorized") return 401;
   if (kind === "forbidden") return 403;
   if (kind === "not_found") return 404;
   if (kind === "internal") return 500;

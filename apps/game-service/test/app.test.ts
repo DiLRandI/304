@@ -295,6 +295,12 @@ describe("game service health surface", () => {
         "unavailable",
       );
     });
+    app.get("/room-session-required", async () => {
+      throw new RoomApplicationError(
+        "SESSION_REQUIRED",
+        "A guest session is required",
+      );
+    });
 
     const response = await app.inject("/room-application-error");
 
@@ -309,6 +315,14 @@ describe("game service health surface", () => {
     expect(unavailable.statusCode).toBe(503);
     expect(unavailable.json()).toEqual({
       error: { code: "ROOM_UNAVAILABLE", message: "Room is unavailable" },
+    });
+    const unauthorized = await app.inject("/room-session-required");
+    expect(unauthorized.statusCode).toBe(401);
+    expect(unauthorized.json()).toEqual({
+      error: {
+        code: "SESSION_REQUIRED",
+        message: "A guest session is required",
+      },
     });
     await app.close();
   });

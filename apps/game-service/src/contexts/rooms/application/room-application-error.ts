@@ -3,10 +3,12 @@ export type RoomApplicationErrorKind =
   | "forbidden"
   | "internal"
   | "not_found"
+  | "unauthorized"
   | "unavailable";
 
 function roomApplicationErrorKind(code: string): RoomApplicationErrorKind {
   if (code === "ROOM_NOT_FOUND") return "not_found";
+  if (code === "SESSION_REQUIRED") return "unauthorized";
   if (code === "HOST_REQUIRED" || code === "SEAT_REQUIRED") {
     return "forbidden";
   }
