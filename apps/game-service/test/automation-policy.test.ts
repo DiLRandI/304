@@ -1,21 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  activeRoomStatus,
   automationSeatIndex,
   completedTrickWinner,
   phaseTimeoutMs,
-} from "../src/contexts/gameplay/application/gameplay-automation-policy.js";
+} from "../src/contexts/automation/application/automation-policy.js";
 
-describe("gameplay automation policy", () => {
-  it.each([
-    ["setup", "lobby"],
-    ["four_card_bidding", "in_hand"],
-    ["hand_result", "hand_result"],
-    ["match_complete", "hand_result"],
-  ])("maps %s to room status %s", (phase, expected) => {
-    expect(activeRoomStatus({ phase } as never)).toBe(expected);
-  });
-
+describe("automation policy", () => {
   it("selects only an integer active seat outside result phases", () => {
     expect(
       automationSeatIndex({ phase: "trick_play", activeSeat: 2 } as never),

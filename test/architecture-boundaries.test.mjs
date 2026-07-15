@@ -341,6 +341,28 @@ test("gameplay orchestration depends on application behavioral ports", async () 
   );
 });
 
+test("automation policy belongs to the Automation capability", async () => {
+  const automationPolicySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/automation/application/automation-policy.ts",
+    ),
+    "utf8",
+  );
+  const gameplayStatusSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/application/gameplay-room-status.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(automationPolicySource, /export function automationSeatIndex/);
+  assert.match(automationPolicySource, /export function phaseTimeoutMs/);
+  assert.doesNotMatch(automationPolicySource, /activeRoomStatus/);
+  assert.match(gameplayStatusSource, /export function activeRoomStatus/);
+});
+
 test("the web server composes realtime connections without a room coordinator", async () => {
   const connectionsSource = await readFile(
     path.join(

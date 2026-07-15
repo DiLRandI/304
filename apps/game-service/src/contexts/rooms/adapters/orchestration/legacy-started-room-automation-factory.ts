@@ -3,7 +3,7 @@ import type { Room } from "@three-zero-four/room-domain";
 import {
   automationSeatIndex,
   phaseTimeoutMs,
-} from "../../../gameplay/application/gameplay-automation-policy.js";
+} from "../../../automation/application/automation-policy.js";
 import type { RoomIdentityProvider } from "../../application/room-identity-provider.js";
 import type { NewAutomationJob } from "../../application/room-persistence-model.js";
 

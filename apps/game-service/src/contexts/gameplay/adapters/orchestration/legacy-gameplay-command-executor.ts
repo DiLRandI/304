@@ -9,10 +9,10 @@ import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
-import { activeRoomStatus } from "../../application/gameplay-automation-policy.js";
 import type { GameplayAutomationScheduler } from "../../application/gameplay-automation-scheduler.js";
 import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
+import { activeRoomStatus } from "../../application/gameplay-room-status.js";
 import type { GameplayCommandExecutor } from "../../application/submit-gameplay-command.js";
 import { projectRoomForPlayer } from "../delivery/gameplay-room-presenter.js";
 
