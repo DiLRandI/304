@@ -895,3 +895,19 @@ test("worker integration fixtures use the platform database adapter", async () =
     assert.match(source, /platform\/postgres\/database\.js/, filename);
   }
 });
+
+test("durability fixtures use the platform database adapter", async () => {
+  for (const filename of [
+    "durable-rooms.integration.test.ts",
+    "recovery-fuzz.integration.test.ts",
+    "room-coordinator.test.ts",
+    "support/room-test-runtime.ts",
+  ]) {
+    const source = await readFile(
+      path.join(repoRoot, "apps/game-service/test", filename),
+      "utf8",
+    );
+    assert.doesNotMatch(source, /infra\/database\.js/, filename);
+    assert.match(source, /platform\/postgres\/database\.js/, filename);
+  }
+});

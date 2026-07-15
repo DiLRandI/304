@@ -32,8 +32,8 @@ import { ExecuteRoomCommandHandler } from "../../src/contexts/rooms/application/
 import { GetRoomSnapshotHandler } from "../../src/contexts/rooms/application/get-room-projection.js";
 import { JoinRoomHandler } from "../../src/contexts/rooms/application/join-room.js";
 import { StartRoomHandler } from "../../src/contexts/rooms/application/start-room.js";
-import type { Database } from "../../src/infra/database.js";
 import { Presence, RoomLease } from "../../src/infra/redis-coordination.js";
+import type { Database } from "../../src/platform/postgres/database.js";
 
 export interface RoomTestRuntimeOptions {
   readonly automation?: {

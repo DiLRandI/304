@@ -13,7 +13,10 @@ import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
 import type { PlayerAccess } from "../src/contexts/player-access/application/player-access.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
 import { AutomationWorker } from "../src/worker/automation-worker.js";
 import { RoomTestRuntime } from "./support/room-test-runtime.js";
 

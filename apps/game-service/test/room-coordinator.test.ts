@@ -8,7 +8,10 @@ import { runMigrations } from "../scripts/migrate.js";
 import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
 import type { PlayerAccess } from "../src/contexts/player-access/application/player-access.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
 import { RoomTestRuntime } from "./support/room-test-runtime.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
