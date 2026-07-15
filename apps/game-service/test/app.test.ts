@@ -5,6 +5,7 @@ import {
   buildApp,
   redactSensitiveRequestUrl,
 } from "../src/delivery/http/http-app.js";
+import { RequestRateLimitError } from "../src/delivery/http/request-rate-limiter.js";
 import type { GameRuntime } from "../src/delivery/http/v1-routes.js";
 import type { RoomSocketHub } from "../src/delivery/realtime/room-socket-hub.js";
 import { loadConfig } from "../src/platform/config/service-config.js";
@@ -214,6 +215,27 @@ describe("game service bootstrap", () => {
 });
 
 describe("game service health surface", () => {
+  it("maps rate limiting at the HTTP delivery boundary", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/rate-limited", async () => {
+      throw new RequestRateLimitError("RATE_LIMITED");
+    });
+
+    const response = await app.inject("/rate-limited");
+
+    expect(response.statusCode).toBe(429);
+    expect(response.json()).toEqual({
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many requests; retry shortly",
+      },
+    });
+    await app.close();
+  });
+
   it("maps room lease contention at the HTTP delivery boundary", async () => {
     const app = await buildApp({
       config,

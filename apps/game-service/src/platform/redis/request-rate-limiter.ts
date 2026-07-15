@@ -1,5 +1,5 @@
 import type { RedisClientType } from "redis";
-import { ServiceError } from "../../shared/service-error.js";
+import { RequestRateLimitError } from "../../delivery/http/request-rate-limiter.js";
 
 const FIXED_WINDOW_INCREMENT_SCRIPT =
   "local count = redis.call('INCR', KEYS[1]); if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end return count";
@@ -28,18 +28,10 @@ export class RateLimiter {
       }),
     );
     if (!Number.isSafeInteger(count) || count < 1) {
-      throw new ServiceError(
-        "RATE_LIMIT_UNAVAILABLE",
-        503,
-        "Rate limit is unavailable",
-      );
+      throw new RequestRateLimitError("RATE_LIMIT_UNAVAILABLE");
     }
     if (count > limit) {
-      throw new ServiceError(
-        "RATE_LIMITED",
-        429,
-        "Too many requests; retry shortly",
-      );
+      throw new RequestRateLimitError("RATE_LIMITED");
     }
   }
 }

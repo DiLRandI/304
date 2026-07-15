@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { RoomLeaseBusyError } from "../src/contexts/rooms/application/room-coordination-ports.js";
+import { RequestRateLimitError } from "../src/delivery/http/request-rate-limiter.js";
 import {
   AutomationTelemetry,
   MaintenanceTelemetry,
@@ -75,12 +76,9 @@ describeIntegration("Redis game coordination", () => {
     await expect(
       limiter.consume(scope, "player", 2, 60),
     ).resolves.toBeUndefined();
-    await expect(limiter.consume(scope, "player", 2, 60)).rejects.toMatchObject(
-      {
-        code: "RATE_LIMITED",
-        statusCode: 429,
-      },
-    );
+    await expect(
+      limiter.consume(scope, "player", 2, 60),
+    ).rejects.toBeInstanceOf(RequestRateLimitError);
   });
 
   it("stores durable automation outcome totals for service metrics", async () => {

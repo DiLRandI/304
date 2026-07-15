@@ -1023,8 +1023,18 @@ test("request rate limiting is a dedicated Redis platform adapter", async () => 
     ),
     "utf8",
   );
+  const portSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/delivery/http/request-rate-limiter.ts",
+    ),
+    "utf8",
+  );
   assert.match(rateLimiterSource, /export class RateLimiter/);
   assert.match(rateLimiterSource, /FIXED_WINDOW_INCREMENT_SCRIPT/);
+  assert.doesNotMatch(rateLimiterSource, /shared\/service-error\.js/);
+  assert.match(portSource, /export class RequestRateLimitError/);
+  assert.doesNotMatch(portSource, /statusCode/);
 });
 
 test("service metrics belong to platform observability", async () => {

@@ -19,6 +19,7 @@ import {
 import { ServiceError } from "../../shared/service-error.js";
 import { registerRealtimeRoutes } from "../realtime/realtime-routes.js";
 import type { RoomSocketHub } from "../realtime/room-socket-hub.js";
+import { RequestRateLimitError } from "./request-rate-limiter.js";
 import { type GameRuntime, registerV1Routes } from "./v1-routes.js";
 
 export interface ReadinessChecks {
@@ -196,6 +197,11 @@ export async function buildApp({
       return reply.code(503).send({
         error: { code: error.code, message: error.message },
       });
+    }
+    if (error instanceof RequestRateLimitError) {
+      return reply
+        .code(error.code === "RATE_LIMITED" ? 429 : 503)
+        .send({ error: { code: error.code, message: error.message } });
     }
     if (error instanceof ServiceError) {
       return reply
