@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { OutboxPublisher } from "../src/realtime/outbox-publisher.js";
+import { OutboxPublisher } from "../src/delivery/workers/outbox-publisher.js";
 
 describe("durable room outbox publisher", () => {
   it("publishes each claimed room version before acknowledging it", async () => {

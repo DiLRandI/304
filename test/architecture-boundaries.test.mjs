@@ -453,7 +453,10 @@ test("the automation worker depends on behavioral ports", async () => {
 
 test("the outbox publisher depends on a behavioral store port", async () => {
   const publisherSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/realtime/outbox-publisher.ts"),
+    path.join(
+      repoRoot,
+      "apps/game-service/src/delivery/workers/outbox-publisher.ts",
+    ),
     "utf8",
   );
 
@@ -478,7 +481,10 @@ test("room change notifications belong to the Rooms application", async () => {
     "utf8",
   );
   const publisherSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/realtime/outbox-publisher.ts"),
+    path.join(
+      repoRoot,
+      "apps/game-service/src/delivery/workers/outbox-publisher.ts",
+    ),
     "utf8",
   );
   const redisAdapterSource = await readFile(

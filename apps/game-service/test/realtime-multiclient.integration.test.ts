@@ -33,6 +33,7 @@ import { JoinRoomHandler } from "../src/contexts/rooms/application/join-room.js"
 import { LeaveRoomHandler } from "../src/contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.js";
 import { RoomSocketHub } from "../src/delivery/realtime/room-socket-hub.js";
+import { OutboxPublisher } from "../src/delivery/workers/outbox-publisher.js";
 import {
   createDatabase,
   type Database,
@@ -42,7 +43,6 @@ import {
   ROOM_CHANGED_CHANNEL,
 } from "../src/platform/redis/redis-room-change-bus.js";
 import { RateLimiter } from "../src/platform/redis/request-rate-limiter.js";
-import { OutboxPublisher } from "../src/realtime/outbox-publisher.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
