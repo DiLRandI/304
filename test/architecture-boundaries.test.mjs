@@ -881,3 +881,17 @@ test("realtime integration fixtures use the platform database adapter", async ()
     assert.match(source, /platform\/postgres\/database\.js/, filename);
   }
 });
+
+test("worker integration fixtures use the platform database adapter", async () => {
+  for (const filename of [
+    "room-automation.integration.test.ts",
+    "room-maintenance.integration.test.ts",
+  ]) {
+    const source = await readFile(
+      path.join(repoRoot, "apps/game-service/test", filename),
+      "utf8",
+    );
+    assert.doesNotMatch(source, /infra\/database\.js/, filename);
+    assert.match(source, /platform\/postgres\/database\.js/, filename);
+  }
+});

@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { RoomMaintenance } from "../src/contexts/rooms/application/room-maintenance.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const describeIntegration = databaseUrl ? describe : describe.skip;
