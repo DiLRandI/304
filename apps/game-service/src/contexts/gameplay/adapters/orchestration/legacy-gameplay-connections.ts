@@ -11,9 +11,9 @@ import type {
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
 import { activeRoomStatus } from "../../application/gameplay-automation-policy.js";
+import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import { applyConnectionState } from "../engine/legacy-engine-seat-mapper.js";
-import type { LegacyGameplayRecovery } from "../persistence/legacy-gameplay-recovery.js";
 import type { LegacyGameplayAutomationScheduler } from "./legacy-gameplay-automation-scheduler.js";
 
 interface LegacyGameplayConnectionDependencies {
@@ -21,7 +21,7 @@ interface LegacyGameplayConnectionDependencies {
   readonly identities: Pick<RoomIdentityProvider, "nextCommandId">;
   readonly lease: RoomLease;
   readonly presence: RoomPresence;
-  readonly recovery: Pick<LegacyGameplayRecovery, "recover">;
+  readonly recovery: GameplayRecovery;
   readonly store: RoomPersistenceStore;
 }
 

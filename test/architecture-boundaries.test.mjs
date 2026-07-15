@@ -310,6 +310,28 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
   );
 });
 
+test("gameplay orchestration depends on an application recovery port", async () => {
+  const orchestrationFiles = await collectSourceFiles(
+    "apps/game-service/src/contexts/gameplay/adapters/orchestration",
+  );
+  for (const filename of orchestrationFiles) {
+    const source = await readFile(path.join(repoRoot, filename), "utf8");
+    assert.doesNotMatch(
+      source,
+      /persistence\/legacy-gameplay-recovery\.js/,
+      filename,
+    );
+  }
+  const portSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/application/gameplay-recovery.ts",
+    ),
+    "utf8",
+  );
+  assert.match(portSource, /export interface GameplayRecovery/);
+});
+
 test("the web server composes realtime connections without a room coordinator", async () => {
   const connectionsSource = await readFile(
     path.join(

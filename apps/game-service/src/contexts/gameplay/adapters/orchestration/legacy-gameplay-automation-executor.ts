@@ -17,15 +17,15 @@ import {
   completedTrickWinner,
   isResultPhase,
 } from "../../application/gameplay-automation-policy.js";
+import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
-import type { LegacyGameplayRecovery } from "../persistence/legacy-gameplay-recovery.js";
 import type { LegacyGameplayAutomationScheduler } from "./legacy-gameplay-automation-scheduler.js";
 
 interface LegacyGameplayAutomationDependencies {
   readonly automation: Pick<LegacyGameplayAutomationScheduler, "schedule">;
   readonly lease: RoomLease;
   readonly presence: Pick<RoomPresence, "onlinePlayerIds">;
-  readonly recovery: Pick<LegacyGameplayRecovery, "recover">;
+  readonly recovery: GameplayRecovery;
   readonly store: RoomPersistenceStore;
 }
 

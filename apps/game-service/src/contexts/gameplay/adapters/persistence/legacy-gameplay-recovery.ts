@@ -4,6 +4,7 @@ import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
+import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import {
   applyConnectionState,
@@ -16,7 +17,7 @@ type RecoveryStore = Pick<
   "findSeatIndex" | "loadEventsAfter" | "loadSeats" | "loadSnapshot"
 >;
 
-export class LegacyGameplayRecovery {
+export class LegacyGameplayRecovery implements GameplayRecovery {
   constructor(private readonly store: RecoveryStore) {}
 
   async recover(
