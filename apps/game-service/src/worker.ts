@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { loadConfig } from "./config.js";
+import { LegacyGameplayAutomationScheduler } from "./contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayAutomationExecutor } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-executor.js";
-import { LegacyGameplayAutomationScheduler } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayRecovery } from "./contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";

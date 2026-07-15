@@ -1,16 +1,16 @@
 import type { GameEngine } from "@three-zero-four/game-engine";
-import {
-  automationSeatIndex,
-  completedTrickWinner,
-  phaseTimeoutMs,
-} from "../../../automation/application/automation-policy.js";
-import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
 import type { RoomIdentityProvider } from "../../../rooms/application/room-identity-provider.js";
 import type { StoredRoom } from "../../../rooms/application/room-persistence-model.js";
 import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
+import {
+  automationSeatIndex,
+  completedTrickWinner,
+  phaseTimeoutMs,
+} from "../../application/automation-policy.js";
+import type { AutomationScheduler } from "../../application/automation-scheduler.js";
 
 type AutomationStore = Pick<
   RoomPersistenceStore,

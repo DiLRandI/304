@@ -1,6 +1,6 @@
 import type { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
-import { LegacyGameplayAutomationScheduler } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
+import { LegacyGameplayAutomationScheduler } from "../src/contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import type {
   NewAutomationJob,
   StoredRoom,

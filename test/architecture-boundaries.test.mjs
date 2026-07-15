@@ -257,11 +257,11 @@ test("legacy gameplay snapshot replay belongs to a Gameplay adapter", async () =
   assert.match(recoverySource, /export class LegacyGameplayRecovery/);
 });
 
-test("legacy gameplay automation scheduling belongs to a Gameplay adapter", async () => {
+test("legacy gameplay automation scheduling belongs to an Automation adapter", async () => {
   const schedulerSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.ts",
+      "apps/game-service/src/contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.ts",
     ),
     "utf8",
   );
@@ -270,6 +270,7 @@ test("legacy gameplay automation scheduling belongs to a Gameplay adapter", asyn
     schedulerSource,
     /export class LegacyGameplayAutomationScheduler/,
   );
+  assert.match(schedulerSource, /implements AutomationScheduler/);
 });
 
 test("legacy gameplay automation executes through a Gameplay adapter", async () => {

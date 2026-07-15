@@ -1,5 +1,5 @@
 import { buildApp, loadConfig } from "./app.js";
-import { LegacyGameplayAutomationScheduler } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-automation-scheduler.js";
+import { LegacyGameplayAutomationScheduler } from "./contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
 import { LegacyGameplayConnections } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "./contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
