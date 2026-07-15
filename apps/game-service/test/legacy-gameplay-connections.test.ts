@@ -1,6 +1,6 @@
 import type { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
-import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
+import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/integration/legacy-gameplay-connections.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import type {
   RoomLease,

@@ -15,7 +15,7 @@ import { LegacyGameplayAutomationExecutor } from "../../src/contexts/automation/
 import { LegacyStartedRoomAutomationFactory } from "../../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { LegacyGameplayAutomationScheduler } from "../../src/contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../../src/contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.js";
-import { LegacyGameplayConnections } from "../../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
+import { LegacyGameplayConnections } from "../../src/contexts/gameplay/adapters/integration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import type { AuthenticatedSession } from "../../src/contexts/player-access/application/player-session-ports.js";
 import { RedisRoomLease } from "../../src/contexts/rooms/adapters/coordination/redis-room-lease.js";

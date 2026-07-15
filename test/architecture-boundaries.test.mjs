@@ -561,7 +561,7 @@ test("the web server composes realtime connections without a room coordinator", 
   const connectionsSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.ts",
+      "apps/game-service/src/contexts/gameplay/adapters/integration/legacy-gameplay-connections.ts",
     ),
     "utf8",
   );

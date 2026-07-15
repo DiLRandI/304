@@ -10,7 +10,7 @@ import { LegacyGameplayAutomationExecutor } from "../src/contexts/automation/ada
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.js";
-import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
+import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/integration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
 import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
