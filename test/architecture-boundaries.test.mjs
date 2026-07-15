@@ -405,7 +405,7 @@ test("legacy gameplay automation scheduling belongs to an Automation adapter", a
   const schedulerSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.ts",
+      "apps/game-service/src/contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.ts",
     ),
     "utf8",
   );

@@ -12,8 +12,8 @@ import {
 } from "@three-zero-four/room-domain";
 import type { RedisClientType } from "redis";
 import { LegacyGameplayAutomationExecutor } from "../../src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.js";
+import { LegacyGameplayAutomationScheduler } from "../../src/contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
 import { LegacyStartedRoomAutomationFactory } from "../../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
-import { LegacyGameplayAutomationScheduler } from "../../src/contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "../../src/contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.js";
 import { LegacyGameplayConnections } from "../../src/contexts/gameplay/adapters/integration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
