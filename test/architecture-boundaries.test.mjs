@@ -401,6 +401,19 @@ test("room projection reads use a dedicated query adapter", async () => {
   );
 });
 
+test("legacy room creation translates Gameplay through an integration adapter", async () => {
+  const creationSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/integration/legacy-room-creation-repository.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(creationSource, /implements RoomCreationRepository/);
+  assert.match(creationSource, /gameplay\/adapters\/engine/);
+});
+
 test("the PostgreSQL room store is a Rooms persistence adapter", async () => {
   const legacyDomainFiles = await collectSourceFiles(
     "apps/game-service/src/domain",

@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   LegacyRoomCreationRepository,
   type LegacyRoomCreationStore,
-} from "../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
+} from "../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import type { RoomCreationCommit } from "../src/contexts/rooms/application/create-room.js";
 import type {
   StoredRoom,
