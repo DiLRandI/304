@@ -516,6 +516,18 @@ test("HTTP v1 delivery depends on application use cases instead of a coordinator
   assert.match(routesSource, /SubmitGameplayCommandHandler/);
 });
 
+test("realtime delivery owns a narrow application runtime contract", async () => {
+  const realtimeSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/routes/realtime.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(realtimeSource, /delivery\/http/);
+  assert.match(realtimeSource, /player-access\/application\/player-access\.js/);
+  assert.match(realtimeSource, /rooms\/application\/get-room-projection\.js/);
+  assert.match(realtimeSource, /interface RealtimeGameRuntime/);
+});
+
 test("player access delivery is composed at the service bootstrap boundary", async () => {
   const deliverySource = await readFile(
     path.join(

@@ -1,12 +1,20 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { ServiceConfig } from "../config.js";
+import type { PlayerAccess } from "../contexts/player-access/application/player-access.js";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
-import type { GameRuntime } from "../delivery/http/v1-routes.js";
+import type { GetRoomSnapshotHandler } from "../contexts/rooms/application/get-room-projection.js";
 import type { RoomSocketHub } from "../realtime/room-socket-hub.js";
 import { ServiceError } from "../shared/service-error.js";
 
+export interface RealtimeGameRuntime {
+  readonly roomUseCases: {
+    readonly snapshot: Pick<GetRoomSnapshotHandler, "execute">;
+  };
+  readonly sessions: PlayerAccess;
+}
+
 async function validateRealtimeSeat(
-  runtime: GameRuntime,
+  runtime: RealtimeGameRuntime,
   session: AuthenticatedSession,
   roomId: string,
 ): Promise<void> {
@@ -32,7 +40,7 @@ async function validateRealtimeSeat(
 export async function registerRealtimeRoutes(
   app: FastifyInstance,
   config: ServiceConfig,
-  runtime: GameRuntime,
+  runtime: RealtimeGameRuntime,
   hub: RoomSocketHub,
 ): Promise<void> {
   const authenticatedSessions = new WeakMap<
