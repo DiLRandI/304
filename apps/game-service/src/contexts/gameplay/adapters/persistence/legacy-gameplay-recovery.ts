@@ -1,10 +1,12 @@
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
-import type { StoredRoom } from "../../../rooms/application/room-persistence-model.js";
 import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
-import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
+import type {
+  GameplayRecovery,
+  RecoverableGameplayRoom,
+} from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import {
   applyConnectionState,
@@ -22,7 +24,7 @@ export class LegacyGameplayRecovery implements GameplayRecovery {
 
   async recover(
     transaction: RoomTransaction,
-    room: StoredRoom,
+    room: RecoverableGameplayRoom,
   ): Promise<GameEngine> {
     const snapshot = await this.store.loadSnapshot(room.id, transaction);
     if (!snapshot || snapshot.eventVersion > room.eventVersion) {
