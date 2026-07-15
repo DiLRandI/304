@@ -1,11 +1,15 @@
 import type { GameEngine } from "@three-zero-four/game-engine";
-import type { StoredRoom } from "../../rooms/application/room-persistence-model.js";
-import type { RoomTransaction } from "../../rooms/application/room-persistence-store.js";
+
+export interface AutomatableRoom {
+  readonly eventVersion: number;
+  readonly id: string;
+  readonly status: string;
+}
 
 export interface AutomationScheduler {
   schedule(
-    transaction: RoomTransaction,
-    room: StoredRoom,
+    transaction: unknown,
+    room: AutomatableRoom,
     engine: GameEngine,
   ): Promise<void>;
 }

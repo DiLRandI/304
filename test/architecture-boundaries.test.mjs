@@ -381,6 +381,19 @@ test("legacy gameplay automation scheduling belongs to an Automation adapter", a
   assert.match(schedulerSource, /implements AutomationScheduler/);
 });
 
+test("the Automation scheduler port owns its room input", async () => {
+  const schedulerPortSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/automation/application/automation-scheduler.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(schedulerPortSource, /contexts\/rooms|\.\.\/\.\.\/rooms/);
+  assert.match(schedulerPortSource, /interface AutomatableRoom/);
+});
+
 test("legacy gameplay automation executes through an Automation adapter", async () => {
   const executorSource = await readFile(
     path.join(

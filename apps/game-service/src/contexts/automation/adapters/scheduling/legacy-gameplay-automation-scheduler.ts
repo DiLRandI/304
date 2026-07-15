@@ -1,6 +1,5 @@
 import type { GameEngine } from "@three-zero-four/game-engine";
 import type { RoomIdentityProvider } from "../../../rooms/application/room-identity-provider.js";
-import type { StoredRoom } from "../../../rooms/application/room-persistence-model.js";
 import type {
   RoomPersistenceStore,
   RoomTransaction,
@@ -10,7 +9,10 @@ import {
   completedTrickWinner,
   phaseTimeoutMs,
 } from "../../application/automation-policy.js";
-import type { AutomationScheduler } from "../../application/automation-scheduler.js";
+import type {
+  AutomatableRoom,
+  AutomationScheduler,
+} from "../../application/automation-scheduler.js";
 
 type AutomationStore = Pick<
   RoomPersistenceStore,
@@ -47,7 +49,7 @@ export class LegacyGameplayAutomationScheduler implements AutomationScheduler {
 
   async schedule(
     transaction: RoomTransaction,
-    room: StoredRoom,
+    room: AutomatableRoom,
     engine: GameEngine,
   ): Promise<void> {
     await this.dependencies.store.cancelAutomationForRoom(
@@ -104,7 +106,7 @@ export class LegacyGameplayAutomationScheduler implements AutomationScheduler {
 
   private async scheduleDisconnectGraceJobs(
     transaction: RoomTransaction,
-    room: StoredRoom,
+    room: AutomatableRoom,
   ): Promise<void> {
     const disconnectGraceMs =
       (this.dependencies.config?.disconnectGraceSeconds ??
