@@ -5,6 +5,7 @@ import {
   type ActiveRoomProjectionReader,
 } from "../../application/active-room-projection-reader.js";
 import type { RoomProjectionQueries } from "../../application/get-room-projection.js";
+import type { LobbyRoomProjector } from "../../application/lobby-room-projector.js";
 import { RoomApplicationError } from "../../application/room-application-error.js";
 import type { RoomLease } from "../../application/room-coordination-ports.js";
 import type { StoredRoom } from "../../application/room-persistence-model.js";
@@ -12,11 +13,11 @@ import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../application/room-persistence-store.js";
-import { projectLobbyForViewer } from "../delivery/lobby-room-presenter.js";
 
 interface RoomProjectionQueryDependencies {
   readonly activeRoomProjection: ActiveRoomProjectionReader;
   readonly lease: RoomLease;
+  readonly lobbyProjection: LobbyRoomProjector;
   readonly store: RoomPersistenceStore;
 }
 
@@ -75,7 +76,7 @@ export class RoomProjectionQueryAdapter implements RoomProjectionQueries {
           "You are not seated in this room",
         );
       }
-      return projectLobbyForViewer(
+      return this.dependencies.lobbyProjection.project(
         room,
         await this.dependencies.store.loadSeats(room.id, transaction),
         null,
@@ -89,7 +90,7 @@ export class RoomProjectionQueryAdapter implements RoomProjectionQueries {
     viewerSeatIndex: number,
   ): Promise<RoomProjection> {
     if (room.status === "lobby") {
-      return projectLobbyForViewer(
+      return this.dependencies.lobbyProjection.project(
         room,
         await this.dependencies.store.loadSeats(room.id, transaction),
         viewerSeatIndex,

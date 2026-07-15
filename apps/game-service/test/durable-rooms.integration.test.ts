@@ -143,6 +143,7 @@ async function buildRealApp(): Promise<TestRuntime> {
   const roomQueries = new RoomProjectionQueryAdapter({
     activeRoomProjection: new GameplayRoomProjectionReader(gameplayRecovery),
     lease: roomLease,
+    lobbyProjection: new LobbyRoomProjectionPresenter(),
     store,
   });
   const roomPresence = {

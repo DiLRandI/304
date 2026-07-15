@@ -2,6 +2,7 @@ import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
 import { RecoveryError } from "../src/contexts/gameplay/application/gameplay-recovery-error.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
+import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { RoomProjectionQueryAdapter } from "../src/contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import type { RoomLease } from "../src/contexts/rooms/application/room-coordination-ports.js";
@@ -82,6 +83,7 @@ function harness(
     queries: new RoomProjectionQueryAdapter({
       activeRoomProjection: new GameplayRoomProjectionReader({ recover }),
       lease,
+      lobbyProjection: new LobbyRoomProjectionPresenter(),
       store,
     }),
     recover,

@@ -517,6 +517,8 @@ test("room projection reads use a dedicated query adapter", async () => {
   assert.match(querySource, /export class RoomProjectionQueryAdapter/);
   assert.match(querySource, /implements RoomProjectionQueries/);
   assert.match(querySource, /ActiveRoomProjectionReader/);
+  assert.match(querySource, /LobbyRoomProjector/);
+  assert.doesNotMatch(querySource, /delivery\/lobby-room-presenter\.js/);
   assert.doesNotMatch(
     querySource,
     /contexts\/gameplay|\.\.\/\.\.\/\.\.\/gameplay/,

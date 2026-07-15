@@ -84,6 +84,7 @@ const roomCommands = new ExecuteRoomCommandHandler(
 const roomQueries = new RoomProjectionQueryAdapter({
   activeRoomProjection: new GameplayRoomProjectionReader(gameplayRecovery),
   lease: roomLease,
+  lobbyProjection: new LobbyRoomProjectionPresenter(),
   store,
 });
 const roomPresence = {

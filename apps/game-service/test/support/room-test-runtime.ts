@@ -106,6 +106,7 @@ export class RoomTestRuntime {
     const queries = new RoomProjectionQueryAdapter({
       activeRoomProjection: new GameplayRoomProjectionReader(recovery),
       lease,
+      lobbyProjection: new LobbyRoomProjectionPresenter(),
       store: this.store,
     });
     const roomPresence = {
