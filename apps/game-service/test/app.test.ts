@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildApp, loadConfig, redactSensitiveRequestUrl } from "../src/app.js";
+import { loadConfig } from "../src/config.js";
 import { RoomApplicationError } from "../src/contexts/rooms/application/execute-room-command.js";
+import {
+  buildApp,
+  redactSensitiveRequestUrl,
+} from "../src/delivery/http/http-app.js";
 import type { GameRuntime } from "../src/delivery/http/v1-routes.js";
 import type { RoomSocketHub } from "../src/delivery/realtime/room-socket-hub.js";
 

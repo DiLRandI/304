@@ -621,10 +621,7 @@ test("Fastify application assembly belongs to HTTP delivery", async () => {
     path.join(repoRoot, "apps/game-service/src/delivery/http/http-app.ts"),
     "utf8",
   );
-  const compatibilitySource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/app.ts"),
-    "utf8",
-  );
+  const serviceSourceFiles = await collectSourceFiles("apps/game-service/src");
   const bootstrapSource = await readFile(
     path.join(repoRoot, "apps/game-service/src/bootstrap/server-runtime.ts"),
     "utf8",
@@ -632,8 +629,10 @@ test("Fastify application assembly belongs to HTTP delivery", async () => {
 
   assert.match(httpAppSource, /export async function buildApp/);
   assert.match(httpAppSource, /from ["']fastify["']/);
-  assert.doesNotMatch(compatibilitySource, /from ["']fastify["']/);
-  assert.match(compatibilitySource, /delivery\/http\/http-app\.js/);
+  assert.equal(
+    serviceSourceFiles.includes("apps/game-service/src/app.ts"),
+    false,
+  );
   assert.match(bootstrapSource, /delivery\/http\/http-app\.js/);
   assert.match(bootstrapSource, /\.\.\/config\.js/);
 });
@@ -954,10 +953,9 @@ test("runtime adapters use the shared service error name", async () => {
 });
 
 test("transport delivery uses the shared service error name", async () => {
-  const deliveryFiles = [
-    "apps/game-service/src/app.ts",
-    ...(await collectSourceFiles("apps/game-service/src/delivery")),
-  ];
+  const deliveryFiles = await collectSourceFiles(
+    "apps/game-service/src/delivery",
+  );
   for (const filename of deliveryFiles) {
     const source = await readFile(path.join(repoRoot, filename), "utf8");
     assert.doesNotMatch(source, /DomainError/, filename);

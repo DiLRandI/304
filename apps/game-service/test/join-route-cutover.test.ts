@@ -7,7 +7,8 @@ import {
   roomId,
 } from "@three-zero-four/room-domain";
 import { describe, expect, it, vi } from "vitest";
-import { buildApp, loadConfig } from "../src/app.js";
+import { loadConfig } from "../src/config.js";
+import { buildApp } from "../src/delivery/http/http-app.js";
 import type { GameRuntime } from "../src/delivery/http/v1-routes.js";
 
 const config = loadConfig({
