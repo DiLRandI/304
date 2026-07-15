@@ -518,6 +518,26 @@ test("room projection reads use a dedicated query adapter", async () => {
   );
 });
 
+test("lobby projection is exposed through a Rooms application port", async () => {
+  const portSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/application/lobby-room-projector.ts",
+    ),
+    "utf8",
+  );
+  const presenterSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/delivery/lobby-room-presenter.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(portSource, /export interface LobbyRoomProjector/);
+  assert.match(presenterSource, /implements LobbyRoomProjector/);
+});
+
 test("legacy room creation translates Gameplay through an integration adapter", async () => {
   const creationSource = await readFile(
     path.join(

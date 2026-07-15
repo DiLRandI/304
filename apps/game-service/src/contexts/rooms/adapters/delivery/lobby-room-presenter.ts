@@ -1,5 +1,10 @@
 import type { RoomProjection, RuleProfileId } from "@three-zero-four/contracts";
+import type { LobbyRoomProjector } from "../../application/lobby-room-projector.js";
 import { RoomApplicationError } from "../../application/room-application-error.js";
+import type {
+  StoredRoom,
+  StoredSeat,
+} from "../../application/room-persistence-model.js";
 
 type ProjectableStatus = "lobby" | "in_hand" | "hand_result";
 
@@ -61,4 +66,14 @@ export function projectLobbyForViewer(
       },
     },
   };
+}
+
+export class LobbyRoomProjectionPresenter implements LobbyRoomProjector {
+  project(
+    room: StoredRoom,
+    seats: readonly StoredSeat[],
+    viewerSeatIndex: number | null,
+  ): RoomProjection {
+    return projectLobbyForViewer(room, seats, viewerSeatIndex);
+  }
 }
