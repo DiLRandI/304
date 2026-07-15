@@ -3,7 +3,7 @@ import { z } from "zod";
 import type {
   RoomChangedNotice,
   RoomChangePublisher,
-} from "../contexts/rooms/application/room-change-notification.js";
+} from "../../contexts/rooms/application/room-change-notification.js";
 
 export const ROOM_CHANGED_CHANNEL = "g304:room-changed";
 

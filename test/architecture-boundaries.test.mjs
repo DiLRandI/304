@@ -481,12 +481,21 @@ test("room change notifications belong to the Rooms application", async () => {
     path.join(repoRoot, "apps/game-service/src/realtime/outbox-publisher.ts"),
     "utf8",
   );
+  const redisAdapterSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/platform/redis/redis-room-change-bus.ts",
+    ),
+    "utf8",
+  );
 
   assert.match(notificationSource, /export interface RoomChangedNotice/);
   assert.match(notificationSource, /export interface RoomChangePublisher/);
   assert.doesNotMatch(notificationSource, /from ["'](?:redis|zod)["']/);
   assert.match(hubSource, /application\/room-change-notification\.js/);
   assert.match(publisherSource, /application\/room-change-notification\.js/);
+  assert.match(redisAdapterSource, /implements RoomChangePublisher/);
+  assert.match(redisAdapterSource, /from ["']redis["']/);
 });
 
 test("the websocket hub separates snapshot queries from connection mutations", async () => {

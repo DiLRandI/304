@@ -35,9 +35,9 @@ import {
 } from "./platform/observability/redis-service-telemetry.js";
 import { createDatabase } from "./platform/postgres/database.js";
 import { createRedis } from "./platform/redis/redis-client.js";
+import { RedisRoomChangeBus } from "./platform/redis/redis-room-change-bus.js";
 import { RateLimiter } from "./platform/redis/request-rate-limiter.js";
 import { OutboxPublisher } from "./realtime/outbox-publisher.js";
-import { RedisRoomChangeBus } from "./realtime/room-change-bus.js";
 
 const config = loadConfig();
 const database = createDatabase(config.DATABASE_URL);

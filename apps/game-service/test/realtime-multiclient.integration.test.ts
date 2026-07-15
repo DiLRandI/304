@@ -37,12 +37,12 @@ import {
   createDatabase,
   type Database,
 } from "../src/platform/postgres/database.js";
-import { RateLimiter } from "../src/platform/redis/request-rate-limiter.js";
-import { OutboxPublisher } from "../src/realtime/outbox-publisher.js";
 import {
   RedisRoomChangeBus,
   ROOM_CHANGED_CHANNEL,
-} from "../src/realtime/room-change-bus.js";
+} from "../src/platform/redis/redis-room-change-bus.js";
+import { RateLimiter } from "../src/platform/redis/request-rate-limiter.js";
+import { OutboxPublisher } from "../src/realtime/outbox-publisher.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
