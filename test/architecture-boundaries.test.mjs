@@ -117,6 +117,26 @@ function assertAllowedImport(filename, specifier) {
     }
   }
 
+  const adapterContext = normalized.match(
+    /^apps\/game-service\/src\/contexts\/([^/]+)\/adapters\/([^/]+)\//,
+  );
+  if (adapterContext && specifier.startsWith(".")) {
+    const [, sourceContext, adapterLayer] = adapterContext;
+    const target = path.posix.normalize(
+      path.posix.join(path.posix.dirname(normalized), specifier),
+    );
+    const targetContext = target.match(
+      /^apps\/game-service\/src\/contexts\/([^/]+)\//,
+    )?.[1];
+    if (targetContext && targetContext !== sourceContext) {
+      assert.equal(
+        adapterLayer,
+        "integration",
+        `${normalized} cross-context adapter imports must live in integration`,
+      );
+    }
+  }
+
   if (normalized.startsWith("apps/web/src/")) {
     assert.equal(
       [
@@ -198,6 +218,17 @@ test("application contracts cannot import another bounded context", () => {
         "../../rooms/application/example.js",
       ),
     /Gameplay application cannot import Rooms context/,
+  );
+});
+
+test("cross-context adapters must be explicit integration adapters", () => {
+  assert.throws(
+    () =>
+      assertAllowedImport(
+        "apps/game-service/src/contexts/gameplay/adapters/orchestration/example.ts",
+        "../../../rooms/application/example.js",
+      ),
+    /cross-context adapter imports must live in integration/,
   );
 });
 
