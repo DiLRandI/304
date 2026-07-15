@@ -176,6 +176,6 @@ describe("execute room command application handler", () => {
         commandId: roomCommandId,
         roomReference: "304-AbCdEfGhIjKl_123",
       }),
-    ).rejects.toMatchObject({ code: "HOST_REQUIRED", statusCode: 403 });
+    ).rejects.toMatchObject({ code: "HOST_REQUIRED" });
   });
 });

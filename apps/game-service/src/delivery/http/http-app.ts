@@ -82,6 +82,12 @@ function serializeRequestForLog(request: FastifyRequest): SerializedRequestLog {
   return serialized;
 }
 
+function roomApplicationStatus(code: string): 403 | 404 | 409 {
+  if (code === "ROOM_NOT_FOUND") return 404;
+  if (code === "HOST_REQUIRED" || code === "SEAT_REQUIRED") return 403;
+  return 409;
+}
+
 export async function buildApp({
   config,
   readiness,
@@ -191,7 +197,7 @@ export async function buildApp({
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof RoomApplicationError) {
       return reply
-        .code(error.statusCode)
+        .code(roomApplicationStatus(error.code))
         .send({ error: { code: error.code, message: error.message } });
     }
     if (error instanceof PlayerAccessError) {

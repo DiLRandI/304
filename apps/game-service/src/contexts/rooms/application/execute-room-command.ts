@@ -46,20 +46,12 @@ export interface ExecuteRoomCommandInput {
 }
 
 export class RoomApplicationError extends Error {
-  readonly statusCode: number;
-
   constructor(
     readonly code: string,
     message: string,
   ) {
     super(message);
     this.name = "RoomApplicationError";
-    this.statusCode =
-      code === "ROOM_NOT_FOUND"
-        ? 404
-        : code === "HOST_REQUIRED" || code === "SEAT_REQUIRED"
-          ? 403
-          : 409;
   }
 }
 
