@@ -7,7 +7,6 @@ import { PostgresRoomStore } from "./contexts/rooms/adapters/persistence/postgre
 import { NodeRoomIdentityProvider } from "./contexts/rooms/adapters/security/node-room-identity-provider.js";
 import { RoomMaintenance } from "./contexts/rooms/application/room-maintenance.js";
 import { createDatabase } from "./infra/database.js";
-import { createReadiness } from "./infra/readiness.js";
 import { createRedis } from "./infra/redis.js";
 import {
   AutomationTelemetry,
@@ -16,6 +15,7 @@ import {
   RoomLease,
   WorkerTelemetry,
 } from "./infra/redis-coordination.js";
+import { createReadiness } from "./platform/health/dependency-readiness.js";
 import { AutomationWorker } from "./worker/automation-worker.js";
 import { RoomMaintenanceWorker } from "./worker/room-maintenance-worker.js";
 

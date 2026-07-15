@@ -24,7 +24,6 @@ import { JoinRoomHandler } from "./contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "./contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "./contexts/rooms/application/start-room.js";
 import { createDatabase } from "./infra/database.js";
-import { createReadiness } from "./infra/readiness.js";
 import { createRedis } from "./infra/redis.js";
 import {
   AutomationTelemetry,
@@ -35,6 +34,7 @@ import {
   WorkerTelemetry,
 } from "./infra/redis-coordination.js";
 import { createMetrics } from "./metrics.js";
+import { createReadiness } from "./platform/health/dependency-readiness.js";
 import { OutboxPublisher } from "./realtime/outbox-publisher.js";
 import { RedisRoomChangeBus } from "./realtime/room-change-bus.js";
 import { RoomSocketHub } from "./realtime/room-socket-hub.js";

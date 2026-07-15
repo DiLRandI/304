@@ -736,3 +736,16 @@ test("transport delivery uses the shared service error name", async () => {
     assert.doesNotMatch(source, /DomainError/, filename);
   }
 });
+
+test("dependency readiness is a platform health adapter", async () => {
+  const readinessSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/platform/health/dependency-readiness.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(readinessSource, /database\.health\(\)/);
+  assert.match(readinessSource, /redis\.ping\(\)/);
+});
