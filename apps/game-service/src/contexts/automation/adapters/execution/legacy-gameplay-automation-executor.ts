@@ -1,4 +1,3 @@
-import { ServiceError } from "../../../../shared/service-error.js";
 import type { GameplayRecovery } from "../../../gameplay/application/gameplay-recovery.js";
 import { RecoveryError } from "../../../gameplay/application/gameplay-recovery-error.js";
 import { activeRoomStatus } from "../../../gameplay/application/gameplay-room-status.js";
@@ -14,6 +13,7 @@ import type {
   RoomPersistenceStore,
   RoomTransaction,
 } from "../../../rooms/application/room-persistence-store.js";
+import { AutomationExecutionError } from "../../application/automation-execution-error.js";
 import {
   activeSeatIndex,
   completedTrickWinner,
@@ -29,16 +29,22 @@ interface LegacyGameplayAutomationDependencies {
   readonly store: RoomPersistenceStore;
 }
 
-function roomNotFound(): ServiceError {
-  return new ServiceError("ROOM_NOT_FOUND", 404, "Room was not found");
+function roomNotFound(): AutomationExecutionError {
+  return new AutomationExecutionError("ROOM_NOT_FOUND", "Room was not found");
 }
 
 function ensureAvailable(room: StoredRoom): void {
   if (room.status === "recovery_failed") {
-    throw new ServiceError("ROOM_RECOVERY_FAILED", 503, "Room is unavailable");
+    throw new AutomationExecutionError(
+      "ROOM_RECOVERY_FAILED",
+      "Room is unavailable",
+    );
   }
   if (room.status === "closed") {
-    throw new ServiceError("ROOM_UNAVAILABLE", 409, "Room is unavailable");
+    throw new AutomationExecutionError(
+      "ROOM_UNAVAILABLE",
+      "Room is unavailable",
+    );
   }
 }
 
@@ -69,9 +75,8 @@ export class LegacyGameplayAutomationExecutor {
         }
         const result = engine.advanceTrick();
         if (!result.ok) {
-          throw new ServiceError(
+          throw new AutomationExecutionError(
             "AUTOMATION_ACTION_REJECTED",
-            500,
             "Trick advancement was rejected",
           );
         }
@@ -161,9 +166,8 @@ export class LegacyGameplayAutomationExecutor {
       if (!action) return "stale";
       const result = engine.applyAutomationAction(action, job.targetSeatIndex);
       if (!result.ok) {
-        throw new ServiceError(
+        throw new AutomationExecutionError(
           "AUTOMATION_ACTION_REJECTED",
-          500,
           "Automation action was rejected",
         );
       }
@@ -214,9 +218,8 @@ export class LegacyGameplayAutomationExecutor {
           roomId,
           "Snapshot replay failed",
         );
-        throw new ServiceError(
+        throw new AutomationExecutionError(
           "ROOM_RECOVERY_FAILED",
-          503,
           "Room is unavailable",
         );
       }

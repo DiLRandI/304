@@ -352,6 +352,8 @@ test("legacy gameplay automation executes through an Automation adapter", async 
   );
 
   assert.match(executorSource, /export class LegacyGameplayAutomationExecutor/);
+  assert.doesNotMatch(executorSource, /shared\/service-error\.js/);
+  assert.match(executorSource, /application\/automation-execution-error\.js/);
   assert.match(workerSource, /new LegacyGameplayAutomationExecutor/);
 });
 
