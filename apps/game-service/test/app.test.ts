@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { GameplayApplicationError } from "../src/contexts/gameplay/application/gameplay-application-error.js";
 import { PlayerAccessError } from "../src/contexts/player-access/application/player-access.js";
 import { RoomApplicationError } from "../src/contexts/rooms/application/room-application-error.js";
 import { RoomLeaseBusyError } from "../src/contexts/rooms/application/room-coordination-ports.js";
@@ -308,6 +309,38 @@ describe("game service health surface", () => {
     expect(unavailable.statusCode).toBe(503);
     expect(unavailable.json()).toEqual({
       error: { code: "ROOM_UNAVAILABLE", message: "Room is unavailable" },
+    });
+    await app.close();
+  });
+
+  it("maps gameplay application errors at the HTTP delivery boundary", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/gameplay-forbidden", async () => {
+      throw new GameplayApplicationError(
+        "SEAT_REQUIRED",
+        "A player seat is required",
+      );
+    });
+    app.get("/gameplay-unavailable", async () => {
+      throw new GameplayApplicationError(
+        "ROOM_RECOVERY_FAILED",
+        "Room is unavailable",
+      );
+    });
+
+    const forbidden = await app.inject("/gameplay-forbidden");
+    expect(forbidden.statusCode).toBe(403);
+    expect(forbidden.json()).toEqual({
+      error: { code: "SEAT_REQUIRED", message: "A player seat is required" },
+    });
+
+    const unavailable = await app.inject("/gameplay-unavailable");
+    expect(unavailable.statusCode).toBe(503);
+    expect(unavailable.json()).toEqual({
+      error: { code: "ROOM_RECOVERY_FAILED", message: "Room is unavailable" },
     });
     await app.close();
   });

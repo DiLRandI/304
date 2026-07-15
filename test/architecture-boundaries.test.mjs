@@ -250,6 +250,27 @@ test("Rooms application errors do not carry transport status", async () => {
   assert.match(deliverySource, /roomApplicationStatus\(error\.kind\)/);
 });
 
+test("Gameplay application errors do not carry transport status", async () => {
+  const applicationSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/application/gameplay-application-error.ts",
+    ),
+    "utf8",
+  );
+  const deliverySource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/delivery/http/http-app.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(applicationSource, /statusCode/);
+  assert.match(
+    applicationSource,
+    /readonly kind: GameplayApplicationErrorKind/,
+  );
+  assert.match(deliverySource, /gameplayApplicationStatus\(error\.kind\)/);
+});
+
 test("gameplay recovery errors belong to the Gameplay application", async () => {
   const recoverySource = await readFile(
     path.join(

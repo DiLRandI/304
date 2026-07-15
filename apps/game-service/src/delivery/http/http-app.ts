@@ -9,6 +9,10 @@ import Fastify, {
   LogController,
 } from "fastify";
 import { ZodError } from "zod";
+import {
+  GameplayApplicationError,
+  type GameplayApplicationErrorKind,
+} from "../../contexts/gameplay/application/gameplay-application-error.js";
 import { PlayerAccessError } from "../../contexts/player-access/application/player-access.js";
 import {
   RoomApplicationError,
@@ -87,6 +91,16 @@ function serializeRequestForLog(request: FastifyRequest): SerializedRequestLog {
 
 function roomApplicationStatus(
   kind: RoomApplicationErrorKind,
+): 403 | 404 | 409 | 500 | 503 {
+  if (kind === "forbidden") return 403;
+  if (kind === "not_found") return 404;
+  if (kind === "internal") return 500;
+  if (kind === "unavailable") return 503;
+  return 409;
+}
+
+function gameplayApplicationStatus(
+  kind: GameplayApplicationErrorKind,
 ): 403 | 404 | 409 | 500 | 503 {
   if (kind === "forbidden") return 403;
   if (kind === "not_found") return 404;
@@ -202,6 +216,11 @@ export async function buildApp({
       .send(await metrics.registry.metrics());
   });
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof GameplayApplicationError) {
+      return reply
+        .code(gameplayApplicationStatus(error.kind))
+        .send({ error: { code: error.code, message: error.message } });
+    }
     if (error instanceof RoomApplicationError) {
       return reply
         .code(roomApplicationStatus(error.kind))
