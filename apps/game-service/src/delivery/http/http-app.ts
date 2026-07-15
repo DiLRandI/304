@@ -10,7 +10,7 @@ import Fastify, {
 } from "fastify";
 import { ZodError } from "zod";
 import { PlayerAccessError } from "../../contexts/player-access/application/player-access.js";
-import { RoomApplicationError } from "../../contexts/rooms/application/execute-room-command.js";
+import { RoomApplicationError } from "../../contexts/rooms/application/room-application-error.js";
 import { RoomLeaseBusyError } from "../../contexts/rooms/application/room-coordination-ports.js";
 import type { ServiceConfig } from "../../platform/config/service-config.js";
 import {

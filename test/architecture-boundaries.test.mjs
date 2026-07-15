@@ -236,7 +236,7 @@ test("Rooms application errors do not carry transport status", async () => {
   const applicationSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/rooms/application/execute-room-command.ts",
+      "apps/game-service/src/contexts/rooms/application/room-application-error.ts",
     ),
     "utf8",
   );

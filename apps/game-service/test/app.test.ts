@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { PlayerAccessError } from "../src/contexts/player-access/application/player-access.js";
-import { RoomApplicationError } from "../src/contexts/rooms/application/execute-room-command.js";
+import { RoomApplicationError } from "../src/contexts/rooms/application/room-application-error.js";
 import { RoomLeaseBusyError } from "../src/contexts/rooms/application/room-coordination-ports.js";
 import {
   buildApp,

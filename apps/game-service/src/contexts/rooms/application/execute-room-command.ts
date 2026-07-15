@@ -10,6 +10,7 @@ import {
   type RoomId,
   type RoomProjection,
 } from "@three-zero-four/room-domain";
+import { RoomApplicationError } from "./room-application-error.js";
 
 export interface RoomCommandCommit {
   readonly actorPlayerId: PlayerId;
@@ -43,16 +44,6 @@ export interface ExecuteRoomCommandInput {
   readonly command: RoomCommand;
   readonly commandId: CommandId;
   readonly roomReference: string;
-}
-
-export class RoomApplicationError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-    this.name = "RoomApplicationError";
-  }
 }
 
 const expectedRepositoryErrors = new Set([

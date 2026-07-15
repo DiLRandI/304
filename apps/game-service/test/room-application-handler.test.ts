@@ -12,10 +12,10 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   ExecuteRoomCommandHandler,
-  RoomApplicationError,
   type RoomCommandCommit,
   type RoomCommandRepository,
 } from "../src/contexts/rooms/application/execute-room-command.js";
+import { RoomApplicationError } from "../src/contexts/rooms/application/room-application-error.js";
 
 const hostId = playerId("9c9c7530-224f-4d5e-b354-1c78df2f063b");
 const guestId = playerId("28fc47b6-e8ef-4de7-8c43-7e027a41d70f");
