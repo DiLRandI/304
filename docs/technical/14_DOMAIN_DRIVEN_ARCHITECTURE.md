@@ -152,6 +152,7 @@ TypeScript compiler dependency and rejects:
 
 - framework or infrastructure imports from pure domain packages;
 - adapter, delivery, or platform imports from service domain/application code;
+- imports from one bounded context's application layer into another context;
 - authoritative domain package imports from the browser;
 - outward framework or feature-layer imports from frontend model/application code;
 - ownerless files in the browser's generic `src/components` directory;

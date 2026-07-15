@@ -16,6 +16,12 @@ const sourceRoots = [
   "apps/web/src",
 ];
 const sourceExtensions = new Set([".js", ".jsx", ".ts", ".tsx"]);
+const contextLabels = {
+  automation: "Automation",
+  gameplay: "Gameplay",
+  "player-access": "Player Access",
+  rooms: "Rooms",
+};
 
 async function collectSourceFiles(relativeDirectory) {
   const absoluteDirectory = path.join(repoRoot, relativeDirectory);
@@ -92,6 +98,25 @@ function assertAllowedImport(filename, specifier) {
     );
   }
 
+  const applicationContext = normalized.match(
+    /^apps\/game-service\/src\/contexts\/([^/]+)\/application\//,
+  )?.[1];
+  if (applicationContext && specifier.startsWith(".")) {
+    const target = path.posix.normalize(
+      path.posix.join(path.posix.dirname(normalized), specifier),
+    );
+    const targetContext = target.match(
+      /^apps\/game-service\/src\/contexts\/([^/]+)\//,
+    )?.[1];
+    if (targetContext) {
+      assert.equal(
+        targetContext,
+        applicationContext,
+        `${contextLabels[applicationContext] ?? applicationContext} application cannot import ${contextLabels[targetContext] ?? targetContext} context`,
+      );
+    }
+  }
+
   if (normalized.startsWith("apps/web/src/")) {
     assert.equal(
       [
@@ -164,6 +189,17 @@ function assertAcyclic(graph) {
 
   for (const filename of graph.keys()) visit(filename);
 }
+
+test("application contracts cannot import another bounded context", () => {
+  assert.throws(
+    () =>
+      assertAllowedImport(
+        "apps/game-service/src/contexts/gameplay/application/example.ts",
+        "../../rooms/application/example.js",
+      ),
+    /Gameplay application cannot import Rooms context/,
+  );
+});
 
 test("documents and enforces the DDD dependency direction", async () => {
   const documentation = await readFile(architectureDocument, "utf8");
