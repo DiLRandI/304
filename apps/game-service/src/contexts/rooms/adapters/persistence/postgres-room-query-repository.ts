@@ -9,7 +9,7 @@ import type {
 } from "@three-zero-four/room-domain";
 import type { QueryResultRow } from "pg";
 import { z } from "zod";
-import type { Database } from "../../../../infra/database.js";
+import type { Database } from "../../../../platform/postgres/database.js";
 import type { RoomCommandReader } from "../../application/execute-room-command.js";
 import { mapPersistedRoomProjection } from "./room-projection-record-mapper.js";
 import {

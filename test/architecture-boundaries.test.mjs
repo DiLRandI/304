@@ -585,6 +585,19 @@ test("Gameplay persistence uses the platform database contract", async () => {
   );
 });
 
+test("Rooms query persistence uses the platform database contract", async () => {
+  const querySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/persistence/postgres-room-query-repository.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(querySource, /infra\/database\.js/);
+  assert.match(querySource, /platform\/postgres\/database\.js/);
+});
+
 test("durability integration coverage composes room application handlers", async () => {
   const integrationSource = await readFile(
     path.join(repoRoot, "apps/game-service/test/room-coordinator.test.ts"),
