@@ -1,10 +1,12 @@
 import type { RoomProjection } from "@three-zero-four/contracts";
-import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import {
   ActiveRoomProjectionError,
   type ActiveRoomProjectionReader,
 } from "../../application/active-room-projection-reader.js";
-import type { RoomProjectionQueries } from "../../application/get-room-projection.js";
+import type {
+  RoomProjectionQueries,
+  RoomViewer,
+} from "../../application/get-room-projection.js";
 import type { LobbyRoomProjector } from "../../application/lobby-room-projector.js";
 import { RoomApplicationError } from "../../application/room-application-error.js";
 import type { RoomLease } from "../../application/room-coordination-ports.js";
@@ -41,7 +43,7 @@ export class RoomProjectionQueryAdapter implements RoomProjectionQueries {
   constructor(private readonly dependencies: RoomProjectionQueryDependencies) {}
 
   async getSnapshot(
-    session: AuthenticatedSession,
+    session: RoomViewer,
     roomId: string,
   ): Promise<RoomProjection> {
     return this.withRoomLease(roomId, async (transaction, room) => {
@@ -55,7 +57,7 @@ export class RoomProjectionQueryAdapter implements RoomProjectionQueries {
   }
 
   async getRoom(
-    session: AuthenticatedSession,
+    session: RoomViewer,
     roomReference: string,
   ): Promise<RoomProjection> {
     const referencedRoom =

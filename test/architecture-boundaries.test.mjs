@@ -594,6 +594,19 @@ test("room projection reads use a dedicated query adapter", async () => {
   );
 });
 
+test("the Rooms projection application owns its viewer contract", async () => {
+  const querySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/application/get-room-projection.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(querySource, /player-access\/application/);
+  assert.match(querySource, /interface RoomViewer/);
+});
+
 test("lobby projection is exposed through a Rooms application port", async () => {
   const portSource = await readFile(
     path.join(

@@ -1,29 +1,26 @@
 import type { RoomProjection } from "@three-zero-four/contracts";
-import type { AuthenticatedSession } from "../../player-access/application/player-session-ports.js";
+
+export interface RoomViewer {
+  readonly playerId: string;
+}
 
 export interface RoomProjectionQueries {
-  getRoom(
-    session: AuthenticatedSession,
-    roomReference: string,
-  ): Promise<RoomProjection>;
-  getSnapshot(
-    session: AuthenticatedSession,
-    roomId: string,
-  ): Promise<RoomProjection>;
+  getRoom(session: RoomViewer, roomReference: string): Promise<RoomProjection>;
+  getSnapshot(session: RoomViewer, roomId: string): Promise<RoomProjection>;
 }
 
 export interface RoomPresenceRefresher {
-  refresh(session: AuthenticatedSession, roomId: string): Promise<void>;
+  refresh(session: RoomViewer, roomId: string): Promise<void>;
 }
 
 export interface GetRoomSnapshotInput {
   readonly roomId: string;
-  readonly session: AuthenticatedSession;
+  readonly session: RoomViewer;
 }
 
 export interface GetRoomInput {
   readonly roomReference: string;
-  readonly session: AuthenticatedSession;
+  readonly session: RoomViewer;
 }
 
 export class GetRoomSnapshotHandler {
