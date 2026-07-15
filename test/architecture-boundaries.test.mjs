@@ -299,7 +299,7 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
     "utf8",
   );
   const serverSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/server.ts"),
+    path.join(repoRoot, "apps/game-service/src/bootstrap/server-runtime.ts"),
     "utf8",
   );
 
@@ -374,13 +374,32 @@ test("the web server composes realtime connections without a room coordinator", 
     "utf8",
   );
   const serverSource = await readFile(
-    path.join(repoRoot, "apps/game-service/src/server.ts"),
+    path.join(repoRoot, "apps/game-service/src/bootstrap/server-runtime.ts"),
     "utf8",
   );
 
   assert.match(connectionsSource, /export class LegacyGameplayConnections/);
   assert.match(serverSource, /new LegacyGameplayConnections/);
   assert.doesNotMatch(serverSource, /new RoomCoordinator/);
+});
+
+test("the server entrypoint delegates composition to bootstrap", async () => {
+  const entrypointSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/server.ts"),
+    "utf8",
+  );
+  const bootstrapSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/bootstrap/server-runtime.ts"),
+    "utf8",
+  );
+
+  assert.match(
+    entrypointSource,
+    /import ["']\.\/bootstrap\/server-runtime\.js["']/,
+  );
+  assert.doesNotMatch(entrypointSource, /\bnew\s+/);
+  assert.match(bootstrapSource, /await buildApp/);
+  assert.match(bootstrapSource, /await app\.listen/);
 });
 
 test("room projection reads use a dedicated query adapter", async () => {
