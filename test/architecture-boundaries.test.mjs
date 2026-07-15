@@ -548,6 +548,8 @@ test("the PostgreSQL room store is a Rooms persistence adapter", async () => {
   );
   assert.match(adapterSource, /export class PostgresRoomStore/);
   assert.doesNotMatch(adapterSource, /DomainError/);
+  assert.doesNotMatch(adapterSource, /shared\/service-error\.js/);
+  assert.match(adapterSource, /application\/room-application-error\.js/);
 });
 
 test("the automation worker depends on behavioral ports", async () => {

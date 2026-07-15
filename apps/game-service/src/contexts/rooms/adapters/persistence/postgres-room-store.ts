@@ -1,7 +1,6 @@
 import type { RuleProfileId } from "@three-zero-four/contracts";
 import type { QueryResultRow } from "pg";
 import type { Database } from "../../../../platform/postgres/database.js";
-import { ServiceError } from "../../../../shared/service-error.js";
 import { RoomApplicationError } from "../../application/room-application-error.js";
 import type {
   AutomationJobKind,
@@ -802,7 +801,10 @@ export class PostgresRoomStore {
       [id, owner],
     );
     if (updated.rows.length !== 1) {
-      throw new ServiceError("OUTBOX_CLAIM_LOST", 409, "Outbox claim was lost");
+      throw new RoomApplicationError(
+        "OUTBOX_CLAIM_LOST",
+        "Outbox claim was lost",
+      );
     }
   }
 
@@ -816,7 +818,10 @@ export class PostgresRoomStore {
       [id, owner, error.slice(0, 500)],
     );
     if (updated.rows.length !== 1) {
-      throw new ServiceError("OUTBOX_CLAIM_LOST", 409, "Outbox claim was lost");
+      throw new RoomApplicationError(
+        "OUTBOX_CLAIM_LOST",
+        "Outbox claim was lost",
+      );
     }
   }
 
@@ -863,9 +868,8 @@ export class PostgresRoomStore {
       [id, owner],
     );
     if (updated.rows.length !== 1) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "AUTOMATION_CLAIM_LOST",
-        409,
         "Automation job claim was lost",
       );
     }
@@ -881,9 +885,8 @@ export class PostgresRoomStore {
       [id, owner, error.slice(0, 500)],
     );
     if (updated.rows.length !== 1) {
-      throw new ServiceError(
+      throw new RoomApplicationError(
         "AUTOMATION_CLAIM_LOST",
-        409,
         "Automation job claim was lost",
       );
     }
