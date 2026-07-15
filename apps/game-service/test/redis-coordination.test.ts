@@ -3,6 +3,7 @@ import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
+import { RoomLeaseBusyError } from "../src/contexts/rooms/application/room-coordination-ports.js";
 import {
   AutomationTelemetry,
   MaintenanceTelemetry,
@@ -29,10 +30,7 @@ describeIntegration("Redis game coordination", () => {
 
     await expect(
       lease.withLease(roomId, async () => "accepted"),
-    ).rejects.toMatchObject({
-      code: "ROOM_BUSY",
-      statusCode: 503,
-    });
+    ).rejects.toBeInstanceOf(RoomLeaseBusyError);
   });
 
   it("waits briefly for a contended lease that is about to expire", async () => {

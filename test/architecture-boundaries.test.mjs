@@ -782,8 +782,19 @@ test("Redis room leasing is a Rooms coordination adapter", async () => {
     ),
     "utf8",
   );
+  const portSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/application/room-coordination-ports.ts",
+    ),
+    "utf8",
+  );
   assert.match(leaseSource, /export class RedisRoomLease/);
   assert.match(leaseSource, /application\/room-coordination-ports\.js/);
+  assert.match(leaseSource, /RoomLeaseBusyError/);
+  assert.doesNotMatch(leaseSource, /shared\/service-error\.js/);
+  assert.match(portSource, /export class RoomLeaseBusyError/);
+  assert.doesNotMatch(portSource, /statusCode/);
 });
 
 test("Redis room presence is a Rooms coordination adapter", async () => {

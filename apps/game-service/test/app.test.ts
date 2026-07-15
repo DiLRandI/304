@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { RoomApplicationError } from "../src/contexts/rooms/application/execute-room-command.js";
+import { RoomLeaseBusyError } from "../src/contexts/rooms/application/room-coordination-ports.js";
 import {
   buildApp,
   redactSensitiveRequestUrl,
@@ -213,6 +214,24 @@ describe("game service bootstrap", () => {
 });
 
 describe("game service health surface", () => {
+  it("maps room lease contention at the HTTP delivery boundary", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/room-busy", async () => {
+      throw new RoomLeaseBusyError();
+    });
+
+    const response = await app.inject("/room-busy");
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({
+      error: { code: "ROOM_BUSY", message: "Room is busy; retry shortly" },
+    });
+    await app.close();
+  });
+
   it("presents room application errors through the public error contract", async () => {
     const app = await buildApp({
       config,

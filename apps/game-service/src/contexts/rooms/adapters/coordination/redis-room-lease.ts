@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { RedisClientType } from "redis";
-import { ServiceError } from "../../../../shared/service-error.js";
-import type { RoomLease as RoomLeasePort } from "../../application/room-coordination-ports.js";
+import {
+  RoomLeaseBusyError,
+  type RoomLease as RoomLeasePort,
+} from "../../application/room-coordination-ports.js";
 
 const RELEASE_LEASE_SCRIPT =
   "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0";
@@ -38,7 +40,7 @@ export class RedisRoomLease implements RoomLeasePort {
 
       const retryDelayMs = ROOM_LEASE_RETRY_DELAYS_MS[attempt];
       if (retryDelayMs === undefined) {
-        throw new ServiceError("ROOM_BUSY", 503, "Room is busy; retry shortly");
+        throw new RoomLeaseBusyError();
       }
       await new Promise<void>((resolve) => {
         setTimeout(resolve, retryDelayMs);

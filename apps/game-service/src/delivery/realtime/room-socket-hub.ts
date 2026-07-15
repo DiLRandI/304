@@ -6,7 +6,7 @@ import {
 import type WebSocket from "ws";
 import type { AuthenticatedSession } from "../../contexts/player-access/application/player-session-ports.js";
 import type { RoomChangedNotice } from "../../contexts/rooms/application/room-change-notification.js";
-import { ServiceError } from "../../shared/service-error.js";
+import { RoomLeaseBusyError } from "../../contexts/rooms/application/room-coordination-ports.js";
 
 export interface RoomSocketSnapshotQuery {
   execute(input: {
@@ -199,11 +199,7 @@ export class RoomSocketHub {
           session: connection.session,
         });
       } catch (error) {
-        if (
-          !(error instanceof ServiceError) ||
-          error.code !== "ROOM_BUSY" ||
-          attempt >= 3
-        ) {
+        if (!(error instanceof RoomLeaseBusyError) || attempt >= 3) {
           throw error;
         }
         await new Promise<void>((resolve) => {

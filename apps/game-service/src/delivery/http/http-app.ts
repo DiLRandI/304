@@ -10,6 +10,7 @@ import Fastify, {
 } from "fastify";
 import { ZodError } from "zod";
 import { RoomApplicationError } from "../../contexts/rooms/application/execute-room-command.js";
+import { RoomLeaseBusyError } from "../../contexts/rooms/application/room-coordination-ports.js";
 import type { ServiceConfig } from "../../platform/config/service-config.js";
 import {
   createMetrics,
@@ -190,6 +191,11 @@ export async function buildApp({
       return reply
         .code(error.statusCode)
         .send({ error: { code: error.code, message: error.message } });
+    }
+    if (error instanceof RoomLeaseBusyError) {
+      return reply.code(503).send({
+        error: { code: error.code, message: error.message },
+      });
     }
     if (error instanceof ServiceError) {
       return reply

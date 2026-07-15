@@ -1,3 +1,12 @@
+export class RoomLeaseBusyError extends Error {
+  readonly code = "ROOM_BUSY";
+
+  constructor() {
+    super("Room is busy; retry shortly");
+    this.name = "RoomLeaseBusyError";
+  }
+}
+
 export interface RoomLease {
   withLease<Result>(
     roomId: string,

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { PlayerAccess } from "../../contexts/player-access/application/player-access.js";
 import type { AuthenticatedSession } from "../../contexts/player-access/application/player-session-ports.js";
 import type { GetRoomSnapshotHandler } from "../../contexts/rooms/application/get-room-projection.js";
+import { RoomLeaseBusyError } from "../../contexts/rooms/application/room-coordination-ports.js";
 import type { ServiceConfig } from "../../platform/config/service-config.js";
 import { ServiceError } from "../../shared/service-error.js";
 import type { RoomSocketHub } from "./room-socket-hub.js";
@@ -23,11 +24,7 @@ async function validateRealtimeSeat(
       await runtime.roomUseCases.snapshot.execute({ roomId, session });
       return;
     } catch (error) {
-      if (
-        !(error instanceof ServiceError) ||
-        error.code !== "ROOM_BUSY" ||
-        attempt >= 3
-      ) {
+      if (!(error instanceof RoomLeaseBusyError) || attempt >= 3) {
         throw error;
       }
       await new Promise<void>((resolve) => {
