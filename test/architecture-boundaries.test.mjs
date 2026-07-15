@@ -555,6 +555,30 @@ test("room persistence records are owned by the Rooms application", async () => 
   assert.doesNotMatch(storeSource, /export interface StoredSeat/);
 });
 
+test("started room initialization contracts belong to the Rooms application", async () => {
+  const portSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/application/started-room-initialization.ts",
+    ),
+    "utf8",
+  );
+  const writerSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/persistence/postgres-room-command-writer.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(portSource, /export interface StartedRoomSnapshotFactory/);
+  assert.match(portSource, /export interface StartedRoomAutomationFactory/);
+  assert.doesNotMatch(
+    writerSource,
+    /export interface StartedRoom(?:Snapshot|Automation)Factory/,
+  );
+});
+
 test("automation adapters depend on an application-owned room store port", async () => {
   const executorSource = await readFile(
     path.join(

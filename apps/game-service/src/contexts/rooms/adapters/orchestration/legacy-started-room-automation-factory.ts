@@ -6,6 +6,7 @@ import {
 } from "../../../automation/application/automation-policy.js";
 import type { RoomIdentityProvider } from "../../application/room-identity-provider.js";
 import type { NewAutomationJob } from "../../application/room-persistence-model.js";
+import type { StartedRoomAutomationFactory } from "../../application/started-room-initialization.js";
 
 export class LegacyStartedRoomAutomationError extends Error {
   constructor(message: string) {
@@ -14,7 +15,9 @@ export class LegacyStartedRoomAutomationError extends Error {
   }
 }
 
-export class LegacyStartedRoomAutomationFactory {
+export class LegacyStartedRoomAutomationFactory
+  implements StartedRoomAutomationFactory
+{
   constructor(
     private readonly identities: Pick<
       RoomIdentityProvider,

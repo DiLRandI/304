@@ -1,12 +1,14 @@
 import { isDeepStrictEqual } from "node:util";
-import type { Room } from "@three-zero-four/room-domain";
 import type { QueryResultRow } from "pg";
 import type { Database } from "../../../../infra/database.js";
 import type {
   RoomCommandCommit,
   RoomCommandWriter,
 } from "../../application/execute-room-command.js";
-import type { NewAutomationJob } from "../../application/room-persistence-model.js";
+import type {
+  StartedRoomAutomationFactory,
+  StartedRoomSnapshotFactory,
+} from "../../application/started-room-initialization.js";
 import { mapRoomEventForPersistence } from "./room-event-record-mapper.js";
 import { mapRoomSeatsForPersistence } from "./room-record-mapper.js";
 
@@ -20,14 +22,6 @@ interface DuplicateRow extends QueryResultRow {
 }
 
 type TransactionalDatabase = Pick<Database, "transaction">;
-
-export interface StartedRoomSnapshotFactory {
-  create(room: Room): unknown;
-}
-
-export interface StartedRoomAutomationFactory {
-  create(room: Room, snapshot: unknown): NewAutomationJob | null;
-}
 
 type RoomCommandPersistenceErrorCode =
   | "COMMAND_ID_CONFLICT"

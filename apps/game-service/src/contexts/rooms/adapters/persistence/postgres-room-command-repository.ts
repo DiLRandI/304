@@ -11,11 +11,11 @@ import type {
   RoomCommandCommit,
   RoomCommandRepository,
 } from "../../application/execute-room-command.js";
-import {
-  PostgresRoomCommandWriter,
-  type StartedRoomAutomationFactory,
-  type StartedRoomSnapshotFactory,
-} from "./postgres-room-command-writer.js";
+import type {
+  StartedRoomAutomationFactory,
+  StartedRoomSnapshotFactory,
+} from "../../application/started-room-initialization.js";
+import { PostgresRoomCommandWriter } from "./postgres-room-command-writer.js";
 import { PostgresRoomQueryRepository } from "./postgres-room-query-repository.js";
 
 export class PostgresRoomCommandRepository implements RoomCommandRepository {

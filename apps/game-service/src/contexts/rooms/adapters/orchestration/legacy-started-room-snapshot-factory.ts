@@ -4,6 +4,7 @@ import {
   type LegacyEngineRoomRecord,
 } from "../../../gameplay/adapters/engine/legacy-engine-factory.js";
 import type { GameplaySeatRecord } from "../../../gameplay/adapters/engine/legacy-engine-seat-mapper.js";
+import type { StartedRoomSnapshotFactory } from "../../application/started-room-initialization.js";
 import { mapRoomSeatsForPersistence } from "../persistence/room-record-mapper.js";
 
 export class LegacyStartedRoomSnapshotError extends Error {
@@ -34,7 +35,9 @@ function engineRoom(room: Room): LegacyEngineRoomRecord {
   };
 }
 
-export class LegacyStartedRoomSnapshotFactory {
+export class LegacyStartedRoomSnapshotFactory
+  implements StartedRoomSnapshotFactory
+{
   create(room: Room): unknown {
     if (room.status !== "in_hand") {
       throw new LegacyStartedRoomSnapshotError(
