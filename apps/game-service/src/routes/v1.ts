@@ -16,7 +16,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { ServiceConfig } from "../config.js";
 import type { SubmitGameplayCommandHandler } from "../contexts/gameplay/application/submit-gameplay-command.js";
-import type { PlayerAccessService } from "../contexts/player-access/adapters/delivery/player-access-service.js";
+import type { PlayerAccess } from "../contexts/player-access/application/player-access.js";
 import type { AuthenticatedSession } from "../contexts/player-access/application/player-session-ports.js";
 import { presentLobbyRoom } from "../contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import type { CreateRoomHandler } from "../contexts/rooms/application/create-room.js";
@@ -42,7 +42,7 @@ export interface GameRuntime {
     readonly snapshot: Pick<GetRoomSnapshotHandler, "execute">;
     readonly start: Pick<StartRoomHandler, "execute">;
   };
-  sessions: PlayerAccessService;
+  sessions: PlayerAccess;
   rateLimiter: RateLimiter;
 }
 

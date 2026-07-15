@@ -2,6 +2,7 @@ import type { Database } from "../../../../infra/database.js";
 import { ServiceError } from "../../../../shared/service-error.js";
 import { AuthenticateSession } from "../../application/authenticate-session.js";
 import { CreateGuestSession } from "../../application/create-guest-session.js";
+import type { PlayerAccess } from "../../application/player-access.js";
 import type {
   AuthenticatedSession,
   CreatedSession,
@@ -28,7 +29,7 @@ function sessionRequired(): ServiceError {
   );
 }
 
-export class PlayerAccessService {
+export class PlayerAccessService implements PlayerAccess {
   private readonly authenticateSession: AuthenticateSession;
   private readonly createGuestSession: CreateGuestSession;
 
