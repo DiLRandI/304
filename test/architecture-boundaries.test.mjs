@@ -432,6 +432,19 @@ test("automation policy belongs to the Automation capability", async () => {
   assert.match(gameplayStatusSource, /export function activeRoomStatus/);
 });
 
+test("Automation execution errors do not carry transport status", async () => {
+  const errorSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/automation/application/automation-execution-error.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(errorSource, /statusCode/);
+  assert.match(errorSource, /export class AutomationExecutionError/);
+});
+
 test("the web server composes realtime connections without a room coordinator", async () => {
   const connectionsSource = await readFile(
     path.join(
