@@ -430,6 +430,15 @@ test("room projection reads use a dedicated query adapter", async () => {
   );
   assert.doesNotMatch(querySource, /shared\/service-error\.js/);
   assert.match(querySource, /application\/room-application-error\.js/);
+  const presenterSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/delivery/lobby-room-presenter.ts",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(presenterSource, /shared\/service-error\.js/);
+  assert.match(presenterSource, /application\/room-application-error\.js/);
 
   assert.match(querySource, /export class RoomProjectionQueryAdapter/);
   assert.match(querySource, /implements RoomProjectionQueries/);

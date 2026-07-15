@@ -287,6 +287,13 @@ describe("game service health surface", () => {
         "Room state changed; refresh and retry",
       );
     });
+    app.get("/room-unavailable", async () => {
+      throw new RoomApplicationError(
+        "ROOM_UNAVAILABLE",
+        "Room is unavailable",
+        "unavailable",
+      );
+    });
 
     const response = await app.inject("/room-application-error");
 
@@ -296,6 +303,11 @@ describe("game service health surface", () => {
         code: "VERSION_CONFLICT",
         message: "Room state changed; refresh and retry",
       },
+    });
+    const unavailable = await app.inject("/room-unavailable");
+    expect(unavailable.statusCode).toBe(503);
+    expect(unavailable.json()).toEqual({
+      error: { code: "ROOM_UNAVAILABLE", message: "Room is unavailable" },
     });
     await app.close();
   });

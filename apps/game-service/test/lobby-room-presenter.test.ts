@@ -60,7 +60,10 @@ describe("projectLobbyForViewer", () => {
     expect(() =>
       projectLobbyForViewer({ ...room, status: "closed" }, seats, 0),
     ).toThrow(
-      expect.objectContaining({ code: "ROOM_UNAVAILABLE", statusCode: 503 }),
+      expect.objectContaining({
+        code: "ROOM_UNAVAILABLE",
+        kind: "unavailable",
+      }),
     );
   });
 });
