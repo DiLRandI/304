@@ -5,7 +5,8 @@ import type { CreateRoomRequest } from "@three-zero-four/contracts";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
+import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
+import type { PlayerAccess } from "../src/contexts/player-access/application/player-access.js";
 import {
   type ClaimedAutomationJob,
   PostgresRoomStore,
@@ -28,7 +29,7 @@ const migrationsDir = path.resolve(
 let database: Database;
 let redis: RedisClientType;
 let store: PostgresRoomStore;
-let sessions: PlayerAccessService;
+let sessions: PlayerAccess;
 
 function createRuntime(
   automation?: RoomTestRuntimeOptions["automation"],
@@ -202,7 +203,7 @@ describeIntegration("durable room automation", () => {
     redis = createClient({ url: redisUrl });
     await redis.connect();
     store = new PostgresRoomStore(database);
-    sessions = new PlayerAccessService(database, {
+    sessions = createPlayerAccessService(database, {
       pepper: "test-only-session-pepper-must-be-at-least-32-characters",
       ttlDays: 30,
     });

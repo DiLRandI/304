@@ -2,7 +2,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
+import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
+import type { PlayerAccess } from "../src/contexts/player-access/application/player-access.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
@@ -13,13 +14,13 @@ const migrationsDir = path.resolve(
 );
 
 let database: Database;
-let sessions: PlayerAccessService;
+let sessions: PlayerAccess;
 
 describeIntegration("durable guest sessions", () => {
   beforeAll(async () => {
     database = createDatabase(databaseUrl);
     await runMigrations(database, migrationsDir);
-    sessions = new PlayerAccessService(database, {
+    sessions = createPlayerAccessService(database, {
       pepper: "test-only-session-pepper-must-be-at-least-32-characters",
       ttlDays: 30,
     });

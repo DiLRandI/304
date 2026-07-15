@@ -6,6 +6,7 @@ import { createClient, type RedisClientType } from "redis";
 import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { buildApp, loadConfig } from "../src/app.js";
+import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
 import { LegacyGameplayAutomationExecutor } from "../src/contexts/automation/adapters/execution/legacy-gameplay-automation-executor.js";
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
@@ -13,7 +14,6 @@ import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters
 import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
-import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
 import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
@@ -101,7 +101,7 @@ async function buildRealApp(): Promise<TestRuntime> {
       "test-only-session-pepper-must-be-at-least-32-characters",
   });
   const store = new PostgresRoomStore(database);
-  const sessions = new PlayerAccessService(database, {
+  const sessions = createPlayerAccessService(database, {
     pepper: config.SESSION_SECRET_PEPPER,
     ttlDays: config.SESSION_TTL_DAYS,
   });

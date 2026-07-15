@@ -1,11 +1,11 @@
 import { buildApp, loadConfig } from "./app.js";
+import { createPlayerAccessService } from "./bootstrap/player-access.js";
 import { LegacyStartedRoomAutomationFactory } from "./contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { LegacyGameplayAutomationScheduler } from "./contexts/automation/adapters/scheduling/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayCommandExecutor } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-command-executor.js";
 import { LegacyGameplayConnections } from "./contexts/gameplay/adapters/orchestration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "./contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "./contexts/gameplay/application/submit-gameplay-command.js";
-import { PlayerAccessService } from "./contexts/player-access/adapters/delivery/player-access-service.js";
 import { GameplayRoomProjectionReader } from "./contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "./contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { LegacyStartedRoomSnapshotFactory } from "./contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
@@ -43,7 +43,7 @@ const config = loadConfig();
 const database = createDatabase(config.DATABASE_URL);
 const redis = await createRedis(config.REDIS_URL);
 const store = new PostgresRoomStore(database);
-const sessions = new PlayerAccessService(database, {
+const sessions = createPlayerAccessService(database, {
   pepper: config.SESSION_SECRET_PEPPER,
   ttlDays: config.SESSION_TTL_DAYS,
 });

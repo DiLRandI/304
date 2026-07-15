@@ -9,7 +9,8 @@ import type {
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { PlayerAccessService } from "../src/contexts/player-access/adapters/delivery/player-access-service.js";
+import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
+import type { PlayerAccess } from "../src/contexts/player-access/application/player-access.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
 import { createDatabase, type Database } from "../src/infra/database.js";
@@ -47,7 +48,7 @@ interface StoredSnapshotRow {
 
 let database: Database;
 let redis: RedisClientType;
-let sessions: PlayerAccessService;
+let sessions: PlayerAccess;
 let store: PostgresRoomStore;
 
 function createRuntime(): RoomTestRuntime {
@@ -234,7 +235,7 @@ describeIntegration("durable room recovery variance", () => {
     redis = createClient({ url: redisUrl });
     await redis.connect();
     store = new PostgresRoomStore(database);
-    sessions = new PlayerAccessService(database, {
+    sessions = createPlayerAccessService(database, {
       pepper: "test-only-session-pepper-must-be-at-least-32-characters",
       ttlDays: 30,
     });

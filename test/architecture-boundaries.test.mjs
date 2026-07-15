@@ -516,6 +516,29 @@ test("the v1 routes depend on application use cases instead of a coordinator", a
   assert.match(routesSource, /SubmitGameplayCommandHandler/);
 });
 
+test("player access delivery is composed at the service bootstrap boundary", async () => {
+  const deliverySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/player-access/adapters/delivery/player-access-service.ts",
+    ),
+    "utf8",
+  );
+  const bootstrapSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/bootstrap/player-access.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(deliverySource, /infra\/database\.js/);
+  assert.doesNotMatch(deliverySource, /adapters\/persistence/);
+  assert.doesNotMatch(deliverySource, /adapters\/security/);
+  assert.match(deliverySource, /AuthenticateSession/);
+  assert.match(deliverySource, /CreateGuestSession/);
+  assert.match(bootstrapSource, /PostgresPlayerSessionReader/);
+  assert.match(bootstrapSource, /PostgresPlayerSessionWriter/);
+  assert.match(bootstrapSource, /NodeSessionSecrets/);
+});
+
 test("durability integration coverage composes room application handlers", async () => {
   const integrationSource = await readFile(
     path.join(repoRoot, "apps/game-service/test/room-coordinator.test.ts"),
