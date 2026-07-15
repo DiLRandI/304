@@ -1,20 +1,23 @@
 import type { GameCommand, RoomProjection } from "@three-zero-four/contracts";
-import type { AuthenticatedSession } from "../../player-access/application/player-session-ports.js";
+
+export interface GameplayActor {
+  readonly playerId: string;
+}
 
 export interface GameplayCommandExecutor {
   submitCommand(
-    session: AuthenticatedSession,
+    session: GameplayActor,
     command: GameCommand,
   ): Promise<RoomProjection>;
 }
 
 export interface GameplayCommandPresence {
-  refresh(session: AuthenticatedSession, roomId: string): Promise<void>;
+  refresh(session: GameplayActor, roomId: string): Promise<void>;
 }
 
 export interface SubmitGameplayCommandInput {
   readonly command: GameCommand;
-  readonly session: AuthenticatedSession;
+  readonly session: GameplayActor;
 }
 
 export class SubmitGameplayCommandHandler {

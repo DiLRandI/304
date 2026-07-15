@@ -1,5 +1,4 @@
 import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
-import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import type {
   RoomLease,
   RoomPresence,
@@ -14,6 +13,7 @@ import { GameplayApplicationError } from "../../application/gameplay-application
 import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import { activeRoomStatus } from "../../application/gameplay-room-status.js";
+import type { GameplayActor } from "../../application/submit-gameplay-command.js";
 import { applyConnectionState } from "../engine/legacy-engine-seat-mapper.js";
 
 interface LegacyGameplayConnectionDependencies {
@@ -51,7 +51,7 @@ export class LegacyGameplayConnections {
   ) {}
 
   async markRealtimePresence(
-    session: AuthenticatedSession,
+    session: GameplayActor,
     roomId: string,
   ): Promise<void> {
     await this.withRoomLease(roomId, async (transaction, room) => {
@@ -115,7 +115,7 @@ export class LegacyGameplayConnections {
   }
 
   async markRealtimeDisconnected(
-    session: AuthenticatedSession,
+    session: GameplayActor,
     roomId: string,
   ): Promise<void> {
     await this.withRoomLease(roomId, async (transaction, room) => {

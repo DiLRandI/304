@@ -1,7 +1,6 @@
 import type { GameCommand, RoomProjection } from "@three-zero-four/contracts";
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
 import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
-import type { AuthenticatedSession } from "../../../player-access/application/player-session-ports.js";
 import type { LobbyRoomProjector } from "../../../rooms/application/lobby-room-projector.js";
 import type { RoomLease } from "../../../rooms/application/room-coordination-ports.js";
 import type { StoredRoom } from "../../../rooms/application/room-persistence-model.js";
@@ -13,7 +12,10 @@ import { GameplayApplicationError } from "../../application/gameplay-application
 import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import { activeRoomStatus } from "../../application/gameplay-room-status.js";
-import type { GameplayCommandExecutor } from "../../application/submit-gameplay-command.js";
+import type {
+  GameplayActor,
+  GameplayCommandExecutor,
+} from "../../application/submit-gameplay-command.js";
 import { projectRoomForPlayer } from "../delivery/gameplay-room-presenter.js";
 
 interface LegacyGameplayCommandDependencies {
@@ -50,7 +52,7 @@ export class LegacyGameplayCommandExecutor implements GameplayCommandExecutor {
   ) {}
 
   submitCommand(
-    session: AuthenticatedSession,
+    session: GameplayActor,
     command: GameCommand,
   ): Promise<RoomProjection> {
     return this.withRoomLease(command.roomId, async (transaction, room) => {
@@ -137,7 +139,7 @@ export class LegacyGameplayCommandExecutor implements GameplayCommandExecutor {
   private async projectAtVersion(
     transaction: RoomTransaction,
     room: StoredRoom,
-    session: AuthenticatedSession,
+    session: GameplayActor,
     eventVersion: number,
   ): Promise<RoomProjection> {
     const viewerSeatIndex = await this.dependencies.store.requireHumanSeat(

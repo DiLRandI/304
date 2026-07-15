@@ -441,6 +441,19 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
   );
 });
 
+test("the Gameplay command application owns its actor contract", async () => {
+  const commandSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/application/submit-gameplay-command.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(commandSource, /player-access\/application/);
+  assert.match(commandSource, /interface GameplayActor/);
+});
+
 test("gameplay orchestration depends on application behavioral ports", async () => {
   const orchestrationFiles = await collectSourceFiles(
     "apps/game-service/src/contexts/gameplay/adapters/orchestration",
