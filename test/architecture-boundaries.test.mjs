@@ -577,6 +577,13 @@ test("started room initialization contracts belong to the Rooms application", as
     ),
     "utf8",
   );
+  const snapshotFactorySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.ts",
+    ),
+    "utf8",
+  );
 
   assert.match(portSource, /export interface StartedRoomSnapshotFactory/);
   assert.match(portSource, /export interface StartedRoomAutomationFactory/);
@@ -588,6 +595,7 @@ test("started room initialization contracts belong to the Rooms application", as
     automationFactorySource,
     /implements StartedRoomAutomationFactory/,
   );
+  assert.match(snapshotFactorySource, /implements StartedRoomSnapshotFactory/);
 });
 
 test("automation adapters depend on an application-owned room store port", async () => {

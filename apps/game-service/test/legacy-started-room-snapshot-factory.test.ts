@@ -6,7 +6,7 @@ import {
   startRoom,
 } from "@three-zero-four/room-domain";
 import { describe, expect, it } from "vitest";
-import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
+import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
 
 describe("LegacyStartedRoomSnapshotFactory", () => {
   it("translates a started room aggregate into a recoverable gameplay snapshot", () => {

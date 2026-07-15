@@ -7,7 +7,7 @@ import {
 } from "@three-zero-four/room-domain";
 import { describe, expect, it } from "vitest";
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
-import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
+import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
 
 describe("LegacyStartedRoomAutomationFactory", () => {
   it("schedules the initial active turn from recovered gameplay state", () => {

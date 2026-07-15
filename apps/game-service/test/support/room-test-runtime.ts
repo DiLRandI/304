@@ -20,8 +20,8 @@ import { LegacyGameplayRecovery } from "../../src/contexts/gameplay/adapters/per
 import type { AuthenticatedSession } from "../../src/contexts/player-access/application/player-session-ports.js";
 import { presentLobbyRoom } from "../../src/contexts/rooms/adapters/delivery/room-projection-presenter.js";
 import { GameplayRoomProjectionReader } from "../../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
+import { LegacyStartedRoomSnapshotFactory } from "../../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
 import { LegacyRoomCreationRepository } from "../../src/contexts/rooms/adapters/orchestration/legacy-room-creation-repository.js";
-import { LegacyStartedRoomSnapshotFactory } from "../../src/contexts/rooms/adapters/orchestration/legacy-started-room-snapshot-factory.js";
 import { RoomProjectionQueryAdapter } from "../../src/contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import { PostgresRoomCommandRepository } from "../../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "../../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
