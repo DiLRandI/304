@@ -549,6 +549,21 @@ test("the Gameplay command application owns its actor contract", async () => {
   assert.match(commandSource, /interface GameplayActor/);
 });
 
+test("the Gameplay command store port owns its persistence contracts", async () => {
+  const storePortSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/application/gameplay-command-store.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(storePortSource, /contexts\/rooms|\.\.\/\.\.\/rooms/);
+  assert.match(storePortSource, /interface GameplayCommandRoom/);
+  assert.match(storePortSource, /interface GameplayCommandStore/);
+  assert.match(storePortSource, /interface GameplayCommandLease/);
+});
+
 test("gameplay orchestration depends on application behavioral ports", async () => {
   const orchestrationFiles = await collectSourceFiles(
     "apps/game-service/src/contexts/gameplay/adapters/orchestration",
