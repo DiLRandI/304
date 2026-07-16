@@ -8,6 +8,7 @@ import {
   getRuleProfile,
   type RuleProfile,
   type RuleProfileId,
+  type Suit,
   seatIndex,
 } from "@three-zero-four/gameplay";
 import { z } from "zod";
@@ -246,9 +247,9 @@ export function decodeGameplayHand(
           state.bidding.currentBidSeat !== trumpMaker ||
           state.trump.card !== null ||
           state.trump.suit !== null)) ||
+      (isSecondBidding && state.bidding.phase !== "second") ||
       ((isSecondBidding || isTrumpChoice) &&
-        (state.bidding.phase !== "second" ||
-          state.activeSeat === null ||
+        (state.activeSeat === null ||
           trumpMaker === null ||
           state.bidding.currentBid === 0 ||
           state.trump.card === null ||
@@ -450,11 +451,15 @@ export function encodeGameplayHand(
   metadata: LegacyGameplayCompatibilityMetadata,
 ): LegacyGameplaySnapshotRecord {
   const before = decodeGameplayHand(metadata.source);
-  if (
-    before.phase !== "four-bidding" ||
-    (hand.phase !== "four-bidding" && hand.phase !== "trump-selection") ||
-    (metadata.command.type !== "BID" && metadata.command.type !== "PASS_BID")
-  ) {
+  const isOpeningTransition =
+    before.phase === "four-bidding" &&
+    (hand.phase === "four-bidding" || hand.phase === "trump-selection") &&
+    (metadata.command.type === "BID" || metadata.command.type === "PASS_BID");
+  const isIndicatorSelection =
+    before.phase === "trump-selection" &&
+    (hand.phase === "second-bidding" || hand.phase === "trump-choice") &&
+    metadata.command.type === "SELECT_TRUMP";
+  if (!isOpeningTransition && !isIndicatorSelection) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
       "Gameplay compatibility snapshot transition is not supported",
@@ -469,33 +474,54 @@ export function encodeGameplayHand(
     typeof openingGameplaySchema
   >;
   openingGameplaySchema.parse(state);
+  const compatibilityState = state as typeof state & {
+    currentLedSuit: Suit | null;
+    trumpCard: z.infer<typeof legacyCardSchema> | null;
+    trumpSuit: Suit | null;
+  };
   const activeSeat = hand.activeSeat;
   if (activeSeat === null) throw invalidSnapshot();
   state.activeSeat = activeSeat;
-  state.bidding.actedInRound = [...hand.bidding.actedInRound];
-  state.bidding.actions.push(
-    metadata.command.type === "BID"
-      ? {
-          amount: metadata.command.amount,
-          seatIndex: metadata.command.actor,
-          type: "bid",
-        }
-      : { seatIndex: metadata.command.actor, type: "pass" },
-  );
-  state.bidding.activeOrderIndex = hand.bidding.activeOrderIndex;
+  if (metadata.command.type === "BID" || metadata.command.type === "PASS_BID") {
+    state.bidding.actions.push(
+      metadata.command.type === "BID"
+        ? {
+            amount: metadata.command.amount,
+            seatIndex: metadata.command.actor,
+            type: "bid",
+          }
+        : { seatIndex: metadata.command.actor, type: "pass" },
+    );
+  }
   state.bidding.currentBid = hand.bidding.currentBid ?? 0;
   state.bidding.currentBidSeat = hand.bidding.currentBidder;
   state.bidding.initialMakerSeat = hand.trump.maker;
-  state.bidding.noBidPasses = hand.bidding.noBidPasses;
-  state.bidding.order = [...hand.bidding.order];
-  state.bidding.passesAfterBid = hand.bidding.passesAfterBid;
-  state.bidding.phase = "four";
+  state.bidding.phase = hand.bidding.round;
   state.bidding.secondRound.enabled = hand.bidding.secondBiddingEnabled;
+  if (hand.bidding.round === "four") {
+    state.bidding.actedInRound = [...hand.bidding.actedInRound];
+    state.bidding.activeOrderIndex = hand.bidding.activeOrderIndex;
+    state.bidding.noBidPasses = hand.bidding.noBidPasses;
+    state.bidding.order = [...hand.bidding.order];
+    state.bidding.passesAfterBid = hand.bidding.passesAfterBid;
+  } else {
+    state.bidding.secondRound.actionsTaken = hand.bidding.actionsTaken;
+    state.bidding.secondRound.activeOrderIndex = hand.bidding.activeOrderIndex;
+    state.bidding.secondRound.order = [...hand.bidding.order];
+    state.bidding.secondRound.previousBid = hand.bidding.previousBid ?? 0;
+    state.bidding.secondRound.previousBidSeat = hand.bidding.currentBidder;
+  }
   state.deck = hand.deal.deck.map(cardToLegacy);
   state.dealerSeat = hand.dealer;
   state.handNumber = hand.handNumber;
   state.phase =
-    hand.phase === "four-bidding" ? "four_bidding" : "trump_selection";
+    hand.phase === "four-bidding"
+      ? "four_bidding"
+      : hand.phase === "trump-selection"
+        ? "trump_selection"
+        : hand.phase === "second-bidding"
+          ? "second_bidding"
+          : "trump_choice";
   state.seats = state.seats.map((seat, index) => ({
     ...seat,
     firstHand: (hand.deal.firstHands[index] ?? []).map(cardToLegacy),
@@ -509,6 +535,11 @@ export function encodeGameplayHand(
   state.trump.isOpen = hand.trump.open;
   state.trump.maker = hand.trump.maker;
   state.trump.suit = hand.trump.suit;
+  compatibilityState.currentLedSuit = null;
+  compatibilityState.trumpCard = hand.trump.indicator
+    ? cardToLegacy(hand.trump.indicator)
+    : null;
+  compatibilityState.trumpSuit = hand.trump.suit;
 
   return {
     ruleProfileId: hand.profile.id,
