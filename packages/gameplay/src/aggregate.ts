@@ -18,6 +18,7 @@ import {
   type CancelledHand,
   cancelHand,
   type HandScore,
+  initialTokens,
   scoreHand,
   type TokenBalance,
   teamForSeat,
@@ -497,4 +498,30 @@ export function applyGameplayCommand(
     return applyAdvanceTrick(hand);
   }
   return rejected("ACTION_NOT_ALLOWED", "Command is not allowed in this phase");
+}
+
+export function acknowledgeGameplayResult(
+  hand: GameplayHand,
+  nextDeck: readonly Card[],
+): AggregateCommandResult {
+  if (hand.phase !== "hand-result" && hand.phase !== "match-complete") {
+    return rejected(
+      "ACTION_NOT_ALLOWED",
+      "Result acknowledgement is not allowed in this phase",
+    );
+  }
+  return {
+    hand: startGameplayHand({
+      dealer: nextDealer(hand.dealer, hand.profile.seatCount),
+      deck: nextDeck,
+      handNumber: hand.handNumber + 1,
+      profile: hand.profile,
+      secondBiddingEnabled: hand.bidding.secondBiddingEnabled,
+      tokens:
+        hand.phase === "match-complete"
+          ? initialTokens(hand.profile)
+          : hand.tokens,
+    }),
+    ok: true,
+  };
 }

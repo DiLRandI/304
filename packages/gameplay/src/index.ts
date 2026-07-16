@@ -6,6 +6,7 @@ export type {
   TrumpState,
 } from "./aggregate.js";
 export {
+  acknowledgeGameplayResult,
   applyGameplayCommand,
   nextDealer,
   startGameplayHand,

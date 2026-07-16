@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  acknowledgeGameplayResult,
   applyGameplayCommand,
   bidAmount,
   buildDeck,
@@ -195,5 +196,60 @@ describe("gameplay aggregate transitions", () => {
     expect(hand.phase).toBe("hand-result");
     expect(hand.activeSeat).toBeNull();
     expect(hand.result).toMatchObject({ noScore: true, tokens: [11, 11] });
+  });
+
+  it("acknowledges a hand result with an explicit next deck", () => {
+    let hand = start();
+    for (const actor of [0, 1, 2, 3]) {
+      hand = apply(hand, {
+        actor: seatIndex(actor, 4),
+        type: "PASS_BID",
+      });
+    }
+    const nextDeck = buildDeck(profile).reverse();
+
+    const acknowledged = acknowledgeGameplayResult(hand, nextDeck);
+
+    expect(acknowledged.ok).toBe(true);
+    if (!acknowledged.ok) return;
+    expect(acknowledged.hand.phase).toBe("four-bidding");
+    expect(acknowledged.hand.handNumber).toBe(2);
+    expect(acknowledged.hand.dealer).toBe(0);
+    expect(acknowledged.hand.tokens).toEqual([11, 11]);
+    expect(acknowledged.hand.result).toBeNull();
+    expect(acknowledged.hand.deal.hands.flat()).toEqual(
+      expect.arrayContaining(nextDeck.slice(-16)),
+    );
+  });
+
+  it("acknowledges a completed match with reset tokens", () => {
+    const completed: GameplayHand = {
+      ...start(),
+      activeSeat: null,
+      phase: "match-complete",
+      tokens: [0, 22],
+    };
+
+    const acknowledged = acknowledgeGameplayResult(
+      completed,
+      buildDeck(profile),
+    );
+
+    expect(acknowledged.ok).toBe(true);
+    if (!acknowledged.ok) return;
+    expect(acknowledged.hand.phase).toBe("four-bidding");
+    expect(acknowledged.hand.handNumber).toBe(2);
+    expect(acknowledged.hand.dealer).toBe(0);
+    expect(acknowledged.hand.tokens).toEqual([11, 11]);
+  });
+
+  it("rejects result acknowledgement during an active hand", () => {
+    expect(acknowledgeGameplayResult(start(), buildDeck(profile))).toEqual({
+      error: {
+        code: "ACTION_NOT_ALLOWED",
+        message: "Result acknowledgement is not allowed in this phase",
+      },
+      ok: false,
+    });
   });
 });
