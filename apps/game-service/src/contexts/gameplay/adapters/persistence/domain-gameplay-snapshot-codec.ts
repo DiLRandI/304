@@ -34,6 +34,19 @@ const legacyBidActionSchema = z.object({
   seatIndex: z.number().int().nonnegative(),
   type: z.enum(["bid", "pass"]),
 });
+const legacyPlaySchema = z.object({
+  card: legacyCardSchema,
+  faceDown: z.boolean(),
+  fromIndicator: z.boolean(),
+  seatIndex: z.number().int().nonnegative(),
+});
+const legacyTrickSchema = z.object({
+  leaderSeat: z.number().int().nonnegative(),
+  openedTrumpThisTrick: z.boolean().optional(),
+  plays: z.array(legacyPlaySchema),
+  points: z.number().int().nonnegative(),
+  winnerSeat: z.number().int().nonnegative().nullable().optional(),
+});
 const legacyBiddingSchema = z.object({
   actedInRound: z.array(z.boolean().nullish()),
   actions: z.array(legacyBidActionSchema),
@@ -54,8 +67,10 @@ const legacyBiddingSchema = z.object({
   }),
 });
 const openingGameplaySchema = z.object({
-  activeSeat: z.number().int().nonnegative(),
+  activeSeat: z.number().int().nonnegative().nullable(),
   bidding: legacyBiddingSchema,
+  completedTricks: z.array(legacyTrickSchema),
+  currentTrick: legacyTrickSchema.nullable(),
   dealerSeat: z.number().int().nonnegative(),
   deck: z.array(legacyCardSchema),
   handNumber: z.number().int().positive(),
@@ -64,6 +79,8 @@ const openingGameplaySchema = z.object({
     "trump_selection",
     "second_bidding",
     "trump_choice",
+    "trick_play",
+    "trick_result",
   ]),
   profile: z.object({ id: z.string() }),
   profileId: z.string(),
@@ -73,9 +90,10 @@ const openingGameplaySchema = z.object({
     z.number().int().nonnegative(),
     z.number().int().nonnegative(),
   ]),
+  trumpClosed: z.boolean(),
   trump: z.object({
     card: legacyCardSchema.nullable(),
-    isOpen: z.literal(false),
+    isOpen: z.boolean(),
     maker: z.number().int().nonnegative().nullable(),
     suit: z.enum(["clubs", "diamonds", "hearts", "spades"]).nullable(),
   }),
@@ -127,7 +145,9 @@ export function decodeGameplayHand(
     header.data.phase !== "four_bidding" &&
     header.data.phase !== "trump_selection" &&
     header.data.phase !== "second_bidding" &&
-    header.data.phase !== "trump_choice"
+    header.data.phase !== "trump_choice" &&
+    header.data.phase !== "trick_play" &&
+    header.data.phase !== "trick_result"
   ) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
@@ -152,7 +172,11 @@ export function decodeGameplayHand(
     const isFourBidding = state.phase === "four_bidding";
     const isTrumpSelection = state.phase === "trump_selection";
     const isSecondBidding = state.phase === "second_bidding";
-    const isSecondRound = isSecondBidding || state.phase === "trump_choice";
+    const isTrumpChoice = state.phase === "trump_choice";
+    const isTrickPlay = state.phase === "trick_play";
+    const isTrickResult = state.phase === "trick_result";
+    const isTrickPhase = isTrickPlay || isTrickResult;
+    const isSecondRound = state.bidding.phase === "second";
     const trumpMaker =
       state.trump.maker === null
         ? null
@@ -160,27 +184,41 @@ export function decodeGameplayHand(
     if (
       (isFourBidding &&
         (state.bidding.phase !== "four" ||
+          state.activeSeat === null ||
           trumpMaker !== null ||
           state.trump.card !== null ||
           state.trump.suit !== null)) ||
       (isTrumpSelection &&
         (trumpMaker === null ||
+          state.activeSeat === null ||
           state.activeSeat !== trumpMaker ||
           state.bidding.currentBid === 0 ||
           state.bidding.currentBidSeat !== trumpMaker ||
           state.trump.card !== null ||
           state.trump.suit !== null)) ||
-      (isSecondRound &&
+      ((isSecondBidding || isTrumpChoice) &&
         (state.bidding.phase !== "second" ||
+          state.activeSeat === null ||
           trumpMaker === null ||
           state.bidding.currentBid === 0 ||
           state.trump.card === null ||
           state.trump.suit === null ||
-          state.trump.card.suit !== state.trump.suit))
+          state.trump.card.suit !== state.trump.suit)) ||
+      (isTrickPhase &&
+        (trumpMaker === null ||
+          state.trump.suit === null ||
+          state.currentTrick === null ||
+          (isTrickPlay && state.activeSeat === null) ||
+          (isTrickResult &&
+            (state.activeSeat !== null ||
+              state.currentTrick.winnerSeat === null ||
+              state.currentTrick.winnerSeat === undefined))))
     ) {
       throw invalidSnapshot();
     }
     const actor = (value: number) => seatIndex(value, profile.seatCount);
+    const activeSeat =
+      state.activeSeat === null ? null : actor(state.activeSeat);
     const mapCards = (values: z.infer<typeof legacyCardSchema>[]) =>
       values.map((value) => cardFromLegacy(value, profile));
     const seats = state.seats.toSorted(
@@ -205,9 +243,27 @@ export function decodeGameplayHand(
       .findIndex((action) => action.type === "bid");
     const biddingRound = isSecondRound ? "second" : "four";
     const biddingIsActive = isFourBidding || isSecondBidding;
+    const mapTrick = (
+      trick: z.infer<typeof legacyTrickSchema>,
+      trickActiveSeat: ReturnType<typeof actor> | null,
+    ) => ({
+      activeSeat: trickActiveSeat,
+      leaderSeat: actor(trick.leaderSeat),
+      openedTrump: trick.openedTrumpThisTrick ?? false,
+      plays: trick.plays.map((play) => ({
+        actor: actor(play.seatIndex),
+        card: cardFromLegacy(play.card, profile),
+        faceDown: play.faceDown,
+        fromIndicator: play.fromIndicator,
+      })),
+      points: trick.points,
+      status:
+        trick.winnerSeat == null ? ("active" as const) : ("complete" as const),
+      winnerSeat: trick.winnerSeat == null ? null : actor(trick.winnerSeat),
+    });
 
     return {
-      activeSeat: actor(state.activeSeat),
+      activeSeat,
       bidding: {
         actedInRound: isSecondRound
           ? secondActedInRound
@@ -221,7 +277,7 @@ export function decodeGameplayHand(
         activeOrderIndex: isSecondRound
           ? state.bidding.secondRound.activeOrderIndex % profile.seatCount
           : state.bidding.activeOrderIndex,
-        activeSeat: biddingIsActive ? actor(state.activeSeat) : null,
+        activeSeat: biddingIsActive ? activeSeat : null,
         currentBid:
           state.bidding.currentBid === 0
             ? null
@@ -249,8 +305,15 @@ export function decodeGameplayHand(
         status: biddingIsActive ? "active" : "complete",
       },
       capturedCards: seats.map((seat) => mapCards(seat.wonCards)),
-      completedTricks: [],
-      currentTrick: null,
+      completedTricks: state.completedTricks.map((trick) =>
+        mapTrick(trick, null),
+      ),
+      currentTrick: state.currentTrick
+        ? mapTrick(
+            state.currentTrick,
+            state.currentTrick.winnerSeat == null ? activeSeat : null,
+          )
+        : null,
       deal: {
         deck: mapCards(state.deck),
         firstHands: seats.map((seat) => mapCards(seat.firstHand)),
@@ -265,17 +328,28 @@ export function decodeGameplayHand(
           ? "trump-selection"
           : isSecondBidding
             ? "second-bidding"
-            : "trump-choice",
+            : isTrumpChoice
+              ? "trump-choice"
+              : isTrickPlay
+                ? "trick-play"
+                : "trick-result",
       profile,
       result: null,
       tokens: state.tokens,
       trump: {
-        indicator: state.trump.card
-          ? cardFromLegacy(state.trump.card, profile)
-          : null,
+        indicator:
+          !state.trump.isOpen && state.trump.card
+            ? cardFromLegacy(state.trump.card, profile)
+            : null,
         maker: trumpMaker,
-        mode: null,
-        open: false,
+        mode: isTrickPhase
+          ? state.trump.isOpen
+            ? "open"
+            : state.trumpClosed
+              ? "closed"
+              : null
+          : null,
+        open: state.trump.isOpen,
         suit: state.trump.suit,
       },
     };

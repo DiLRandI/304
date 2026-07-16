@@ -193,6 +193,85 @@ describe("domain gameplay compatibility snapshot decoder", () => {
     });
   });
 
+  it("decodes active and completed trick snapshots", () => {
+    const engine = new GameEngine({
+      enableSecondBidding: false,
+      humanCount: 4,
+      ruleProfile: "classic_304_4p",
+    });
+    engine.startMatch();
+    const apply = (action: Record<string, unknown>) => {
+      const actor = engine.getSnapshot().activeSeat;
+      if (actor === null) throw new Error("Expected an active gameplay seat");
+      expect(
+        engine.applyAction({
+          ...action,
+          actorSeatIndex: actor,
+          seatIndex: actor,
+        }),
+      ).toEqual({ ok: true });
+    };
+    const maker = engine.getSnapshot().activeSeat;
+    if (maker === null) throw new Error("Expected an active bidding seat");
+    apply({ amount: 200, type: "BID" });
+    while (engine.getSnapshot().phase === "four_bidding") {
+      apply({ type: "PASS_BID" });
+    }
+    const indicator = engine
+      .getLegalActions(maker)
+      .find((action) => action.type === "SELECT_TRUMP");
+    if (!indicator) throw new Error("Expected a trump indicator action");
+    apply(indicator);
+    apply({ type: "TRUMP_CLOSE" });
+    const record = (state: EngineState): LegacyGameplaySnapshotRecord => ({
+      ruleProfileId: "classic_304_4p",
+      schemaVersion: 1,
+      state,
+    });
+
+    const started = decodeGameplayHand(record(engine.getSnapshot()));
+    expect(started.phase).toBe("trick-play");
+    expect(started.currentTrick).toMatchObject({
+      activeSeat: maker,
+      leaderSeat: maker,
+      plays: [],
+      status: "active",
+    });
+    expect(started.trump).toMatchObject({ maker, mode: "closed", open: false });
+
+    const firstPlay = engine
+      .getLegalActions(maker)
+      .find((action) => action.type === "PLAY_CARD");
+    if (!firstPlay) throw new Error("Expected a legal card play");
+    apply(firstPlay);
+    const progressed = decodeGameplayHand(record(engine.getSnapshot()));
+    expect(progressed.currentTrick?.plays).toHaveLength(1);
+    expect(progressed.currentTrick?.plays[0]).toMatchObject({ actor: maker });
+
+    while (engine.getSnapshot().phase === "trick_play") {
+      const actor = engine.getSnapshot().activeSeat;
+      if (actor === null) throw new Error("Expected an active trick seat");
+      const action = engine
+        .getLegalActions(actor)
+        .find((candidate) => candidate.type === "PLAY_CARD");
+      if (!action) throw new Error("Expected a legal card play");
+      apply(action);
+    }
+    const legacy = engine.getSnapshot();
+    const completed = decodeGameplayHand(record(legacy));
+    expect(completed.phase).toBe("trick-result");
+    expect(completed.activeSeat).toBeNull();
+    expect(completed.currentTrick).toMatchObject({
+      activeSeat: null,
+      status: "complete",
+      winnerSeat: legacy.currentTrick?.winnerSeat,
+    });
+    expect(completed.completedTricks).toHaveLength(1);
+    expect(completed.capturedCards.map((cards) => cards.length)).toEqual(
+      legacy.seats.map((seat) => seat.wonCards.length),
+    );
+  });
+
   it("rejects lobby snapshots because Room Management owns the lobby", () => {
     const engine = new GameEngine({
       humanCount: 4,
