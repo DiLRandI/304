@@ -92,7 +92,7 @@ export class DomainRoomConnections {
       );
       if (!storedSeat) throw new RecoveryError(room.id);
       await this.dependencies.presence.touch(room.id, session.playerId);
-      if (storedSeat.connectionStatus === "online") {
+      if (storedSeat.connectionStatus === "online" || room.status === "lobby") {
         await this.dependencies.store.markSeatOnline(
           transaction,
           room.id,
@@ -156,6 +156,15 @@ export class DomainRoomConnections {
         (seat) => seat.seatIndex === viewerSeatIndex,
       );
       if (storedSeat?.connectionStatus !== "online") return;
+
+      if (room.status === "lobby") {
+        await this.dependencies.store.markSeatOffline(
+          transaction,
+          room.id,
+          session.playerId,
+        );
+        return;
+      }
 
       const hand = await this.dependencies.recovery.recover(transaction, room);
       const snapshot = serializeGameplaySnapshot(hand);

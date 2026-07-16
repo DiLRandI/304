@@ -31,8 +31,11 @@ const session: AuthenticatedSession = {
   sessionId: "session-1",
 };
 
-function harness(connectionStatus: StoredSeat["connectionStatus"]) {
-  const hand = startedGameplayHand(room.ruleProfileId);
+function harness(
+  connectionStatus: StoredSeat["connectionStatus"],
+  storedRoom: StoredRoom = room,
+) {
+  const hand = startedGameplayHand(storedRoom.ruleProfileId);
   const seats: StoredSeat[] = Array.from({ length: 4 }, (_, seatIndex) => ({
     botDifficulty: seatIndex === 0 ? null : "easy",
     connectionStatus: seatIndex === 0 ? connectionStatus : "online",
@@ -47,7 +50,7 @@ function harness(connectionStatus: StoredSeat["connectionStatus"]) {
   const markSeatOnline = vi.fn(async () => 0);
   const store = {
     appendEventAndSnapshot,
-    loadRoomForUpdate: vi.fn(async () => room),
+    loadRoomForUpdate: vi.fn(async () => storedRoom),
     loadSeats: vi.fn(async () => seats),
     markRecoveryFailed: vi.fn(async () => undefined),
     markSeatOffline,
@@ -100,6 +103,49 @@ describe("DomainRoomConnections", () => {
     expect(markSeatOnline).toHaveBeenCalled();
     expect(recover).not.toHaveBeenCalled();
     expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("reconnects a lobby seat without recovering gameplay", async () => {
+    const lobbyRoom = { ...room, status: "lobby" as const };
+    const {
+      appendEventAndSnapshot,
+      connections,
+      markSeatOnline,
+      presence,
+      recover,
+      schedule,
+    } = harness("disconnected", lobbyRoom);
+
+    await connections.markRealtimePresence(session, lobbyRoom.id);
+
+    expect(presence.touch).toHaveBeenCalledWith(lobbyRoom.id, session.playerId);
+    expect(markSeatOnline).toHaveBeenCalled();
+    expect(recover).not.toHaveBeenCalled();
+    expect(appendEventAndSnapshot).not.toHaveBeenCalled();
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("disconnects a lobby seat without recovering gameplay", async () => {
+    const lobbyRoom = { ...room, status: "lobby" as const };
+    const {
+      appendEventAndSnapshot,
+      connections,
+      markSeatOffline,
+      presence,
+      recover,
+      schedule,
+    } = harness("online", lobbyRoom);
+
+    await connections.markRealtimeDisconnected(session, lobbyRoom.id);
+
+    expect(markSeatOffline).toHaveBeenCalled();
+    expect(recover).not.toHaveBeenCalled();
+    expect(appendEventAndSnapshot).not.toHaveBeenCalled();
+    expect(schedule).not.toHaveBeenCalled();
+    expect(presence.remove).toHaveBeenCalledWith(
+      lobbyRoom.id,
+      session.playerId,
+    );
   });
 
   it("persists room-owned disconnection without mutating gameplay", async () => {
