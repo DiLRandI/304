@@ -19,7 +19,7 @@ import type { AutomationRandomSource } from "../../application/automation-random
 import type { AutomationScheduler } from "../../application/automation-scheduler.js";
 import { presentAutomatedGameplayAction } from "./domain-gameplay-automation-action-presenter.js";
 import { presentDomainGameplayForAutomation } from "./domain-gameplay-automation-presenter.js";
-import { transitionHydratedAutomatedGameplayCommand } from "./domain-gameplay-automation-transition.js";
+import { transitionAutomatedGameplayCommand } from "./domain-gameplay-automation-transition.js";
 
 interface DomainGameplayAutomationDependencies {
   readonly automation: AutomationScheduler;
@@ -95,7 +95,7 @@ export class DomainGameplayAutomationExecutor {
         ) {
           return "stale";
         }
-        const transition = transitionHydratedAutomatedGameplayCommand(hand, {
+        const transition = transitionAutomatedGameplayCommand(hand, {
           actor: null,
           type: "ADVANCE_TRICK",
         });
@@ -189,10 +189,7 @@ export class DomainGameplayAutomationExecutor {
         this.dependencies.random,
       );
       if (!command || command.type === "ACK_RESULT") return "stale";
-      const transition = transitionHydratedAutomatedGameplayCommand(
-        hand,
-        command,
-      );
+      const transition = transitionAutomatedGameplayCommand(hand, command);
       const status = activeStatus(transition.hand.phase);
       const eventVersion = await this.dependencies.store.appendEventAndSnapshot(
         transaction,

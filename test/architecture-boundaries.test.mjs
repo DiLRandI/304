@@ -527,6 +527,7 @@ test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => 
       "apps/game-service/test/domain-gameplay-command-transition.test.ts",
       "apps/game-service/test/domain-gameplay-automation-executor.test.ts",
       "apps/game-service/test/domain-gameplay-automation-presenter.test.ts",
+      "apps/game-service/test/domain-gameplay-automation-transition.test.ts",
       "apps/game-service/test/domain-gameplay-event-replayer.test.ts",
       "apps/game-service/test/domain-gameplay-recovery.test.ts",
       "apps/game-service/test/domain-gameplay-room-presenter.test.ts",
@@ -538,7 +539,7 @@ test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => 
   );
   for (const source of activeRuntimeTests) {
     assert.doesNotMatch(source, /@three-zero-four\/game-engine/);
-    assert.match(source, /startedGameplayHand/);
+    assert.match(source, /support\/gameplay-hand-fixture/);
   }
 });
 
@@ -599,6 +600,25 @@ test("domain gameplay automation executes through an Automation adapter", async 
   assert.match(workerSource, /new DomainGameplayAutomationExecutor/);
   assert.match(workerSource, /new NodeAutomationRandomSource/);
   assert.doesNotMatch(workerSource, /LegacyGameplayAutomationExecutor/);
+});
+
+test("Automation transitions persist only domain snapshots", async () => {
+  const transitionSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/automation/adapters/integration/domain-gameplay-automation-transition.ts",
+    ),
+    "utf8",
+  );
+  assert.match(
+    transitionSource,
+    /export function transitionAutomatedGameplayCommand/,
+  );
+  assert.doesNotMatch(transitionSource, /legacy-gameplay-snapshot-codec/);
+  assert.doesNotMatch(
+    transitionSource,
+    /transitionHydratedAutomatedGameplayCommand/,
+  );
 });
 
 test("domain gameplay commands execute through a Gameplay adapter", async () => {
