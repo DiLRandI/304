@@ -3,6 +3,7 @@ import {
   applyGameplayCommand,
   bidAmount,
   type GameplayCommand,
+  legalGameplayCommands,
 } from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
 import {
@@ -409,6 +410,83 @@ describe("domain gameplay compatibility snapshot decoder", () => {
     expect(
       GameEngine.hydrate(encoded.state as EngineState).getLegalActions(maker),
     ).toContainEqual(expect.objectContaining({ type: "PLAY_CARD" }));
+  });
+
+  it.each([
+    "TRUMP_OPEN",
+    "TRUMP_CLOSE",
+  ] as const)("encodes an in-progress card play after %s", (trumpChoice) => {
+    const engine = new GameEngine({
+      enableSecondBidding: false,
+      humanCount: 4,
+      ruleProfile: "classic_304_4p",
+    });
+    engine.startMatch();
+    const applyLegacy = (legacyAction: Record<string, unknown>) => {
+      const actor = engine.getSnapshot().activeSeat;
+      if (actor === null) throw new Error("Expected an active gameplay seat");
+      expect(
+        engine.applyAction({
+          ...legacyAction,
+          actorSeatIndex: actor,
+          seatIndex: actor,
+        }),
+      ).toEqual({ ok: true });
+    };
+    applyLegacy({ amount: 200, type: "BID" });
+    while (engine.getSnapshot().phase === "four_bidding") {
+      applyLegacy({ type: "PASS_BID" });
+    }
+    const maker = engine.getSnapshot().activeSeat;
+    const indicator =
+      maker === null
+        ? null
+        : engine
+            .getLegalActions(maker)
+            .find((candidate) => candidate.type === "SELECT_TRUMP");
+    if (maker === null || !indicator) {
+      throw new Error("Expected a trump indicator action");
+    }
+    applyLegacy(indicator);
+    applyLegacy({ type: trumpChoice });
+    const source: LegacyGameplaySnapshotRecord = {
+      ruleProfileId: "classic_304_4p",
+      schemaVersion: 1,
+      state: engine.getSnapshot(),
+    };
+    const before = decodeGameplayHand(source);
+    const actor = before.activeSeat;
+    const command =
+      actor === null
+        ? null
+        : legalGameplayCommands(before, actor).find(
+            (candidate) => candidate.type === "PLAY_CARD",
+          );
+    if (actor === null || !command || command.type !== "PLAY_CARD") {
+      throw new Error("Expected a legal opening card play");
+    }
+    const applied = applyGameplayCommand(before, command);
+    if (!applied.ok) throw new Error("Expected an in-progress trick");
+
+    const encoded = encodeGameplayHand(applied.hand, { command, source });
+
+    expect(decodeGameplayHand(encoded)).toEqual(applied.hand);
+    const legacy = GameEngine.hydrate(
+      encoded.state as EngineState,
+    ).getSnapshot();
+    expect(legacy.phase).toBe("trick_play");
+    expect(legacy.currentLedSuit).toBe(
+      applied.hand.currentTrick?.plays[0]?.card.suit,
+    );
+    expect(legacy.currentTrick?.plays).toHaveLength(1);
+    expect(legacy.currentTrick?.plays[0]).toMatchObject({
+      card: { cardId: command.cardId },
+      faceDown: command.faceDown,
+      fromIndicator: command.fromIndicator,
+      seatIndex: actor,
+    });
+    expect(legacy.activeSeat).toBe(applied.hand.activeSeat);
+    expect(engine.getSnapshot().currentTrick?.plays).toHaveLength(0);
   });
 
   it.each([

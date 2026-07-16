@@ -492,11 +492,16 @@ export function encodeGameplayHand(
     hand.phase === "trick-play" &&
     (metadata.command.type === "TRUMP_OPEN" ||
       metadata.command.type === "TRUMP_CLOSE");
+  const isInProgressCardPlay =
+    before.phase === "trick-play" &&
+    hand.phase === "trick-play" &&
+    metadata.command.type === "PLAY_CARD";
   if (
     !isOpeningTransition &&
     !isIndicatorSelection &&
     !isSecondBiddingTransition &&
-    !isTrumpChoiceTransition
+    !isTrumpChoiceTransition &&
+    !isInProgressCardPlay
   ) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
