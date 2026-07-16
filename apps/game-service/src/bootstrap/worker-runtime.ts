@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { LegacyGameplayAutomationExecutor } from "../contexts/automation/adapters/integration/legacy-gameplay-automation-executor.js";
+import { NodeAutomationRandomSource } from "../contexts/automation/adapters/entropy/node-automation-random-source.js";
+import { DomainGameplayAutomationExecutor } from "../contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
 import { LegacyGameplayRecovery } from "../contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { RedisRoomLease } from "../contexts/rooms/adapters/coordination/redis-room-lease.js";
@@ -34,10 +35,11 @@ const automation = new LegacyGameplayAutomationScheduler({
   identities,
   store,
 });
-const executor = new LegacyGameplayAutomationExecutor({
+const executor = new DomainGameplayAutomationExecutor({
   automation,
   lease,
   presence,
+  random: new NodeAutomationRandomSource(),
   recovery: new LegacyGameplayRecovery(store),
   store,
 });

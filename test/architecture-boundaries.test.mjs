@@ -489,11 +489,11 @@ test("the Automation scheduler port owns its room input", async () => {
   assert.match(schedulerPortSource, /interface AutomatableGameplay/);
 });
 
-test("legacy gameplay automation executes through an Automation adapter", async () => {
+test("domain gameplay automation executes through an Automation adapter", async () => {
   const executorSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.ts",
+      "apps/game-service/src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.ts",
     ),
     "utf8",
   );
@@ -502,10 +502,12 @@ test("legacy gameplay automation executes through an Automation adapter", async 
     "utf8",
   );
 
-  assert.match(executorSource, /export class LegacyGameplayAutomationExecutor/);
+  assert.match(executorSource, /export class DomainGameplayAutomationExecutor/);
   assert.doesNotMatch(executorSource, /shared\/service-error\.js/);
   assert.match(executorSource, /application\/automation-execution-error\.js/);
-  assert.match(workerSource, /new LegacyGameplayAutomationExecutor/);
+  assert.match(workerSource, /new DomainGameplayAutomationExecutor/);
+  assert.match(workerSource, /new NodeAutomationRandomSource/);
+  assert.doesNotMatch(workerSource, /LegacyGameplayAutomationExecutor/);
 });
 
 test("domain gameplay commands execute through a Gameplay adapter", async () => {
