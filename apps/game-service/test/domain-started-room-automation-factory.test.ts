@@ -1,3 +1,4 @@
+import { buildDeck, seatIndex } from "@three-zero-four/gameplay";
 import {
   createLobby,
   inviteCode,
@@ -6,11 +7,11 @@ import {
   startRoom,
 } from "@three-zero-four/room-domain";
 import { describe, expect, it } from "vitest";
-import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
-import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
+import { DomainStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/domain-started-room-automation-factory.js";
+import { DomainStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/domain-started-room-snapshot-factory.js";
 
-describe("LegacyStartedRoomAutomationFactory", () => {
-  it("schedules the initial active turn from recovered gameplay state", () => {
+describe("DomainStartedRoomAutomationFactory", () => {
+  it("schedules the first domain Gameplay turn", () => {
     const host = playerId("9c9c7530-224f-4d5e-b354-1c78df2f063b");
     const lobby = createLobby({
       host: { displayName: "Asha", playerId: host },
@@ -21,16 +22,20 @@ describe("LegacyStartedRoomAutomationFactory", () => {
     });
     const started = startRoom(lobby, host);
     if (!started.ok) throw new Error("Expected room start to succeed");
-    const snapshot = new LegacyStartedRoomSnapshotFactory().create(
-      started.room,
-    );
-    const state = snapshot.state as {
-      activeSeat: number;
-      seats: Array<{ type: "bot" | "human" }>;
-    };
-    const targetSeatIndex = state.activeSeat;
-    const isBot = state.seats[targetSeatIndex]?.type === "bot";
-    const factory = new LegacyStartedRoomAutomationFactory(
+    const snapshot = new DomainStartedRoomSnapshotFactory(
+      { select: (profile) => seatIndex(0, profile.seatCount) },
+      {
+        prepare: (profile) => ({
+          audit: {
+            algorithm: "hmac-sha256-v1",
+            commitment: "commitment",
+            seed: "seed",
+          },
+          deck: buildDeck(profile),
+        }),
+      },
+    ).create(started.room);
+    const factory = new DomainStartedRoomAutomationFactory(
       {
         nextAutomationJobId: () => "83dd5df8-6036-463e-a7db-6d7f96fc3b52",
       },
@@ -39,14 +44,12 @@ describe("LegacyStartedRoomAutomationFactory", () => {
     );
 
     expect(factory.create(started.room, snapshot)).toEqual({
-      dueAt: new Date(
-        isBot ? "2030-01-01T00:00:00.900Z" : "2030-01-01T00:00:30.000Z",
-      ),
+      dueAt: new Date("2030-01-01T00:00:00.900Z"),
       expectedEventVersion: 2,
       id: "83dd5df8-6036-463e-a7db-6d7f96fc3b52",
-      kind: isBot ? "BOT_ACTION" : "TURN_TIMEOUT",
+      kind: "BOT_ACTION",
       roomId: started.room.id,
-      targetSeatIndex,
+      targetSeatIndex: 1,
     });
   });
 });

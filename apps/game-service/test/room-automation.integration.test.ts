@@ -515,7 +515,7 @@ describeIntegration("durable room automation", () => {
       [created.roomId],
     );
     await database.query(
-      "UPDATE game_snapshots SET state = $3::jsonb WHERE room_id = $1 AND event_version = $2",
+      "UPDATE game_snapshots SET schema_version = 1, state = $3::jsonb WHERE room_id = $1 AND event_version = $2",
       [created.roomId, started.eventVersion, JSON.stringify(completed)],
     );
     await database.query(
@@ -572,7 +572,7 @@ describeIntegration("durable room automation", () => {
     );
     const paused = pausedClassicTrickSnapshot();
     await database.query(
-      "UPDATE game_snapshots SET state = $3::jsonb WHERE room_id = $1 AND event_version = $2",
+      "UPDATE game_snapshots SET schema_version = 1, state = $3::jsonb WHERE room_id = $1 AND event_version = $2",
       [created.roomId, started.eventVersion, JSON.stringify(paused)],
     );
     const room = await store.loadRoom(created.roomId);

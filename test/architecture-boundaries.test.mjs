@@ -1263,14 +1263,14 @@ test("started room initialization contracts belong to the Rooms application", as
   const automationFactorySource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.ts",
+      "apps/game-service/src/contexts/automation/adapters/integration/domain-started-room-automation-factory.ts",
     ),
     "utf8",
   );
   const snapshotFactorySource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.ts",
+      "apps/game-service/src/contexts/rooms/adapters/integration/domain-started-room-snapshot-factory.ts",
     ),
     "utf8",
   );
@@ -1286,6 +1286,9 @@ test("started room initialization contracts belong to the Rooms application", as
     /implements StartedRoomAutomationFactory/,
   );
   assert.match(snapshotFactorySource, /implements StartedRoomSnapshotFactory/);
+  assert.match(snapshotFactorySource, /serializeGameplaySnapshot/);
+  assert.doesNotMatch(snapshotFactorySource, /@three-zero-four\/game-engine/);
+  assert.doesNotMatch(automationFactorySource, /@three-zero-four\/game-engine/);
 });
 
 test("automation execution depends on an Automation-owned job store port", async () => {

@@ -15,6 +15,11 @@ export interface GameplaySnapshotRecord {
   readonly state: unknown;
 }
 
+export interface SerializedGameplaySnapshotRecord
+  extends GameplaySnapshotRecord {
+  readonly schemaVersion: 2;
+}
+
 const seatSchema = z.number().int().min(0).max(5);
 const bidSchema = z.number().int().min(160).max(304);
 const cardSchema = z.strictObject({
@@ -166,7 +171,7 @@ function assertAggregateConsistency(
 
 export function serializeGameplaySnapshot(
   hand: GameplayHand,
-): GameplaySnapshotRecord {
+): SerializedGameplaySnapshotRecord {
   const cloned = structuredClone(hand);
   const { profile, ...state } = cloned;
   return {
