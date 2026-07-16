@@ -79,6 +79,52 @@ describe("domain gameplay compatibility snapshot decoder", () => {
     expect(hand.bidding.actedInRound[actor]).toBe(true);
   });
 
+  it("decodes completed opening bidding into trump selection", () => {
+    const { engine, record } = snapshot("classic_304_4p");
+    const maker = engine.getSnapshot().activeSeat;
+    if (maker === null) throw new Error("Expected an active bidding seat");
+    expect(
+      engine.applyAction({
+        actorSeatIndex: maker,
+        amount: 160,
+        seatIndex: maker,
+        type: "BID",
+      }),
+    ).toEqual({ ok: true });
+    while (engine.getSnapshot().phase === "four_bidding") {
+      const actor = engine.getSnapshot().activeSeat;
+      if (actor === null) throw new Error("Expected an active bidding seat");
+      expect(
+        engine.applyAction({
+          actorSeatIndex: actor,
+          seatIndex: actor,
+          type: "PASS_BID",
+        }),
+      ).toEqual({ ok: true });
+    }
+
+    const hand = decodeGameplayHand({
+      ...record,
+      state: engine.getSnapshot(),
+    });
+
+    expect(hand.phase).toBe("trump-selection");
+    expect(hand.activeSeat).toBe(maker);
+    expect(hand.trump).toEqual({
+      indicator: null,
+      maker,
+      mode: null,
+      open: false,
+      suit: null,
+    });
+    expect(hand.bidding).toMatchObject({
+      activeSeat: null,
+      currentBid: 160,
+      currentBidder: maker,
+      status: "complete",
+    });
+  });
+
   it("rejects lobby snapshots because Room Management owns the lobby", () => {
     const engine = new GameEngine({
       humanCount: 4,

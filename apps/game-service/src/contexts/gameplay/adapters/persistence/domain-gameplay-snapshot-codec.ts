@@ -41,13 +41,13 @@ const legacyBiddingSchema = z.object({
   phase: z.literal("four"),
   secondRound: z.object({ enabled: z.boolean() }),
 });
-const startedFourBiddingSchema = z.object({
+const openingGameplaySchema = z.object({
   activeSeat: z.number().int().nonnegative(),
   bidding: legacyBiddingSchema,
   dealerSeat: z.number().int().nonnegative(),
   deck: z.array(legacyCardSchema),
   handNumber: z.number().int().positive(),
-  phase: z.literal("four_bidding"),
+  phase: z.enum(["four_bidding", "trump_selection"]),
   profile: z.object({ id: z.string() }),
   profileId: z.string(),
   seatCount: z.union([z.literal(4), z.literal(6)]),
@@ -59,7 +59,7 @@ const startedFourBiddingSchema = z.object({
   trump: z.object({
     card: z.null(),
     isOpen: z.literal(false),
-    maker: z.null(),
+    maker: z.number().int().nonnegative().nullable(),
     suit: z.null(),
   }),
 });
@@ -106,7 +106,10 @@ export function decodeGameplayHand(
       "Lobby snapshots do not contain a gameplay hand",
     );
   }
-  if (header.data.phase !== "four_bidding") {
+  if (
+    header.data.phase !== "four_bidding" &&
+    header.data.phase !== "trump_selection"
+  ) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
       "Gameplay compatibility snapshot phase is not supported",
@@ -114,7 +117,7 @@ export function decodeGameplayHand(
   }
 
   try {
-    const state = startedFourBiddingSchema.parse(structuredClone(record.state));
+    const state = openingGameplaySchema.parse(structuredClone(record.state));
     const profile = getRuleProfile(record.ruleProfileId);
     if (
       state.profileId !== record.ruleProfileId ||
@@ -122,6 +125,21 @@ export function decodeGameplayHand(
       state.seatCount !== profile.seatCount ||
       state.seats.length !== profile.seatCount ||
       state.bidding.order.length !== profile.seatCount
+    ) {
+      throw invalidSnapshot();
+    }
+    const isBidding = state.phase === "four_bidding";
+    const trumpMaker =
+      state.trump.maker === null
+        ? null
+        : seatIndex(state.trump.maker, profile.seatCount);
+    if (
+      (isBidding && trumpMaker !== null) ||
+      (!isBidding &&
+        (trumpMaker === null ||
+          state.activeSeat !== trumpMaker ||
+          state.bidding.currentBid === 0 ||
+          state.bidding.currentBidSeat !== trumpMaker))
     ) {
       throw invalidSnapshot();
     }
@@ -144,7 +162,7 @@ export function decodeGameplayHand(
         ),
         actionsTaken: state.bidding.actions.length,
         activeOrderIndex: state.bidding.activeOrderIndex,
-        activeSeat: actor(state.activeSeat),
+        activeSeat: isBidding ? actor(state.activeSeat) : null,
         currentBid:
           state.bidding.currentBid === 0
             ? null
@@ -160,7 +178,7 @@ export function decodeGameplayHand(
         round: "four",
         seatCount: profile.seatCount,
         secondBiddingEnabled: state.bidding.secondRound.enabled,
-        status: "active",
+        status: isBidding ? "active" : "complete",
       },
       capturedCards: seats.map((seat) => mapCards(seat.wonCards)),
       completedTricks: [],
@@ -173,13 +191,13 @@ export function decodeGameplayHand(
       },
       dealer: actor(state.dealerSeat),
       handNumber: state.handNumber,
-      phase: "four-bidding",
+      phase: isBidding ? "four-bidding" : "trump-selection",
       profile,
       result: null,
       tokens: state.tokens,
       trump: {
         indicator: null,
-        maker: null,
+        maker: trumpMaker,
         mode: null,
         open: false,
         suit: null,
