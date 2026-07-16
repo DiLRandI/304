@@ -288,6 +288,13 @@ export function decodeGameplayHand(
       state.bidding.secondRound.actionsTaken === 0
         ? []
         : state.bidding.actions.slice(-state.bidding.secondRound.actionsTaken);
+    const openingActions = state.bidding.actions.slice(
+      0,
+      state.bidding.actions.length - state.bidding.secondRound.actionsTaken,
+    );
+    const openingBid = openingActions
+      .toReversed()
+      .find((action) => action.type === "bid");
     const secondActedInRound = Array.from(
       { length: profile.seatCount },
       () => false,
@@ -355,9 +362,7 @@ export function decodeGameplayHand(
             ? secondActions.length
             : secondPassesAfterBid
           : state.bidding.passesAfterBid,
-        previousBid: isSecondRound
-          ? bidAmount(state.bidding.secondRound.previousBid)
-          : null,
+        previousBid: isSecondRound ? bidAmount(openingBid?.amount ?? 0) : null,
         round: biddingRound,
         seatCount: profile.seatCount,
         secondBiddingEnabled: state.bidding.secondRound.enabled,
@@ -459,7 +464,15 @@ export function encodeGameplayHand(
     before.phase === "trump-selection" &&
     (hand.phase === "second-bidding" || hand.phase === "trump-choice") &&
     metadata.command.type === "SELECT_TRUMP";
-  if (!isOpeningTransition && !isIndicatorSelection) {
+  const isSecondBiddingTransition =
+    before.phase === "second-bidding" &&
+    hand.phase === "second-bidding" &&
+    (metadata.command.type === "BID" || metadata.command.type === "PASS_BID");
+  if (
+    !isOpeningTransition &&
+    !isIndicatorSelection &&
+    !isSecondBiddingTransition
+  ) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
       "Gameplay compatibility snapshot transition is not supported",
@@ -475,6 +488,11 @@ export function encodeGameplayHand(
   >;
   openingGameplaySchema.parse(state);
   const compatibilityState = state as typeof state & {
+    bidding: z.infer<typeof legacyBiddingSchema> & {
+      secondRound: z.infer<typeof legacyBiddingSchema>["secondRound"] & {
+        anyBid: boolean;
+      };
+    };
     currentLedSuit: Suit | null;
     trumpCard: z.infer<typeof legacyCardSchema> | null;
     trumpSuit: Suit | null;
@@ -508,8 +526,12 @@ export function encodeGameplayHand(
     state.bidding.secondRound.actionsTaken = hand.bidding.actionsTaken;
     state.bidding.secondRound.activeOrderIndex = hand.bidding.activeOrderIndex;
     state.bidding.secondRound.order = [...hand.bidding.order];
-    state.bidding.secondRound.previousBid = hand.bidding.previousBid ?? 0;
-    state.bidding.secondRound.previousBidSeat = hand.bidding.currentBidder;
+    state.bidding.secondRound.previousBid = hand.bidding.currentBid ?? 0;
+    if (isIndicatorSelection) {
+      state.bidding.secondRound.previousBidSeat = hand.bidding.currentBidder;
+    }
+    compatibilityState.bidding.secondRound.anyBid =
+      hand.bidding.currentBid !== hand.bidding.previousBid;
   }
   state.deck = hand.deal.deck.map(cardToLegacy);
   state.dealerSeat = hand.dealer;
