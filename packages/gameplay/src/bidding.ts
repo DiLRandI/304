@@ -147,6 +147,7 @@ function biddingEndsAfter(
       return { type: "BIDDING_CANCELLED" };
     }
   } else if (
+    state.round === "four" &&
     event.type === "BID_PASSED" &&
     state.passesAfterBid + 1 >= state.seatCount - 1
   ) {
