@@ -65,6 +65,49 @@ describe("domain gameplay compatibility snapshot decoder", () => {
     expect(engine.getSnapshot().bidding.actions).toHaveLength(0);
   });
 
+  it("encodes the final opening pass into trump selection", () => {
+    const { engine, record } = snapshot("classic_304_4p");
+    const applyLegacy = (action: Record<string, unknown>) => {
+      const actor = engine.getSnapshot().activeSeat;
+      if (actor === null) throw new Error("Expected an active bidding seat");
+      expect(
+        engine.applyAction({
+          ...action,
+          actorSeatIndex: actor,
+          seatIndex: actor,
+        }),
+      ).toEqual({ ok: true });
+    };
+    applyLegacy({ amount: 160, type: "BID" });
+    while (engine.getSnapshot().bidding.passesAfterBid < 2) {
+      applyLegacy({ type: "PASS_BID" });
+    }
+    const source: LegacyGameplaySnapshotRecord = {
+      ...record,
+      state: engine.getSnapshot(),
+    };
+    const before = decodeGameplayHand(source);
+    const actor = before.activeSeat;
+    if (actor === null) throw new Error("Expected an active bidding seat");
+    const command: GameplayCommand = { actor, type: "PASS_BID" };
+    const applied = applyGameplayCommand(before, command);
+    if (!applied.ok) throw new Error("Expected a legal final pass");
+
+    const encoded = encodeGameplayHand(applied.hand, { command, source });
+
+    expect(decodeGameplayHand(encoded)).toEqual(applied.hand);
+    const legacy = GameEngine.hydrate(
+      encoded.state as EngineState,
+    ).getSnapshot();
+    expect(legacy.phase).toBe("trump_selection");
+    expect(legacy.trump.maker).toBe(applied.hand.trump.maker);
+    expect(
+      GameEngine.hydrate(encoded.state as EngineState).getLegalActions(
+        legacy.activeSeat ?? -1,
+      ),
+    ).toHaveLength(4);
+  });
+
   it.each([
     "classic_304_4p",
     "six_304_36",

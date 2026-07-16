@@ -80,6 +80,7 @@ const legacyBiddingSchema = z.object({
   activeOrderIndex: z.number().int().nonnegative(),
   currentBid: z.number().int().nonnegative(),
   currentBidSeat: z.number().int().nonnegative().nullable(),
+  initialMakerSeat: z.number().int().nonnegative().nullable(),
   noBidPasses: z.number().int().nonnegative(),
   order: z.array(z.number().int().nonnegative()),
   passesAfterBid: z.number().int().nonnegative(),
@@ -451,7 +452,7 @@ export function encodeGameplayHand(
   const before = decodeGameplayHand(metadata.source);
   if (
     before.phase !== "four-bidding" ||
-    hand.phase !== "four-bidding" ||
+    (hand.phase !== "four-bidding" && hand.phase !== "trump-selection") ||
     (metadata.command.type !== "BID" && metadata.command.type !== "PASS_BID")
   ) {
     throw new GameplaySnapshotCodecError(
@@ -484,6 +485,7 @@ export function encodeGameplayHand(
   state.bidding.activeOrderIndex = hand.bidding.activeOrderIndex;
   state.bidding.currentBid = hand.bidding.currentBid ?? 0;
   state.bidding.currentBidSeat = hand.bidding.currentBidder;
+  state.bidding.initialMakerSeat = hand.trump.maker;
   state.bidding.noBidPasses = hand.bidding.noBidPasses;
   state.bidding.order = [...hand.bidding.order];
   state.bidding.passesAfterBid = hand.bidding.passesAfterBid;
@@ -492,7 +494,8 @@ export function encodeGameplayHand(
   state.deck = hand.deal.deck.map(cardToLegacy);
   state.dealerSeat = hand.dealer;
   state.handNumber = hand.handNumber;
-  state.phase = "four_bidding";
+  state.phase =
+    hand.phase === "four-bidding" ? "four_bidding" : "trump_selection";
   state.seats = state.seats.map((seat, index) => ({
     ...seat,
     firstHand: (hand.deal.firstHands[index] ?? []).map(cardToLegacy),
@@ -500,6 +503,12 @@ export function encodeGameplayHand(
     wonCards: (hand.capturedCards[index] ?? []).map(cardToLegacy),
   }));
   state.tokens = [...hand.tokens];
+  state.trump.card = hand.trump.indicator
+    ? cardToLegacy(hand.trump.indicator)
+    : null;
+  state.trump.isOpen = hand.trump.open;
+  state.trump.maker = hand.trump.maker;
+  state.trump.suit = hand.trump.suit;
 
   return {
     ruleProfileId: hand.profile.id,
