@@ -16,6 +16,7 @@ export class InvalidGameplayValue extends Error {
     readonly code:
       | "INVALID_BID_AMOUNT"
       | "INVALID_CARD_ID"
+      | "INVALID_RANDOM_VALUE"
       | "INVALID_RULE_PROFILE"
       | "INVALID_SEAT_INDEX",
     message: string,
