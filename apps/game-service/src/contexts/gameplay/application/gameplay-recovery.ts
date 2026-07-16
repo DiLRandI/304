@@ -1,4 +1,4 @@
-import type { GameEngine } from "@three-zero-four/game-engine";
+import type { RecoveredGameplay } from "./recovered-gameplay.js";
 
 export interface RecoverableGameplayRoom {
   readonly eventVersion: number;
@@ -48,5 +48,5 @@ export interface GameplayRecovery {
   recover(
     transaction: unknown,
     room: RecoverableGameplayRoom,
-  ): Promise<GameEngine>;
+  ): Promise<RecoveredGameplay>;
 }

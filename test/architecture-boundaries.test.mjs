@@ -433,6 +433,19 @@ test("the Gameplay recovery port owns its recovery input", async () => {
   assert.match(recoveryPortSource, /interface RecoverableGameplayRoom/);
 });
 
+test("the Gameplay recovery port owns its recovered runtime", async () => {
+  const recoveryPortSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/application/gameplay-recovery.ts",
+    ),
+    "utf8",
+  );
+
+  assert.doesNotMatch(recoveryPortSource, /@three-zero-four\/game-engine/);
+  assert.match(recoveryPortSource, /\.\/recovered-gameplay\.js/);
+});
+
 test("legacy gameplay snapshot replay belongs to a Gameplay adapter", async () => {
   const recoverySource = await readFile(
     path.join(
