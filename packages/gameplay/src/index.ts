@@ -45,6 +45,7 @@ export type {
   ProjectedTrick,
 } from "./projection.js";
 export { projectGameplayHand } from "./projection.js";
+export { gameplayPrompt } from "./prompt.js";
 export type {
   CancelledHand,
   HandScore,
