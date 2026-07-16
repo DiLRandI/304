@@ -10,7 +10,16 @@ import {
 } from "@three-zero-four/gameplay";
 import { GameplayApplicationError } from "../../application/gameplay-application-error.js";
 import { presentGameAction } from "./game-action-presenter.js";
-import type { GameplayRoomRecord } from "./gameplay-room-presenter.js";
+
+type ProjectableStatus = "lobby" | "in_hand" | "hand_result";
+
+export interface GameplayRoomRecord {
+  readonly eventVersion: number;
+  readonly hostPlayerId: string;
+  readonly id: string;
+  readonly inviteCode: string;
+  readonly status: ProjectableStatus | "closed" | "recovery_failed";
+}
 
 export interface DomainGameplayProjectionSeat {
   readonly botDifficulty: string | null;
@@ -24,7 +33,7 @@ export interface DomainGameplayProjectionSeat {
 
 function projectableStatus(
   status: GameplayRoomRecord["status"],
-): "lobby" | "in_hand" | "hand_result" {
+): ProjectableStatus {
   if (status === "lobby" || status === "in_hand" || status === "hand_result") {
     return status;
   }

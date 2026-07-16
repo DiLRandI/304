@@ -1,7 +1,6 @@
 import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it } from "vitest";
 import { projectDomainRoomForPlayer } from "../src/contexts/gameplay/adapters/delivery/domain-gameplay-room-presenter.js";
-import { projectRoomForPlayer } from "../src/contexts/gameplay/adapters/delivery/gameplay-room-presenter.js";
 import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
 import type { StoredSeat } from "../src/contexts/rooms/application/room-persistence-model.js";
 
@@ -9,7 +8,7 @@ describe("projectDomainRoomForPlayer", () => {
   it.each([
     { profileId: "classic_304_4p", seatCount: 4 },
     { profileId: "six_304_36", seatCount: 6 },
-  ] as const)("matches the established $profileId opening-hand wire projection", ({
+  ] as const)("presents the $profileId opening-hand wire contract", ({
     profileId,
     seatCount,
   }) => {
@@ -61,16 +60,35 @@ describe("projectDomainRoomForPlayer", () => {
       seats,
       viewerSeatIndex,
     );
-    const legacyProjection = projectRoomForPlayer(
-      room,
-      engine,
+    expect(domainProjection).toMatchObject({
+      eventVersion: state.version,
+      inviteCode: room.inviteCode,
+      roomId: room.id,
+      status: "in_hand",
       viewerSeatIndex,
-    );
-
-    expect(domainProjection).toEqual(legacyProjection);
+      view: {
+        isHost: true,
+        privateSeat: {
+          displayName: `Player ${viewerSeatIndex + 1}`,
+          hand: expect.any(Array),
+          index: viewerSeatIndex,
+          type: "human",
+        },
+        publicState: {
+          activeSeat: viewerSeatIndex,
+          phase: "four_bidding",
+          profileId,
+          seatCount,
+          seats: expect.any(Array),
+        },
+      },
+    });
+    expect(domainProjection.view.privateSeat.hand).toHaveLength(4);
+    expect(domainProjection.view.publicState.seats).toHaveLength(seatCount);
+    expect(domainProjection.view.legalActions.length).toBeGreaterThan(0);
   });
 
-  it("matches maker and opponent views while trump is closed", () => {
+  it("keeps the closed trump private in maker and opponent views", () => {
     const engine = new GameEngine({
       enableSecondBidding: false,
       humanCount: 4,
@@ -128,28 +146,31 @@ describe("projectDomainRoomForPlayer", () => {
       state,
     });
 
-    for (const viewerSeatIndex of [maker, (maker + 1) % 4]) {
-      const domain = projectDomainRoomForPlayer(
-        room,
-        hand,
-        seats,
-        viewerSeatIndex,
-      );
-      const legacy = projectRoomForPlayer(room, engine, viewerSeatIndex);
+    const makerProjection = projectDomainRoomForPlayer(
+      room,
+      hand,
+      seats,
+      maker,
+    );
+    const opponentProjection = projectDomainRoomForPlayer(
+      room,
+      hand,
+      seats,
+      (maker + 1) % 4,
+    );
+    const indicatorId = hand.trump.indicator?.id;
+    if (!indicatorId) throw new Error("Expected a private trump indicator");
 
-      expect(domain.view.isHost).toBe(legacy.view.isHost);
-      expect(domain.view.legalActions).toEqual(legacy.view.legalActions);
-      expect(domain.view.privateSeat).toEqual(legacy.view.privateSeat);
-      expect(domain.view.prompt).toBe(legacy.view.prompt);
-      expect(domain.view.publicState).toMatchObject({
-        activeSeat: legacy.view.publicState.activeSeat,
-        seats: legacy.view.publicState.seats,
-        trump: legacy.view.publicState.trump,
-      });
-    }
+    expect(makerProjection.view.isHost).toBe(true);
+    expect(opponentProjection.view.isHost).toBe(false);
+    expect(makerProjection.view.publicState.trump.isOpen).toBe(false);
+    expect(opponentProjection.view.publicState.trump.isOpen).toBe(false);
+    expect(JSON.stringify(opponentProjection)).not.toContain(indicatorId);
+    expect(makerProjection.view.privateSeat.hand).toHaveLength(7);
+    expect(opponentProjection.view.privateSeat.hand).toHaveLength(8);
   });
 
-  it("matches host and opponent views for a scored hand result", () => {
+  it("presents host-only acknowledgement for a scored hand result", () => {
     const engine = new GameEngine({
       enableSecondBidding: false,
       humanCount: 4,
@@ -223,26 +244,29 @@ describe("projectDomainRoomForPlayer", () => {
       state,
     });
 
-    for (const viewerSeatIndex of [maker, (maker + 1) % 4]) {
-      const domain = projectDomainRoomForPlayer(
-        room,
-        hand,
-        seats,
-        viewerSeatIndex,
-      );
-      const legacy = projectRoomForPlayer(room, engine, viewerSeatIndex);
+    const hostProjection = projectDomainRoomForPlayer(room, hand, seats, maker);
+    const opponentProjection = projectDomainRoomForPlayer(
+      room,
+      hand,
+      seats,
+      (maker + 1) % 4,
+    );
 
-      expect(domain.view.isHost).toBe(legacy.view.isHost);
-      expect(domain.view.legalActions).toEqual(legacy.view.legalActions);
-      expect(domain.view.privateSeat).toEqual(legacy.view.privateSeat);
-      expect(domain.view.prompt).toBe(legacy.view.prompt);
-      expect(domain.view.publicState).toMatchObject({
-        activeSeat: null,
-        handResult: legacy.view.publicState.handResult,
-        seats: legacy.view.publicState.seats,
-        trickPointsPartial: legacy.view.publicState.trickPointsPartial,
-        trump: legacy.view.publicState.trump,
-      });
-    }
+    expect(hostProjection.view.isHost).toBe(true);
+    expect(hostProjection.view.legalActions).toContainEqual({
+      type: "ACK_RESULT",
+    });
+    expect(opponentProjection.view.isHost).toBe(false);
+    expect(opponentProjection.view.legalActions).not.toContainEqual({
+      type: "ACK_RESULT",
+    });
+    expect(hostProjection.view.publicState).toMatchObject({
+      activeSeat: null,
+      handResult: expect.any(Object),
+      phase: "hand_result",
+      trickPointsPartial: false,
+      trump: { isOpen: true },
+    });
+    expect(hostProjection.view.publicState.completedTricks).toHaveLength(8);
   });
 });
