@@ -2,11 +2,15 @@ import type { GameAction } from "@three-zero-four/contracts";
 import { GameEngine } from "@three-zero-four/game-engine";
 import type { GameplayCommand } from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
-import { transitionAutomatedGameplayCommand } from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-transition.js";
+import {
+  transitionAutomatedGameplayCommand,
+  transitionHydratedAutomatedGameplayCommand,
+} from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-transition.js";
 import {
   decodeGameplayHand,
   type LegacyGameplaySnapshotRecord,
 } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
+import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 
 function pausedTrickSnapshot(): LegacyGameplaySnapshotRecord {
   const engine = new GameEngine({
@@ -62,6 +66,17 @@ function pausedTrickSnapshot(): LegacyGameplaySnapshotRecord {
 }
 
 describe("transitionAutomatedGameplayCommand", () => {
+  it("persists a hydrated automation transition as schema v2", () => {
+    const before = decodeGameplayHand(pausedTrickSnapshot());
+    const command: GameplayCommand = { actor: null, type: "ADVANCE_TRICK" };
+
+    const result = transitionHydratedAutomatedGameplayCommand(before, command);
+
+    expect(result.snapshot.schemaVersion).toBe(2);
+    expect(hydrateGameplaySnapshot(result.snapshot)).toEqual(result.hand);
+    expect(before.phase).toBe("trick-result");
+  });
+
   it("advances a completed trick through the Gameplay aggregate", () => {
     const source = pausedTrickSnapshot();
     const before = decodeGameplayHand(source);
