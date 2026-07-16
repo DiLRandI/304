@@ -1,29 +1,14 @@
-import { GameEngine } from "@three-zero-four/game-engine";
 import { buildDeck, nextDealer } from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
 import { replayDomainGameplayEvent } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-event-replayer.js";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
-
-function engineAtStart(): GameEngine {
-  const engine = new GameEngine({
-    humanCount: 4,
-    ruleProfile: "classic_304_4p",
-  });
-  engine.startMatch();
-  return engine;
-}
-
-function handFrom(engine: GameEngine) {
-  return decodeGameplayHand({
-    ruleProfileId: "classic_304_4p",
-    schemaVersion: 1,
-    state: engine.getSnapshot(),
-  });
-}
+import {
+  cancelledGameplayHand,
+  startedGameplayHand,
+} from "./support/gameplay-hand-fixture.js";
 
 describe("replayDomainGameplayEvent", () => {
   it("replays a human wire action through the Gameplay aggregate", () => {
-    const hand = handFrom(engineAtStart());
+    const hand = startedGameplayHand();
     if (hand.activeSeat === null) throw new Error("Expected an active seat");
 
     const replayed = replayDomainGameplayEvent(
@@ -42,19 +27,7 @@ describe("replayDomainGameplayEvent", () => {
   });
 
   it("replays result acknowledgement with the persisted next-hand deck", () => {
-    const engine = engineAtStart();
-    while (engine.getSnapshot().phase === "four_bidding") {
-      const actor = engine.getSnapshot().activeSeat;
-      if (actor === null) throw new Error("Expected an active seat");
-      expect(
-        engine.applyAction({
-          actorSeatIndex: actor,
-          seatIndex: actor,
-          type: "PASS_BID",
-        }),
-      ).toEqual({ ok: true });
-    }
-    const hand = handFrom(engine);
+    const hand = cancelledGameplayHand();
     const deck = buildDeck(hand.profile).toReversed();
 
     const replayed = replayDomainGameplayEvent(
@@ -90,23 +63,10 @@ describe("replayDomainGameplayEvent", () => {
   });
 
   it("rejects an acknowledgement without deterministic replay material", () => {
-    const engine = engineAtStart();
-    while (engine.getSnapshot().phase === "four_bidding") {
-      const actor = engine.getSnapshot().activeSeat;
-      if (actor === null) throw new Error("Expected an active seat");
-      expect(
-        engine.applyAction({
-          actorSeatIndex: actor,
-          seatIndex: actor,
-          type: "PASS_BID",
-        }),
-      ).toEqual({ ok: true });
-    }
-
     expect(() =>
       replayDomainGameplayEvent(
         "room-1",
-        handFrom(engine),
+        cancelledGameplayHand(),
         {
           actorPlayerId: "player-1",
           eventType: "GAME_ACTION",
