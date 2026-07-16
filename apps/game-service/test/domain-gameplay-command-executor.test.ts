@@ -1,23 +1,18 @@
 import type { GameCommand } from "@three-zero-four/contracts";
-import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
 import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 import type {
   GameplayCommandRoom,
   GameplayCommandStore,
 } from "../src/contexts/gameplay/application/gameplay-command-store.js";
 import type { GameplayActor } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
+import { startedGameplayHand } from "./support/gameplay-hand-fixture.js";
 
 describe("DomainGameplayCommandExecutor", () => {
   it("applies and atomically persists a versioned domain command", async () => {
-    const engine = new GameEngine({
-      humanCount: 4,
-      ruleProfile: "classic_304_4p",
-    });
-    engine.startMatch();
-    const actorSeatIndex = engine.getSnapshot().activeSeat;
+    const hand = startedGameplayHand();
+    const actorSeatIndex = hand.activeSeat;
     if (actorSeatIndex === null) {
       throw new Error("Expected an active bidding seat");
     }
@@ -60,12 +55,6 @@ describe("DomainGameplayCommandExecutor", () => {
       ): Promise<Result> => work(Symbol("transaction")),
     } as unknown as GameplayCommandStore;
     const schedule = vi.fn(async () => undefined);
-    const applyAction = vi.spyOn(engine, "applyAction");
-    const hand = decodeGameplayHand({
-      ruleProfileId: room.ruleProfileId,
-      schemaVersion: 1,
-      state: engine.getSnapshot(),
-    });
     const executor = new DomainGameplayCommandExecutor({
       automation: { schedule },
       lease: {
@@ -92,7 +81,7 @@ describe("DomainGameplayCommandExecutor", () => {
       viewerSeatIndex: actorSeatIndex,
       view: { isHost: true },
     });
-    expect(applyAction).not.toHaveBeenCalled();
+    expect(hand.bidding.actionsTaken).toBe(0);
     const persisted = appendEventAndSnapshot.mock.calls[0]?.[1];
     expect(persisted).toMatchObject({
       actorPlayerId: session.playerId,

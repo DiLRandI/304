@@ -520,6 +520,20 @@ test("schema-v1 Gameplay translation is isolated as a legacy persistence adapter
   );
 });
 
+test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => {
+  const activeRuntimeTests = await Promise.all(
+    [
+      "apps/game-service/test/domain-gameplay-command-executor.test.ts",
+      "apps/game-service/test/domain-room-connections.test.ts",
+      "apps/game-service/test/room-store.integration.test.ts",
+    ].map((file) => readFile(path.join(repoRoot, file), "utf8")),
+  );
+  for (const source of activeRuntimeTests) {
+    assert.doesNotMatch(source, /@three-zero-four\/game-engine/);
+    assert.match(source, /startedGameplayHand/);
+  }
+});
+
 test("gameplay automation scheduling belongs to the Automation application", async () => {
   const schedulerSource = await readFile(
     path.join(
