@@ -1,16 +1,16 @@
-import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
 import { DomainGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
 import type { GameplayHandRecoveryStore } from "../src/contexts/gameplay/application/gameplay-hand-recovery.js";
+import {
+  legacyLobbyGameplaySnapshot,
+  legacyStartedGameplaySnapshot,
+} from "./support/legacy-gameplay-snapshot-fixture.js";
 
 describe("DomainGameplayRecovery schema-v1 compatibility", () => {
   it("hydrates a compatibility snapshot and replays newer domain events", async () => {
-    const engine = new GameEngine({
-      humanCount: 4,
-      ruleProfile: "classic_304_4p",
-    });
-    engine.startMatch();
-    const actorSeatIndex = engine.getSnapshot().activeSeat;
+    const snapshot = legacyStartedGameplaySnapshot();
+    const actorSeatIndex = (snapshot.state as { activeSeat: number | null })
+      .activeSeat;
     if (actorSeatIndex === null) throw new Error("Expected an active seat");
     const transaction = Symbol("transaction");
     const store: GameplayHandRecoveryStore = {
@@ -29,7 +29,7 @@ describe("DomainGameplayRecovery schema-v1 compatibility", () => {
         eventVersion: 4,
         ruleProfileId: "classic_304_4p",
         schemaVersion: 1,
-        state: engine.getSnapshot(),
+        state: snapshot.state,
       })),
     };
 
@@ -48,12 +48,8 @@ describe("DomainGameplayRecovery schema-v1 compatibility", () => {
   });
 
   it("falls back from a lobby snapshot to the authoritative start event", async () => {
-    const engine = new GameEngine({
-      humanCount: 4,
-      ruleProfile: "classic_304_4p",
-    });
-    const lobbySnapshot = engine.getSnapshot();
-    engine.startMatch();
+    const lobbySnapshot = legacyLobbyGameplaySnapshot();
+    const startedSnapshot = legacyStartedGameplaySnapshot();
     const transaction = Symbol("transaction");
     const store: GameplayHandRecoveryStore = {
       findSeatIndex: vi.fn(async () => null),
@@ -63,7 +59,7 @@ describe("DomainGameplayRecovery schema-v1 compatibility", () => {
           eventType: "ROOM_STARTED",
           payload: {
             ruleProfileId: "classic_304_4p",
-            state: engine.getSnapshot(),
+            state: startedSnapshot.state,
           },
         },
       ]),
@@ -71,7 +67,7 @@ describe("DomainGameplayRecovery schema-v1 compatibility", () => {
         eventVersion: 4,
         ruleProfileId: "classic_304_4p",
         schemaVersion: 1,
-        state: lobbySnapshot,
+        state: lobbySnapshot.state,
       })),
     };
 
