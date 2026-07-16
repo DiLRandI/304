@@ -481,6 +481,10 @@ test("retired legacy gameplay runtimes stay deleted", async () => {
     undefined,
   );
   assert.doesNotMatch(JSON.stringify(rootManifest.scripts), /server\.js/);
+  assert.doesNotMatch(
+    JSON.stringify(rootManifest),
+    /@three-zero-four\/game-engine/,
+  );
   for (const filename of [
     "index.html",
     "server.js",
@@ -496,6 +500,10 @@ test("retired legacy gameplay runtimes stay deleted", async () => {
       code: "ENOENT",
     });
   }
+  await assert.rejects(
+    access(path.join(repoRoot, "packages/game-engine/package.json")),
+    { code: "ENOENT" },
+  );
 });
 
 test("active runtimes recover the domain Gameplay aggregate", async () => {
