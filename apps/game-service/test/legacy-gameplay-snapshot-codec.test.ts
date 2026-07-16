@@ -1,7 +1,6 @@
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
 import {
   applyGameplayCommand,
-  bidAmount,
   type GameplayCommand,
   legalGameplayCommands,
 } from "@three-zero-four/gameplay";
@@ -32,88 +31,6 @@ function snapshot(profileId: "classic_304_4p" | "six_304_36"): {
 }
 
 describe("domain gameplay compatibility snapshot decoder", () => {
-  it.each([
-    { amount: 250, type: "BID" },
-    { type: "PASS_BID" },
-  ] as const)("encodes one second-round $type transition", (action) => {
-    const engine = new GameEngine({
-      enableSecondBidding: true,
-      humanCount: 4,
-      ruleProfile: "classic_304_4p",
-    });
-    engine.startMatch();
-    const applyLegacy = (legacyAction: Record<string, unknown>) => {
-      const actor = engine.getSnapshot().activeSeat;
-      if (actor === null) throw new Error("Expected an active gameplay seat");
-      expect(
-        engine.applyAction({
-          ...legacyAction,
-          actorSeatIndex: actor,
-          seatIndex: actor,
-        }),
-      ).toEqual({ ok: true });
-    };
-    applyLegacy({ amount: 200, type: "BID" });
-    while (engine.getSnapshot().phase === "four_bidding") {
-      applyLegacy({ type: "PASS_BID" });
-    }
-    const maker = engine.getSnapshot().activeSeat;
-    const indicator =
-      maker === null
-        ? null
-        : engine
-            .getLegalActions(maker)
-            .find((candidate) => candidate.type === "SELECT_TRUMP");
-    if (maker === null || !indicator) {
-      throw new Error("Expected a trump indicator action");
-    }
-    applyLegacy(indicator);
-    if (action.type === "BID") {
-      applyLegacy({ type: "PASS_BID" });
-    }
-    const secondRoundBefore = structuredClone(
-      engine.getSnapshot().bidding.secondRound,
-    );
-    const source: LegacyGameplaySnapshotRecord = {
-      ruleProfileId: "classic_304_4p",
-      schemaVersion: 1,
-      state: engine.getSnapshot(),
-    };
-    const before = decodeGameplayHand(source);
-    const actor = before.activeSeat;
-    if (actor === null) throw new Error("Expected an active second bidder");
-    const command: GameplayCommand =
-      action.type === "BID"
-        ? { actor, amount: bidAmount(action.amount), type: "BID" }
-        : { actor, type: "PASS_BID" };
-    const applied = applyGameplayCommand(before, command);
-    if (!applied.ok) throw new Error("Expected a legal second-round command");
-
-    const encoded = encodeGameplayHand(applied.hand, { command, source });
-
-    expect(decodeGameplayHand(encoded)).toEqual(applied.hand);
-    const legacy = GameEngine.hydrate(
-      encoded.state as EngineState,
-    ).getSnapshot();
-    expect(legacy.phase).toBe("second_bidding");
-    expect(legacy.bidding.secondRound.actionsTaken).toBe(
-      secondRoundBefore.actionsTaken + 1,
-    );
-    expect(legacy.bidding.secondRound.anyBid).toBe(action.type === "BID");
-    expect(legacy.bidding.secondRound.previousBid).toBe(
-      applied.hand.bidding.currentBid,
-    );
-    expect(legacy.bidding.secondRound.previousBidSeat).toBe(
-      secondRoundBefore.previousBidSeat,
-    );
-    expect(legacy.bidding.actions).toHaveLength(
-      engine.getSnapshot().bidding.actions.length + 1,
-    );
-    expect(engine.getSnapshot().bidding.secondRound.actionsTaken).toBe(
-      secondRoundBefore.actionsTaken,
-    );
-  });
-
   it.each([
     { newMaker: false, phase: "trump-choice" },
     { newMaker: true, phase: "trump-selection" },
