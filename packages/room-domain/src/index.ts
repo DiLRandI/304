@@ -16,6 +16,12 @@ export {
   startRoom,
 } from "./aggregate.js";
 export type {
+  RoomCommand,
+  RoomCommandResult,
+  RoomEvent,
+} from "./commands.js";
+export { executeRoomCommand } from "./commands.js";
+export type {
   BotDifficulty,
   ConnectionStatus,
   RoomSeat,
