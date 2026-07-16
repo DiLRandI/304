@@ -181,6 +181,31 @@ function trickToLegacy(
   };
 }
 
+function resultToLegacy(
+  result: NonNullable<GameplayHand["result"]>,
+):
+  | z.infer<typeof legacyCancelledResultSchema>
+  | z.infer<typeof legacyScoredResultSchema> {
+  if ("noScore" in result) {
+    return {
+      noScore: true,
+      reason: result.reason,
+      tokens: [...result.tokens],
+    };
+  }
+  return {
+    bid: result.bid,
+    bidderTeam: result.bidderTeam,
+    bidderTeamPoints: result.bidderTeamPoints,
+    matchComplete: result.matchComplete,
+    movement: result.movement,
+    otherTeamPoints: result.otherTeamPoints,
+    success: result.success,
+    tokens: [...result.tokens],
+    winningTeam: result.winningTeam,
+  };
+}
+
 export function decodeGameplayHand(
   record: LegacyGameplaySnapshotRecord,
 ): GameplayHand {
@@ -498,7 +523,9 @@ export function encodeGameplayHand(
     metadata.command.type === "PLAY_CARD";
   const isTrickAdvance =
     before.phase === "trick-result" &&
-    hand.phase === "trick-play" &&
+    (hand.phase === "trick-play" ||
+      hand.phase === "hand-result" ||
+      hand.phase === "match-complete") &&
     metadata.command.type === "ADVANCE_TRICK";
   if (
     !isOpeningTransition &&
@@ -536,7 +563,12 @@ export function encodeGameplayHand(
     trumpSuit: Suit | null;
   };
   const activeSeat = hand.activeSeat;
-  if (activeSeat === null && hand.phase !== "trick-result") {
+  if (
+    activeSeat === null &&
+    hand.phase !== "trick-result" &&
+    hand.phase !== "hand-result" &&
+    hand.phase !== "match-complete"
+  ) {
     throw invalidSnapshot();
   }
   state.activeSeat = activeSeat;
@@ -582,6 +614,7 @@ export function encodeGameplayHand(
     : null;
   state.dealerSeat = hand.dealer;
   state.handNumber = hand.handNumber;
+  state.handResult = hand.result ? resultToLegacy(hand.result) : null;
   state.phase =
     hand.phase === "four-bidding"
       ? "four_bidding"
@@ -593,7 +626,11 @@ export function encodeGameplayHand(
             ? "trump_choice"
             : hand.phase === "trick-play"
               ? "trick_play"
-              : "trick_result";
+              : hand.phase === "trick-result"
+                ? "trick_result"
+                : hand.phase === "hand-result"
+                  ? "hand_result"
+                  : "match_complete";
   state.seats = state.seats.map((seat, index) => ({
     ...seat,
     firstHand: (hand.deal.firstHands[index] ?? []).map(cardToLegacy),

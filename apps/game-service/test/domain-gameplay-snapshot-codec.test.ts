@@ -652,6 +652,90 @@ describe("domain gameplay compatibility snapshot decoder", () => {
   });
 
   it.each([
+    { phase: "hand-result", tokens: null },
+    { phase: "match-complete", tokens: [1, 1] as [number, number] },
+  ] as const)("encodes final trick advancement into $phase", (scenario) => {
+    const engine = new GameEngine({
+      enableSecondBidding: false,
+      humanCount: 4,
+      ruleProfile: "classic_304_4p",
+    });
+    engine.startMatch();
+    if (scenario.tokens) {
+      engine.state.tokens = [...scenario.tokens];
+    }
+    const applyLegacy = (legacyAction: Record<string, unknown>) => {
+      const actor = engine.getSnapshot().activeSeat;
+      if (actor === null) throw new Error("Expected an active gameplay seat");
+      expect(
+        engine.applyAction({
+          ...legacyAction,
+          actorSeatIndex: actor,
+          seatIndex: actor,
+        }),
+      ).toEqual({ ok: true });
+    };
+    applyLegacy({ amount: 200, type: "BID" });
+    while (engine.getSnapshot().phase === "four_bidding") {
+      applyLegacy({ type: "PASS_BID" });
+    }
+    const maker = engine.getSnapshot().activeSeat;
+    const indicator =
+      maker === null
+        ? null
+        : engine
+            .getLegalActions(maker)
+            .find((candidate) => candidate.type === "SELECT_TRUMP");
+    if (maker === null || !indicator) {
+      throw new Error("Expected a trump indicator action");
+    }
+    applyLegacy(indicator);
+    applyLegacy({ type: "TRUMP_OPEN" });
+    while (engine.getSnapshot().completedTricks.length < 8) {
+      while (engine.getSnapshot().phase === "trick_play") {
+        const actor = engine.getSnapshot().activeSeat;
+        const play =
+          actor === null
+            ? null
+            : engine
+                .getLegalActions(actor)
+                .find((candidate) => candidate.type === "PLAY_CARD");
+        if (!play) throw new Error("Expected a legal legacy card play");
+        applyLegacy(play);
+      }
+      if (engine.getSnapshot().completedTricks.length < 8) {
+        expect(engine.advanceTrick()).toEqual({ ok: true });
+      }
+    }
+    const source: LegacyGameplaySnapshotRecord = {
+      ruleProfileId: "classic_304_4p",
+      schemaVersion: 1,
+      state: engine.getSnapshot(),
+    };
+    const before = decodeGameplayHand(source);
+    const command: GameplayCommand = { actor: null, type: "ADVANCE_TRICK" };
+    const applied = applyGameplayCommand(before, command);
+    if (!applied.ok) throw new Error("Expected the hand to score");
+
+    const encoded = encodeGameplayHand(applied.hand, { command, source });
+
+    expect(applied.hand.phase).toBe(scenario.phase);
+    expect(decodeGameplayHand(encoded)).toEqual(applied.hand);
+    const legacy = GameEngine.hydrate(
+      encoded.state as EngineState,
+    ).getSnapshot();
+    expect(legacy.phase).toBe(scenario.phase.replaceAll("-", "_"));
+    expect(legacy.activeSeat).toBeNull();
+    expect(legacy.handResult).toMatchObject(applied.hand.result ?? {});
+    expect(legacy.tokens).toEqual(applied.hand.tokens);
+    expect(legacy.completedTricks).toHaveLength(8);
+    expect(
+      GameEngine.hydrate(encoded.state as EngineState).getLegalActions(maker),
+    ).toContainEqual(expect.objectContaining({ type: "ACK_RESULT" }));
+    expect(engine.getSnapshot().phase).toBe("trick_result");
+  });
+
+  it.each([
     "classic_304_4p",
     "six_304_36",
   ] as const)("decodes a started %s four-card bidding snapshot", (profileId) => {
