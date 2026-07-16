@@ -164,4 +164,53 @@ describe("legacy gameplay card play", () => {
     expect(advanced).toMatchObject({ hand: { phase: "trick-play" }, ok: true });
     expect(sourceState.completedTricks).toHaveLength(0);
   });
+
+  it("encodes advancing a completed trick into the next trick", () => {
+    let source = startTrickPlay("TRUMP_OPEN");
+    while (decodeGameplayHand(source).phase === "trick-play") {
+      const before = decodeGameplayHand(source);
+      const actor = before.activeSeat;
+      const command =
+        actor === null
+          ? null
+          : legalGameplayCommands(before, actor).find(
+              (candidate) => candidate.type === "PLAY_CARD",
+            );
+      if (actor === null || !command || command.type !== "PLAY_CARD") {
+        throw new Error("Expected a legal card play");
+      }
+      source = transition(source, command).snapshot;
+    }
+    const before = decodeGameplayHand(source);
+    const result = transition(source, { actor: null, type: "ADVANCE_TRICK" });
+    const sourceState = source.state as { phase: string };
+    const state = result.snapshot.state as {
+      activeSeat: number | null;
+      completedTricks: unknown[];
+      currentLedSuit: string | null;
+      currentTrick: {
+        leaderSeat: number;
+        plays: unknown[];
+        points: number;
+      } | null;
+      phase: string;
+    };
+
+    expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
+    expect(state.phase).toBe("trick_play");
+    expect(state.activeSeat).toBe(before.currentTrick?.winnerSeat);
+    expect(state.completedTricks).toHaveLength(1);
+    expect(state.currentTrick).toMatchObject({
+      leaderSeat: before.currentTrick?.winnerSeat,
+      plays: [],
+      points: 0,
+    });
+    expect(state.currentLedSuit).toBeNull();
+    const actor = result.hand.activeSeat;
+    if (actor === null) throw new Error("Expected the next trick leader");
+    expect(legalGameplayCommands(result.hand, actor)).toContainEqual(
+      expect.objectContaining({ type: "PLAY_CARD" }),
+    );
+    expect(sourceState.phase).toBe("trick_result");
+  });
 });
