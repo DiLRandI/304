@@ -627,11 +627,11 @@ test("Automation execution errors do not carry transport status", async () => {
   assert.match(errorSource, /export class AutomationExecutionError/);
 });
 
-test("the web server composes realtime connections without a room coordinator", async () => {
+test("the web server composes Rooms-owned realtime connections", async () => {
   const connectionsSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/adapters/integration/legacy-gameplay-connections.ts",
+      "apps/game-service/src/contexts/rooms/adapters/integration/domain-room-connections.ts",
     ),
     "utf8",
   );
@@ -640,13 +640,14 @@ test("the web server composes realtime connections without a room coordinator", 
     "utf8",
   );
 
-  assert.match(connectionsSource, /export class LegacyGameplayConnections/);
+  assert.match(connectionsSource, /export class DomainRoomConnections/);
   assert.doesNotMatch(connectionsSource, /shared\/service-error\.js/);
   assert.match(
     connectionsSource,
     /application\/gameplay-application-error\.js/,
   );
-  assert.match(serverSource, /new LegacyGameplayConnections/);
+  assert.match(serverSource, /new DomainRoomConnections/);
+  assert.doesNotMatch(serverSource, /new LegacyGameplayConnections/);
   assert.doesNotMatch(serverSource, /new RoomCoordinator/);
 });
 

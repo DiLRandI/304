@@ -2,12 +2,12 @@ import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapte
 import { LegacyStartedRoomAutomationFactory } from "../contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { SecureGameplayHandShuffler } from "../contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
 import { DomainGameplayCommandExecutor } from "../contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
-import { LegacyGameplayConnections } from "../contexts/gameplay/adapters/integration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../contexts/gameplay/application/submit-gameplay-command.js";
 import { RedisRoomLease } from "../contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { LobbyRoomProjectionPresenter } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
+import { DomainRoomConnections } from "../contexts/rooms/adapters/integration/domain-room-connections.js";
 import { GameplayRoomProjectionReader } from "../contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { LegacyStartedRoomSnapshotFactory } from "../contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
@@ -63,7 +63,7 @@ const gameplayAutomation = new LegacyGameplayAutomationScheduler({
   identities,
   store,
 });
-const connections = new LegacyGameplayConnections({
+const connections = new DomainRoomConnections({
   automation: gameplayAutomation,
   identities,
   lease: roomLease,
