@@ -1246,6 +1246,16 @@ test("automation adapters depend on an application-owned room store port", async
 
   assert.doesNotMatch(executorSource, /postgres-room-store\.js/);
   assert.match(executorSource, /application\/room-persistence-store\.js/);
+
+  const domainExecutorSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.ts",
+    ),
+    "utf8",
+  );
+  assert.match(domainExecutorSource, /application\/automation-job-store\.js/);
+  assert.doesNotMatch(domainExecutorSource, /contexts\/rooms/);
 });
 
 test("the legacy room coordinator is retired", async () => {
