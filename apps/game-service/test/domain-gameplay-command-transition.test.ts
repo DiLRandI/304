@@ -135,5 +135,13 @@ describe("transitionGameplayCommand", () => {
     expect(result.command).toEqual({ actor: 0, type: "ACK_RESULT" });
     expect(result.hand).toMatchObject({ handNumber: 2, phase: "four-bidding" });
     expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
+    expect(result.nextHand).toEqual({
+      audit: {
+        algorithm: "hmac-sha256-v1",
+        commitment: "c_next-hand",
+        seed: "s_next-hand",
+      },
+      deck: nextDeck,
+    });
   });
 });

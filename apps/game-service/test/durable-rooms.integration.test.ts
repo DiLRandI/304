@@ -9,7 +9,8 @@ import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
 import { LegacyGameplayAutomationExecutor } from "../src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
-import { LegacyGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.js";
+import { SecureGameplayHandShuffler } from "../src/contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
+import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/integration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
@@ -149,11 +150,11 @@ async function buildRealApp(): Promise<TestRuntime> {
   const roomPresence = {
     refresh: connections.markRealtimePresence.bind(connections),
   };
-  const gameplayCommands = new LegacyGameplayCommandExecutor({
+  const gameplayCommands = new DomainGameplayCommandExecutor({
     automation: gameplayAutomation,
     lease: roomLease,
-    lobbyProjection: new LobbyRoomProjectionPresenter(),
     recovery: gameplayRecovery,
+    shuffler: new SecureGameplayHandShuffler(),
     store,
   });
   const app = await buildApp({
@@ -732,6 +733,31 @@ describeIntegration("durable room HTTP API", () => {
       hostResult.view.publicState?.dealerSeat,
     );
     expect(nextHand.view.privateSeat?.hand).toHaveLength(4);
+    const acknowledgementEvent = await runtime.database.query<{
+      payload: {
+        action: GameAction;
+        nextHand?: {
+          audit: { algorithm: string; commitment: string; seed: string };
+          deck: unknown[];
+        };
+      };
+    }>(
+      "SELECT payload FROM game_events WHERE room_id = $1 AND event_version = $2",
+      [room.roomId, nextHand.eventVersion],
+    );
+    expect(acknowledgementEvent.rows[0]?.payload).toMatchObject({
+      action: { type: "ACK_RESULT" },
+      nextHand: {
+        audit: {
+          algorithm: "hmac-sha256-v1",
+          commitment: expect.any(String),
+          seed: expect.any(String),
+        },
+      },
+    });
+    expect(acknowledgementEvent.rows[0]?.payload.nextHand?.deck).toHaveLength(
+      32,
+    );
   });
 
   it("replaces a departing result-state human with a configured bot and transfers a departing host", async () => {

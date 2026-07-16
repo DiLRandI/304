@@ -6,7 +6,10 @@ import {
   type GameplayHand,
 } from "@three-zero-four/gameplay";
 import { GameplayApplicationError } from "../../application/gameplay-application-error.js";
-import type { GameplayHandShuffler } from "../../application/gameplay-hand-shuffler.js";
+import type {
+  GameplayHandShuffler,
+  PreparedGameplayHandDeck,
+} from "../../application/gameplay-hand-shuffler.js";
 import {
   decodeGameplayHand,
   encodeGameplayHand,
@@ -17,6 +20,7 @@ import { toGameplayCommand } from "./wire-gameplay-command-mapper.js";
 export interface GameplayCommandTransition {
   readonly command: GameplayCommand;
   readonly hand: GameplayHand;
+  readonly nextHand?: PreparedGameplayHandDeck;
   readonly snapshot: LegacyGameplaySnapshotRecord;
 }
 
@@ -49,6 +53,7 @@ export function transitionGameplayCommand(
   return {
     command,
     hand: decision.hand,
+    ...(nextHand ? { nextHand } : {}),
     snapshot: encodeGameplayHand(decision.hand, {
       command,
       ...(nextHand ? { nextHand } : {}),
