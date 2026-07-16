@@ -508,11 +508,11 @@ test("legacy gameplay automation executes through an Automation adapter", async 
   assert.match(workerSource, /new LegacyGameplayAutomationExecutor/);
 });
 
-test("legacy gameplay commands execute through a Gameplay adapter", async () => {
+test("domain gameplay commands execute through a Gameplay adapter", async () => {
   const executorSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.ts",
+      "apps/game-service/src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.ts",
     ),
     "utf8",
   );
@@ -521,15 +521,11 @@ test("legacy gameplay commands execute through a Gameplay adapter", async () => 
     "utf8",
   );
 
-  assert.match(executorSource, /export class LegacyGameplayCommandExecutor/);
+  assert.match(executorSource, /export class DomainGameplayCommandExecutor/);
   assert.doesNotMatch(executorSource, /shared\/service-error\.js/);
   assert.match(executorSource, /application\/gameplay-application-error\.js/);
-  assert.doesNotMatch(
-    executorSource,
-    /rooms\/adapters\/delivery\/lobby-room-presenter\.js/,
-  );
-  assert.match(executorSource, /application\/lobby-room-projector\.js/);
-  assert.match(serverSource, /new LegacyGameplayCommandExecutor/);
+  assert.match(serverSource, /new DomainGameplayCommandExecutor/);
+  assert.doesNotMatch(serverSource, /new LegacyGameplayCommandExecutor/);
   assert.match(
     serverSource,
     /new SubmitGameplayCommandHandler\(gameplayCommands/,

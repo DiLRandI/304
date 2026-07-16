@@ -1,6 +1,7 @@
 import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
 import { LegacyStartedRoomAutomationFactory } from "../contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
-import { LegacyGameplayCommandExecutor } from "../contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.js";
+import { SecureGameplayHandShuffler } from "../contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
+import { DomainGameplayCommandExecutor } from "../contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { LegacyGameplayConnections } from "../contexts/gameplay/adapters/integration/legacy-gameplay-connections.js";
 import { LegacyGameplayRecovery } from "../contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../contexts/gameplay/application/submit-gameplay-command.js";
@@ -90,11 +91,11 @@ const roomQueries = new RoomProjectionQueryAdapter({
 const roomPresence = {
   refresh: connections.markRealtimePresence.bind(connections),
 };
-const gameplayCommands = new LegacyGameplayCommandExecutor({
+const gameplayCommands = new DomainGameplayCommandExecutor({
   automation: gameplayAutomation,
   lease: roomLease,
-  lobbyProjection: new LobbyRoomProjectionPresenter(),
   recovery: gameplayRecovery,
+  shuffler: new SecureGameplayHandShuffler(),
   store,
 });
 const getRoomSnapshot = new GetRoomSnapshotHandler(roomQueries, roomPresence);
