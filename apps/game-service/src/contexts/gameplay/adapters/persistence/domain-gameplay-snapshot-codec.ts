@@ -492,16 +492,16 @@ export function encodeGameplayHand(
     hand.phase === "trick-play" &&
     (metadata.command.type === "TRUMP_OPEN" ||
       metadata.command.type === "TRUMP_CLOSE");
-  const isInProgressCardPlay =
+  const isCardPlayTransition =
     before.phase === "trick-play" &&
-    hand.phase === "trick-play" &&
+    (hand.phase === "trick-play" || hand.phase === "trick-result") &&
     metadata.command.type === "PLAY_CARD";
   if (
     !isOpeningTransition &&
     !isIndicatorSelection &&
     !isSecondBiddingTransition &&
     !isTrumpChoiceTransition &&
-    !isInProgressCardPlay
+    !isCardPlayTransition
   ) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
@@ -531,7 +531,9 @@ export function encodeGameplayHand(
     trumpSuit: Suit | null;
   };
   const activeSeat = hand.activeSeat;
-  if (activeSeat === null) throw invalidSnapshot();
+  if (activeSeat === null && hand.phase !== "trick-result") {
+    throw invalidSnapshot();
+  }
   state.activeSeat = activeSeat;
   if (metadata.command.type === "BID" || metadata.command.type === "PASS_BID") {
     state.bidding.actions.push(
@@ -584,7 +586,9 @@ export function encodeGameplayHand(
           ? "second_bidding"
           : hand.phase === "trump-choice"
             ? "trump_choice"
-            : "trick_play";
+            : hand.phase === "trick-play"
+              ? "trick_play"
+              : "trick_result";
   state.seats = state.seats.map((seat, index) => ({
     ...seat,
     firstHand: (hand.deal.firstHands[index] ?? []).map(cardToLegacy),
