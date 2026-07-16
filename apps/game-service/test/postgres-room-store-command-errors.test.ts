@@ -6,6 +6,42 @@ import {
 import type { Database } from "../src/platform/postgres/database.js";
 
 describe("PostgresRoomStore command errors", () => {
+  it("persists an explicitly versioned gameplay snapshot", async () => {
+    const calls: Array<{ text: string; values?: readonly unknown[] }> = [];
+    const query = vi.fn(async (text: string, values?: readonly unknown[]) => {
+      calls.push({ text, values });
+      return text.startsWith("UPDATE rooms")
+        ? { rows: [{ event_version: 3 }] }
+        : { rows: [] };
+    });
+    const transaction = { query } as unknown as Queryable;
+    const store = new PostgresRoomStore({} as Database);
+
+    await store.appendEventAndSnapshot(transaction, {
+      actorPlayerId: "player-1",
+      commandId: "command-1",
+      eventType: "GAME_ACTION",
+      expectedVersion: 2,
+      payload: {},
+      roomId: "room-1",
+      ruleProfileId: "classic_304_4p",
+      snapshot: { phase: "four-bidding" },
+      snapshotSchemaVersion: 2,
+      status: "in_hand",
+    });
+
+    expect(
+      calls.find((call) => call.text.startsWith("INSERT INTO game_snapshots"))
+        ?.values,
+    ).toEqual([
+      "room-1",
+      3,
+      2,
+      "classic_304_4p",
+      JSON.stringify({ phase: "four-bidding" }),
+    ]);
+  });
+
   it("classifies command id reuse by another actor as a conflict", async () => {
     const database = {
       query: vi.fn(async () => ({

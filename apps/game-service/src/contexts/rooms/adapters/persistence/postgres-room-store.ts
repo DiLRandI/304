@@ -71,6 +71,7 @@ export interface AppendEventInput {
   eventType: string;
   payload: unknown;
   snapshot: unknown;
+  snapshotSchemaVersion?: 1 | 2;
   status: Extract<RoomStatus, "lobby" | "in_hand" | "hand_result" | "closed">;
   ruleProfileId: RuleProfileId;
   deduplicationResponse?: unknown;
@@ -747,10 +748,11 @@ export class PostgresRoomStore {
       ],
     );
     await transaction.query(
-      "INSERT INTO game_snapshots (room_id, event_version, schema_version, rule_profile_id, state) VALUES ($1, $2, 1, $3, $4::jsonb)",
+      "INSERT INTO game_snapshots (room_id, event_version, schema_version, rule_profile_id, state) VALUES ($1, $2, $3, $4, $5::jsonb)",
       [
         input.roomId,
         nextVersion,
+        input.snapshotSchemaVersion ?? 1,
         input.ruleProfileId,
         JSON.stringify(input.snapshot),
       ],
