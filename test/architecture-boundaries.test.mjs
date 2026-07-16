@@ -640,6 +640,19 @@ test("schema-v1 trump choice tests use frozen compatibility records", async () =
   assert.doesNotMatch(choiceTestSource, /@three-zero-four\/game-engine/);
 });
 
+test("schema-v1 card play tests use frozen compatibility records", async () => {
+  const cardPlayTestSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/test/legacy-gameplay-card-play.test.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(cardPlayTestSource, /legacy-gameplay-snapshot-fixture/);
+  assert.doesNotMatch(cardPlayTestSource, /@three-zero-four\/game-engine/);
+});
+
 test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => {
   const activeRuntimeTests = await Promise.all(
     [
