@@ -22,6 +22,18 @@ export type {
 export type { Rank, RuleProfile, TokenRule } from "./profile.js";
 export { getRuleProfile, RULE_PROFILES } from "./profile.js";
 export type {
+  CancelledHand,
+  HandScore,
+  ScoreHandInput,
+  TokenBalance,
+} from "./scoring.js";
+export {
+  cancelHand,
+  initialTokens,
+  scoreHand,
+  teamForSeat,
+} from "./scoring.js";
+export type {
   LegalCardPlay,
   PlayCardResult,
   TrickContext,
