@@ -86,6 +86,49 @@ describe("DomainGameplayRecovery", () => {
     expect(hand.deal.hands).toHaveLength(4);
   });
 
+  it("recovers from the authoritative room-start event without a lobby snapshot", async () => {
+    const engine = new GameEngine({
+      humanCount: 4,
+      ruleProfile: "classic_304_4p",
+    });
+    engine.startMatch();
+    const transaction = Symbol("transaction");
+    const store: GameplayHandRecoveryStore = {
+      findSeatIndex: vi.fn(async () => null),
+      loadEventsAfter: vi.fn(async () => [
+        {
+          actorPlayerId: "player-1",
+          eventType: "ROOM_CREATED",
+          payload: { ruleProfileId: "classic_304_4p" },
+        },
+        {
+          actorPlayerId: "player-1",
+          eventType: "ROOM_STARTED",
+          payload: {
+            ruleProfileId: "classic_304_4p",
+            schemaVersion: 1,
+            state: engine.getSnapshot(),
+          },
+        },
+      ]),
+      loadSnapshot: vi.fn(async () => null),
+    };
+
+    const hand = await new DomainGameplayRecovery(store).recover(transaction, {
+      eventVersion: 2,
+      id: "room-1",
+      ruleProfileId: "classic_304_4p",
+    });
+
+    expect(hand.phase).toBe("four-bidding");
+    expect(hand.deal.hands).toHaveLength(4);
+    expect(store.loadEventsAfter).toHaveBeenCalledWith(
+      "room-1",
+      0,
+      transaction,
+    );
+  });
+
   it("rejects a snapshot from a different rule profile", async () => {
     const engine = new GameEngine({
       humanCount: 4,

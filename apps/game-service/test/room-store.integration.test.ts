@@ -63,13 +63,6 @@ describeIntegration("durable room store", () => {
   it("stores an immutable event, exact snapshot, and command result atomically", async () => {
     const hostPlayerId = await createPlayer("Asha");
     const roomId = randomUUID();
-    const lobbyEngine = new GameEngine({
-      playerName: "Asha",
-      humanCount: 1,
-      tableMode: "classic_4",
-      ruleProfile: "classic_304_4p",
-      initialSeats: initialSeats(hostPlayerId),
-    });
     const created = await store.createRoom({
       id: roomId,
       inviteCode: `304-${randomUUID().replaceAll("-", "").slice(0, 16)}`,
@@ -78,7 +71,6 @@ describeIntegration("durable room store", () => {
       ruleProfileId: "classic_304_4p",
       settings: { botDifficulty: "easy", enableSecondBidding: true },
       seats: initialSeats(hostPlayerId),
-      snapshot: lobbyEngine.getSnapshot(),
     });
 
     expect(created).toMatchObject({
@@ -86,8 +78,15 @@ describeIntegration("durable room store", () => {
       eventVersion: 1,
       status: "lobby",
     });
+    expect(await store.loadSnapshot(roomId)).toBeNull();
 
-    const startedEngine = GameEngine.hydrate(lobbyEngine.getSnapshot());
+    const startedEngine = new GameEngine({
+      playerName: "Asha",
+      humanCount: 1,
+      tableMode: "classic_4",
+      ruleProfile: "classic_304_4p",
+      initialSeats: initialSeats(hostPlayerId),
+    });
     startedEngine.startMatch();
     const commandId = randomUUID();
     const eventVersion = await store.transaction((transaction) =>

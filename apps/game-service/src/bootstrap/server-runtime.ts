@@ -10,8 +10,8 @@ import { RedisRoomPresence } from "../contexts/rooms/adapters/coordination/redis
 import { LobbyRoomProjectionPresenter } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import { DomainRoomConnections } from "../contexts/rooms/adapters/integration/domain-room-connections.js";
 import { DomainStartedRoomSnapshotFactory } from "../contexts/rooms/adapters/integration/domain-started-room-snapshot-factory.js";
+import { DurableRoomCreationRepository } from "../contexts/rooms/adapters/integration/durable-room-creation-repository.js";
 import { GameplayRoomProjectionReader } from "../contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
-import { LegacyRoomCreationRepository } from "../contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { RoomProjectionQueryAdapter } from "../contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import { PostgresRoomCommandRepository } from "../contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "../contexts/rooms/adapters/persistence/postgres-room-store.js";
@@ -113,7 +113,7 @@ const game = {
   },
   roomUseCases: {
     create: new CreateRoomHandler(
-      new LegacyRoomCreationRepository(store),
+      new DurableRoomCreationRepository(store),
       presence,
       identities,
       inviteCodes,

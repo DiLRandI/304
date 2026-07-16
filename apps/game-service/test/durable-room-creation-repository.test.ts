@@ -8,9 +8,9 @@ import {
 } from "@three-zero-four/room-domain";
 import { describe, expect, it } from "vitest";
 import {
-  LegacyRoomCreationRepository,
-  type LegacyRoomCreationStore,
-} from "../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
+  DurableRoomCreationRepository,
+  type RoomCreationStore,
+} from "../src/contexts/rooms/adapters/integration/durable-room-creation-repository.js";
 import type { RoomCreationCommit } from "../src/contexts/rooms/application/create-room.js";
 import type {
   StoredRoom,
@@ -41,7 +41,7 @@ const winningResponse = {
   inviteCode: inviteCode("304-ZyXwVuTsRqPo_987"),
 };
 
-class CreationStore implements LegacyRoomCreationStore {
+class CreationStore implements RoomCreationStore {
   readonly creations: RoomCreationInput[] = [];
   duplicate: RoomSessionCommandDuplicate | null = null;
   room: StoredRoom | null = null;
@@ -81,10 +81,10 @@ class CreationStore implements LegacyRoomCreationStore {
   }
 }
 
-describe("LegacyRoomCreationRepository", () => {
-  it("maps a room aggregate to durable records and a legacy lobby snapshot", async () => {
+describe("DurableRoomCreationRepository", () => {
+  it("maps a room aggregate to durable Rooms records", async () => {
     const store = new CreationStore();
-    const repository = new LegacyRoomCreationRepository(store);
+    const repository = new DurableRoomCreationRepository(store);
 
     await expect(repository.create(commit)).resolves.toEqual(commit.response);
 
@@ -98,8 +98,8 @@ describe("LegacyRoomCreationRepository", () => {
       ruleProfileId: aggregate.profileId,
       sessionId: commit.sessionId,
       settings: aggregate.settings,
-      snapshot: { phase: "setup" },
     });
+    expect(store.creations[0]).not.toHaveProperty("snapshot");
     expect(store.creations[0]?.seats).toMatchObject([
       {
         connectionStatus: "online",
@@ -122,7 +122,7 @@ describe("LegacyRoomCreationRepository", () => {
       deduplicationResponse: winningResponse,
       roomId: winningResponse.id,
     };
-    const repository = new LegacyRoomCreationRepository(store);
+    const repository = new DurableRoomCreationRepository(store);
 
     await expect(repository.create(commit)).resolves.toEqual(winningResponse);
   });
@@ -133,7 +133,7 @@ describe("LegacyRoomCreationRepository", () => {
       deduplicationResponse: commit.response,
       roomId: aggregate.id,
     };
-    const repository = new LegacyRoomCreationRepository(store);
+    const repository = new DurableRoomCreationRepository(store);
 
     await expect(
       repository.findDuplicate(commit.sessionId, commit.commandId),
@@ -172,7 +172,7 @@ describe("LegacyRoomCreationRepository", () => {
         seatIndex,
       })),
     ];
-    const repository = new LegacyRoomCreationRepository(store);
+    const repository = new DurableRoomCreationRepository(store);
 
     await expect(
       repository.findDuplicate(commit.sessionId, commit.commandId),

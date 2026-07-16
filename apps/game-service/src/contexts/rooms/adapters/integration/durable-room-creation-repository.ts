@@ -1,5 +1,4 @@
 import { projectRoom, type Room } from "@three-zero-four/room-domain";
-import { createLobbyEngine } from "../../../gameplay/adapters/engine/legacy-engine-factory.js";
 import type {
   RoomCreationCommit,
   RoomCreationRepository,
@@ -20,15 +19,15 @@ import {
   type PersistedSeatRecord,
 } from "../persistence/room-record-mapper.js";
 
-export type LegacyRoomCreationStore = Pick<
+export type RoomCreationStore = Pick<
   RoomPersistenceStore,
   "createRoom" | "findSessionDuplicate" | "loadRoomByReference" | "loadSeats"
 >;
 
-export class LegacyRoomCreationError extends Error {
+export class RoomCreationPersistenceError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "LegacyRoomCreationError";
+    this.name = "RoomCreationPersistenceError";
   }
 }
 
@@ -70,25 +69,10 @@ function persistedSeat(seat: StoredSeat): PersistedSeatRecord {
   };
 }
 
-export class LegacyRoomCreationRepository implements RoomCreationRepository {
-  constructor(private readonly store: LegacyRoomCreationStore) {}
+export class DurableRoomCreationRepository implements RoomCreationRepository {
+  constructor(private readonly store: RoomCreationStore) {}
 
   async create(commit: RoomCreationCommit) {
-    const seats = storedSeats(commit.room);
-    const host = seats.find(
-      (seat) =>
-        seat.occupantType === "human" &&
-        seat.playerId === commit.room.hostPlayerId,
-    );
-    if (!host?.displayName) {
-      throw new LegacyRoomCreationError("Created room host is missing");
-    }
-    const snapshot = createLobbyEngine(
-      { displayName: host.displayName },
-      seats,
-      commit.room.profileId,
-      commit.room.settings,
-    ).getSnapshot();
     await this.store.createRoom({
       commandId: commit.commandId,
       deduplicationResponse: commit.response,
@@ -96,17 +80,16 @@ export class LegacyRoomCreationRepository implements RoomCreationRepository {
       id: commit.room.id,
       inviteCode: commit.room.inviteCode,
       ruleProfileId: commit.room.profileId,
-      seats,
+      seats: storedSeats(commit.room),
       sessionId: commit.sessionId,
       settings: commit.room.settings,
-      snapshot,
     });
     const durable = await this.store.findSessionDuplicate(
       commit.sessionId,
       commit.commandId,
     );
     if (!durable) {
-      throw new LegacyRoomCreationError("Created room replay is missing");
+      throw new RoomCreationPersistenceError("Created room replay is missing");
     }
     return this.replay(durable);
   }
@@ -125,7 +108,9 @@ export class LegacyRoomCreationRepository implements RoomCreationRepository {
     }
     const room = await this.store.loadRoomByReference(duplicate.roomId);
     if (!room) {
-      throw new LegacyRoomCreationError("Duplicate created room is missing");
+      throw new RoomCreationPersistenceError(
+        "Duplicate created room is missing",
+      );
     }
     const seats = await this.store.loadSeats(room.id);
     const aggregate = mapPersistedRoom(

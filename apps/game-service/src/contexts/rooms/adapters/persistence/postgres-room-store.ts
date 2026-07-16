@@ -60,7 +60,6 @@ export interface NewRoomInput {
   ruleProfileId: RuleProfileId;
   settings: RoomSettings;
   seats: readonly StoredSeat[];
-  snapshot: unknown;
 }
 
 export interface AppendEventInput {
@@ -387,10 +386,6 @@ export class PostgresRoomStore {
           input.hostPlayerId,
           JSON.stringify({ ruleProfileId: input.ruleProfileId }),
         ],
-      );
-      await transaction.query(
-        "INSERT INTO game_snapshots (room_id, event_version, schema_version, rule_profile_id, state) VALUES ($1, 1, 1, $2, $3::jsonb)",
-        [input.id, input.ruleProfileId, JSON.stringify(input.snapshot)],
       );
       await transaction.query(
         "INSERT INTO room_outbox (room_id, event_version) VALUES ($1, 1)",

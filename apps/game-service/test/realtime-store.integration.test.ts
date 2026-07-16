@@ -116,7 +116,6 @@ async function createRoom(): Promise<{ roomId: string; hostPlayerId: string }> {
     ruleProfileId: "classic_304_4p",
     settings: { botDifficulty: "easy", enableSecondBidding: true },
     seats: initialSeats(hostPlayerId),
-    snapshot: { phase: "setup" },
   });
   return { roomId, hostPlayerId };
 }

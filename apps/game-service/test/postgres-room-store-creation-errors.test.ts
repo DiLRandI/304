@@ -20,7 +20,6 @@ function roomInput(): NewRoomInput {
       seatIndex,
     })),
     settings: { botDifficulty: "easy", enableSecondBidding: true },
-    snapshot: { phase: "lobby" },
   };
 }
 

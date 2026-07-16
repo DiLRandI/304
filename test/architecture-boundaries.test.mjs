@@ -787,17 +787,18 @@ test("lobby projection is exposed through a Rooms application port", async () =>
   assert.match(presenterSource, /implements LobbyRoomProjector/);
 });
 
-test("legacy room creation translates Gameplay through an integration adapter", async () => {
+test("room creation persists through a Rooms integration adapter", async () => {
   const creationSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/rooms/adapters/integration/legacy-room-creation-repository.ts",
+      "apps/game-service/src/contexts/rooms/adapters/integration/durable-room-creation-repository.ts",
     ),
     "utf8",
   );
 
   assert.match(creationSource, /implements RoomCreationRepository/);
-  assert.match(creationSource, /gameplay\/adapters\/engine/);
+  assert.doesNotMatch(creationSource, /contexts\/gameplay/);
+  assert.doesNotMatch(creationSource, /@three-zero-four\/game-engine/);
 });
 
 test("the PostgreSQL room store is a Rooms persistence adapter", async () => {
