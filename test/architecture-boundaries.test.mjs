@@ -458,6 +458,39 @@ test("legacy gameplay snapshot replay belongs to a Gameplay adapter", async () =
   assert.match(recoverySource, /export class LegacyGameplayRecovery/);
 });
 
+test("active runtimes recover the domain Gameplay aggregate", async () => {
+  const recoverySource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.ts",
+    ),
+    "utf8",
+  );
+  const projectionSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.ts",
+    ),
+    "utf8",
+  );
+  const serverSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/bootstrap/server-runtime.ts"),
+    "utf8",
+  );
+  const workerSource = await readFile(
+    path.join(repoRoot, "apps/game-service/src/bootstrap/worker-runtime.ts"),
+    "utf8",
+  );
+
+  assert.match(recoverySource, /export class DomainGameplayRecovery/);
+  assert.match(projectionSource, /GameplayHandRecovery/);
+  assert.match(projectionSource, /projectDomainRoomForPlayer/);
+  assert.match(serverSource, /new DomainGameplayRecovery/);
+  assert.match(workerSource, /new DomainGameplayRecovery/);
+  assert.doesNotMatch(serverSource, /LegacyGameplayRecovery/);
+  assert.doesNotMatch(workerSource, /LegacyGameplayRecovery/);
+});
+
 test("legacy gameplay automation scheduling belongs to an Automation adapter", async () => {
   const schedulerSource = await readFile(
     path.join(

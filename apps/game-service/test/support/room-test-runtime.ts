@@ -11,17 +11,19 @@ import {
   roomId,
 } from "@three-zero-four/room-domain";
 import type { RedisClientType } from "redis";
-import { LegacyGameplayAutomationExecutor } from "../../src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.js";
+import { NodeAutomationRandomSource } from "../../src/contexts/automation/adapters/entropy/node-automation-random-source.js";
+import { DomainGameplayAutomationExecutor } from "../../src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../../src/contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
 import { LegacyStartedRoomAutomationFactory } from "../../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
-import { LegacyGameplayCommandExecutor } from "../../src/contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.js";
-import { LegacyGameplayConnections } from "../../src/contexts/gameplay/adapters/integration/legacy-gameplay-connections.js";
-import { LegacyGameplayRecovery } from "../../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
+import { SecureGameplayHandShuffler } from "../../src/contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
+import { DomainGameplayCommandExecutor } from "../../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
+import { DomainGameplayRecovery } from "../../src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
 import type { AuthenticatedSession } from "../../src/contexts/player-access/application/player-session-ports.js";
 import { RedisRoomLease } from "../../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { LobbyRoomProjectionPresenter } from "../../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import { presentLobbyRoom } from "../../src/contexts/rooms/adapters/delivery/room-projection-presenter.js";
+import { DomainRoomConnections } from "../../src/contexts/rooms/adapters/integration/domain-room-connections.js";
 import { GameplayRoomProjectionReader } from "../../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { LegacyStartedRoomSnapshotFactory } from "../../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
@@ -48,9 +50,9 @@ export interface RoomTestRuntimeOptions {
 }
 
 export class RoomTestRuntime {
-  readonly automation: LegacyGameplayAutomationExecutor;
-  readonly connections: LegacyGameplayConnections;
-  readonly gameplayCommands: LegacyGameplayCommandExecutor;
+  readonly automation: DomainGameplayAutomationExecutor;
+  readonly connections: DomainRoomConnections;
+  readonly gameplayCommands: DomainGameplayCommandExecutor;
   readonly scheduler: LegacyGameplayAutomationScheduler;
   readonly store: PostgresRoomStore;
   private readonly create: CreateRoomHandler;
@@ -71,13 +73,13 @@ export class RoomTestRuntime {
       redis,
       options.presenceTtlSeconds ?? 60,
     );
-    const recovery = new LegacyGameplayRecovery(this.store);
+    const recovery = new DomainGameplayRecovery(this.store);
     this.scheduler = new LegacyGameplayAutomationScheduler({
       ...(options.automation ? { config: options.automation } : {}),
       identities,
       store: this.store,
     });
-    this.connections = new LegacyGameplayConnections({
+    this.connections = new DomainRoomConnections({
       automation: this.scheduler,
       identities,
       lease,
@@ -85,10 +87,11 @@ export class RoomTestRuntime {
       recovery,
       store: this.store,
     });
-    this.automation = new LegacyGameplayAutomationExecutor({
+    this.automation = new DomainGameplayAutomationExecutor({
       automation: this.scheduler,
       lease,
       presence,
+      random: new NodeAutomationRandomSource(),
       recovery,
       store: this.store,
     });
@@ -104,7 +107,10 @@ export class RoomTestRuntime {
       ),
     );
     const queries = new RoomProjectionQueryAdapter({
-      activeRoomProjection: new GameplayRoomProjectionReader(recovery),
+      activeRoomProjection: new GameplayRoomProjectionReader({
+        recovery,
+        store: this.store,
+      }),
       lease,
       lobbyProjection: new LobbyRoomProjectionPresenter(),
       store: this.store,
@@ -121,11 +127,11 @@ export class RoomTestRuntime {
     this.join = new JoinRoomHandler(commands, presence);
     this.snapshot = new GetRoomSnapshotHandler(queries, roomPresence);
     this.start = new StartRoomHandler(commands, presence);
-    this.gameplayCommands = new LegacyGameplayCommandExecutor({
+    this.gameplayCommands = new DomainGameplayCommandExecutor({
       automation: this.scheduler,
       lease,
-      lobbyProjection: new LobbyRoomProjectionPresenter(),
       recovery,
+      shuffler: new SecureGameplayHandShuffler(),
       store: this.store,
     });
   }

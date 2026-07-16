@@ -1,9 +1,11 @@
 import { presentDomainGameplayForAutomation } from "../../../automation/adapters/integration/domain-gameplay-automation-presenter.js";
 import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
-import { decodeGameplayHand } from "../../../gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
-import { GameplaySnapshotCodecError } from "../../../gameplay/adapters/persistence/gameplay-snapshot-codec.js";
+import {
+  GameplaySnapshotCodecError,
+  serializeGameplaySnapshot,
+} from "../../../gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import { GameplayApplicationError } from "../../../gameplay/application/gameplay-application-error.js";
-import type { GameplayRecovery } from "../../../gameplay/application/gameplay-recovery.js";
+import type { GameplayHandRecovery } from "../../../gameplay/application/gameplay-hand-recovery.js";
 import { RecoveryError } from "../../../gameplay/application/gameplay-recovery-error.js";
 import type { GameplayActor } from "../../../gameplay/application/submit-gameplay-command.js";
 import type {
@@ -26,7 +28,7 @@ interface DomainRoomConnectionDependencies {
   readonly identities: Pick<RoomIdentityProvider, "nextCommandId">;
   readonly lease: RoomLease;
   readonly presence: RoomPresence;
-  readonly recovery: GameplayRecovery;
+  readonly recovery: GameplayHandRecovery;
   readonly store: RoomPersistenceStore;
 }
 
@@ -99,16 +101,8 @@ export class DomainRoomConnections {
         return;
       }
 
-      const recovered = await this.dependencies.recovery.recover(
-        transaction,
-        room,
-      );
-      const snapshot = recovered.getSnapshot();
-      const hand = decodeGameplayHand({
-        ruleProfileId: room.ruleProfileId,
-        schemaVersion: 1,
-        state: snapshot,
-      });
+      const hand = await this.dependencies.recovery.recover(transaction, room);
+      const snapshot = serializeGameplaySnapshot(hand);
       await this.dependencies.store.markSeatOnline(
         transaction,
         room.id,
@@ -128,8 +122,8 @@ export class DomainRoomConnections {
           payload: { seatIndex: viewerSeatIndex },
           roomId: room.id,
           ruleProfileId: room.ruleProfileId,
-          snapshot,
-          snapshotSchemaVersion: 1,
+          snapshot: snapshot.state,
+          snapshotSchemaVersion: 2,
           status,
         },
       );
@@ -163,16 +157,8 @@ export class DomainRoomConnections {
       );
       if (storedSeat?.connectionStatus !== "online") return;
 
-      const recovered = await this.dependencies.recovery.recover(
-        transaction,
-        room,
-      );
-      const snapshot = recovered.getSnapshot();
-      const hand = decodeGameplayHand({
-        ruleProfileId: room.ruleProfileId,
-        schemaVersion: 1,
-        state: snapshot,
-      });
+      const hand = await this.dependencies.recovery.recover(transaction, room);
+      const snapshot = serializeGameplaySnapshot(hand);
       await this.dependencies.store.markSeatOffline(
         transaction,
         room.id,
@@ -189,8 +175,8 @@ export class DomainRoomConnections {
           payload: { seatIndex: viewerSeatIndex },
           roomId: room.id,
           ruleProfileId: room.ruleProfileId,
-          snapshot,
-          snapshotSchemaVersion: 1,
+          snapshot: snapshot.state,
+          snapshotSchemaVersion: 2,
           status,
         },
       );

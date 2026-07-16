@@ -3,6 +3,7 @@ import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
 import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
+import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import type {
   GameplayCommandRoom,
   GameplayCommandStore,
@@ -60,6 +61,11 @@ describe("DomainGameplayCommandExecutor", () => {
     } as unknown as GameplayCommandStore;
     const schedule = vi.fn(async () => undefined);
     const applyAction = vi.spyOn(engine, "applyAction");
+    const hand = decodeGameplayHand({
+      ruleProfileId: room.ruleProfileId,
+      schemaVersion: 1,
+      state: engine.getSnapshot(),
+    });
     const executor = new DomainGameplayCommandExecutor({
       automation: { schedule },
       lease: {
@@ -68,7 +74,7 @@ describe("DomainGameplayCommandExecutor", () => {
           work: () => Promise<Result>,
         ): Promise<Result> => work(),
       },
-      recovery: { recover: vi.fn(async () => engine) },
+      recovery: { recover: vi.fn(async () => hand) },
       shuffler: {
         prepare: () => {
           throw new Error("Did not expect a new hand");
@@ -96,13 +102,13 @@ describe("DomainGameplayCommandExecutor", () => {
       payload: { action: command.action, seatIndex: actorSeatIndex },
       roomId: room.id,
       ruleProfileId: room.ruleProfileId,
-      snapshotSchemaVersion: 1,
+      snapshotSchemaVersion: 2,
       status: "in_hand",
     });
     expect(
-      decodeGameplayHand({
+      hydrateGameplaySnapshot({
         ruleProfileId: room.ruleProfileId,
-        schemaVersion: 1,
+        schemaVersion: 2,
         state: persisted?.snapshot,
       }).bidding.actionsTaken,
     ).toBe(1);

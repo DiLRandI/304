@@ -10,7 +10,10 @@ import type {
   ClaimedDomainAutomationJob,
 } from "../src/contexts/automation/application/automation-job-store.js";
 import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
-import type { RecoveredGameplay } from "../src/contexts/gameplay/application/recovered-gameplay.js";
+import {
+  hydrateGameplaySnapshot,
+  serializeGameplaySnapshot,
+} from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 
 function startedSnapshot() {
   const engine = new GameEngine({
@@ -131,9 +134,11 @@ function harness(options: {
       return work();
     },
   };
-  const recovered = {
-    getSnapshot: vi.fn(() => structuredClone(options.snapshot)),
-  } as unknown as RecoveredGameplay;
+  const recovered = decodeGameplayHand({
+    ruleProfileId: room.ruleProfileId,
+    schemaVersion: 1,
+    state: options.snapshot,
+  });
   const recover = vi.fn(async () => recovered);
   const schedule = vi.fn(async () => undefined);
   return {
@@ -202,12 +207,12 @@ describe("DomainGameplayAutomationExecutor", () => {
       },
       roomId: room.id,
       ruleProfileId: room.ruleProfileId,
-      snapshotSchemaVersion: 1,
+      snapshotSchemaVersion: 2,
       status: "in_hand",
     });
-    const after = decodeGameplayHand({
+    const after = hydrateGameplaySnapshot({
       ruleProfileId: room.ruleProfileId,
-      schemaVersion: 1,
+      schemaVersion: 2,
       state: input?.snapshot,
     });
     expect(after).not.toEqual(before);
@@ -245,8 +250,8 @@ describe("DomainGameplayAutomationExecutor", () => {
       expect.any(Symbol),
       expect.objectContaining({
         eventType: "AUTOPILOT_ENABLED",
-        snapshot,
-        snapshotSchemaVersion: 1,
+        snapshot: serializeGameplaySnapshot(hand).state,
+        snapshotSchemaVersion: 2,
       }),
     );
     expect(schedule).toHaveBeenCalledWith(
@@ -291,13 +296,13 @@ describe("DomainGameplayAutomationExecutor", () => {
       expect.objectContaining({
         eventType: "TRICK_ADVANCED",
         payload: { winnerSeat },
-        snapshotSchemaVersion: 1,
+        snapshotSchemaVersion: 2,
       }),
     );
     const persisted = appendEventAndSnapshot.mock.calls[0]?.[1];
-    const after = decodeGameplayHand({
+    const after = hydrateGameplaySnapshot({
       ruleProfileId: room.ruleProfileId,
-      schemaVersion: 1,
+      schemaVersion: 2,
       state: persisted?.snapshot,
     });
     expect(after.phase).toBe("trick-play");

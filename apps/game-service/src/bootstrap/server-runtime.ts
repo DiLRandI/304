@@ -2,7 +2,7 @@ import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapte
 import { LegacyStartedRoomAutomationFactory } from "../contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { SecureGameplayHandShuffler } from "../contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
 import { DomainGameplayCommandExecutor } from "../contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
-import { LegacyGameplayRecovery } from "../contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
+import { DomainGameplayRecovery } from "../contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../contexts/gameplay/application/submit-gameplay-command.js";
 import { RedisRoomLease } from "../contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../contexts/rooms/adapters/coordination/redis-room-presence.js";
@@ -54,7 +54,7 @@ const presence = new RedisRoomPresence(redis, config.PRESENCE_TTL_SECONDS);
 const identities = new NodeRoomIdentityProvider();
 const inviteCodes = new NodeRoomInviteCodeProvider();
 const roomLease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);
-const gameplayRecovery = new LegacyGameplayRecovery(store);
+const gameplayRecovery = new DomainGameplayRecovery(store);
 const gameplayAutomation = new LegacyGameplayAutomationScheduler({
   config: {
     botActionDelayMs: config.BOT_ACTION_DELAY_MS,
@@ -83,7 +83,10 @@ const roomCommands = new ExecuteRoomCommandHandler(
   ),
 );
 const roomQueries = new RoomProjectionQueryAdapter({
-  activeRoomProjection: new GameplayRoomProjectionReader(gameplayRecovery),
+  activeRoomProjection: new GameplayRoomProjectionReader({
+    recovery: gameplayRecovery,
+    store,
+  }),
   lease: roomLease,
   lobbyProjection: new LobbyRoomProjectionPresenter(),
   store,

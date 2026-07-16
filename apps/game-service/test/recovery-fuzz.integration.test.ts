@@ -10,6 +10,7 @@ import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
+import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import type { PlayerAccess } from "../src/contexts/player-access/application/player-access.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
@@ -33,20 +34,11 @@ interface GameView {
   publicState?: { activeSeat: number | null };
 }
 
-interface SnapshotState {
-  seats: Array<{ hand: Array<{ cardId: string }> }>;
-  trump: {
-    card: { cardId: string } | null;
-    isOpen: boolean;
-    maker: number | null;
-  };
-}
-
 interface StoredSnapshotRow {
   event_version: string | number;
   rule_profile_id: RuleProfileId;
   schema_version: number;
-  state: SnapshotState;
+  state: unknown;
 }
 
 let database: Database;
@@ -180,27 +172,36 @@ async function currentSnapshots(
 function assertNoPrivateCardsLeak(
   projections: Map<string, RoomProjection>,
   players: readonly AuthenticatedSession[],
-  state: SnapshotState,
+  snapshot: StoredSnapshotRow,
 ): void {
+  const hand = hydrateGameplaySnapshot({
+    ruleProfileId: snapshot.rule_profile_id,
+    schemaVersion: snapshot.schema_version,
+    state: snapshot.state,
+  });
   for (const player of players) {
     const projection = projections.get(player.playerId);
     if (!projection || projection.viewerSeatIndex == null) {
       throw new Error("Expected a seated private projection");
     }
     const payload = JSON.stringify(projection);
-    for (let seatIndex = 0; seatIndex < state.seats.length; seatIndex += 1) {
+    for (
+      let seatIndex = 0;
+      seatIndex < hand.deal.hands.length;
+      seatIndex += 1
+    ) {
       if (seatIndex === projection.viewerSeatIndex) continue;
-      for (const card of state.seats[seatIndex]?.hand ?? []) {
-        expect(payload).not.toContain(card.cardId);
+      for (const card of hand.deal.hands[seatIndex] ?? []) {
+        expect(payload).not.toContain(card.id);
       }
     }
-    const hiddenTrump = state.trump.card;
+    const hiddenTrump = hand.trump.indicator;
     if (
       hiddenTrump &&
-      !state.trump.isOpen &&
-      state.trump.maker !== projection.viewerSeatIndex
+      !hand.trump.open &&
+      hand.trump.maker !== projection.viewerSeatIndex
     ) {
-      expect(payload).not.toContain(hiddenTrump.cardId);
+      expect(payload).not.toContain(hiddenTrump.id);
     }
   }
 }
@@ -263,9 +264,10 @@ describeIntegration("durable room recovery variance", () => {
         "SELECT event_version, schema_version, rule_profile_id, state FROM game_snapshots WHERE room_id = $1 AND event_version = $2",
         [created.roomId, room.eventVersion],
       );
-      const currentState = latest.rows[0]?.state;
-      if (!currentState) throw new Error("Expected the current room snapshot");
-      assertNoPrivateCardsLeak(canonical, players, currentState);
+      const currentSnapshot = latest.rows[0];
+      if (!currentSnapshot)
+        throw new Error("Expected the current room snapshot");
+      assertNoPrivateCardsLeak(canonical, players, currentSnapshot);
 
       const variants = await snapshotsForVariants(created.roomId);
       expect(variants).toHaveLength(12);

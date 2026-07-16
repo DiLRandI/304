@@ -6,17 +6,18 @@ import { createClient, type RedisClientType } from "redis";
 import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
-import { LegacyGameplayAutomationExecutor } from "../src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.js";
+import { NodeAutomationRandomSource } from "../src/contexts/automation/adapters/entropy/node-automation-random-source.js";
+import { DomainGameplayAutomationExecutor } from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../src/contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
 import { SecureGameplayHandShuffler } from "../src/contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
 import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
-import { LegacyGameplayConnections } from "../src/contexts/gameplay/adapters/integration/legacy-gameplay-connections.js";
-import { LegacyGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
+import { DomainGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
 import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
+import { DomainRoomConnections } from "../src/contexts/rooms/adapters/integration/domain-room-connections.js";
 import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
@@ -76,7 +77,7 @@ interface DurableProjection {
 
 interface TestRuntime {
   app: Awaited<ReturnType<typeof buildApp>>;
-  automation: LegacyGameplayAutomationExecutor;
+  automation: DomainGameplayAutomationExecutor;
   database: Database;
   redis: RedisClientType;
   store: PostgresRoomStore;
@@ -113,13 +114,13 @@ async function buildRealApp(): Promise<TestRuntime> {
   const identities = new NodeRoomIdentityProvider();
   const inviteCodes = new NodeRoomInviteCodeProvider();
   const roomLease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);
-  const gameplayRecovery = new LegacyGameplayRecovery(store);
+  const gameplayRecovery = new DomainGameplayRecovery(store);
   const gameplayAutomation = new LegacyGameplayAutomationScheduler({
     config: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
     identities,
     store,
   });
-  const connections = new LegacyGameplayConnections({
+  const connections = new DomainRoomConnections({
     automation: gameplayAutomation,
     identities,
     lease: roomLease,
@@ -127,10 +128,11 @@ async function buildRealApp(): Promise<TestRuntime> {
     recovery: gameplayRecovery,
     store,
   });
-  const automation = new LegacyGameplayAutomationExecutor({
+  const automation = new DomainGameplayAutomationExecutor({
     automation: gameplayAutomation,
     lease: roomLease,
     presence,
+    random: new NodeAutomationRandomSource(),
     recovery: gameplayRecovery,
     store,
   });
@@ -142,7 +144,10 @@ async function buildRealApp(): Promise<TestRuntime> {
     ),
   );
   const roomQueries = new RoomProjectionQueryAdapter({
-    activeRoomProjection: new GameplayRoomProjectionReader(gameplayRecovery),
+    activeRoomProjection: new GameplayRoomProjectionReader({
+      recovery: gameplayRecovery,
+      store,
+    }),
     lease: roomLease,
     lobbyProjection: new LobbyRoomProjectionPresenter(),
     store,

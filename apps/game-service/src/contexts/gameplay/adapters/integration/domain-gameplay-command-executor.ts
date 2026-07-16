@@ -8,8 +8,8 @@ import type {
   GameplayCommandStore,
   GameplayCommandTransaction,
 } from "../../application/gameplay-command-store.js";
+import type { GameplayHandRecovery } from "../../application/gameplay-hand-recovery.js";
 import type { GameplayHandShuffler } from "../../application/gameplay-hand-shuffler.js";
-import type { GameplayRecovery } from "../../application/gameplay-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import type {
   GameplayActor,
@@ -20,12 +20,12 @@ import {
   GameplaySnapshotCodecError,
   hydrateGameplaySnapshot,
 } from "../persistence/gameplay-snapshot-codec.js";
-import { transitionGameplayCommand } from "./domain-gameplay-command-transition.js";
+import { transitionHydratedGameplayCommand } from "./domain-gameplay-command-transition.js";
 
 interface DomainGameplayCommandDependencies {
   readonly automation: AutomationScheduler;
   readonly lease: GameplayCommandLease;
-  readonly recovery: GameplayRecovery;
+  readonly recovery: GameplayHandRecovery;
   readonly shuffler: GameplayHandShuffler;
   readonly store: GameplayCommandStore;
 }
@@ -108,16 +108,9 @@ export class DomainGameplayCommandExecutor implements GameplayCommandExecutor {
           "Only the host can continue",
         );
       }
-      const recovered = await this.dependencies.recovery.recover(
-        transaction,
-        room,
-      );
-      const transition = transitionGameplayCommand(
-        {
-          ruleProfileId: room.ruleProfileId,
-          schemaVersion: 1,
-          state: recovered.getSnapshot(),
-        },
+      const hand = await this.dependencies.recovery.recover(transaction, room);
+      const transition = transitionHydratedGameplayCommand(
+        hand,
         command.action,
         viewerSeatIndex,
         this.dependencies.shuffler,
@@ -138,7 +131,7 @@ export class DomainGameplayCommandExecutor implements GameplayCommandExecutor {
           roomId: room.id,
           ruleProfileId: room.ruleProfileId,
           snapshot: transition.snapshot.state,
-          snapshotSchemaVersion: 1,
+          snapshotSchemaVersion: 2,
           status,
         },
       );

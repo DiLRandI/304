@@ -1,5 +1,7 @@
 import { GameEngine } from "@three-zero-four/game-engine";
+import type { GameplayHand } from "@three-zero-four/gameplay";
 import { describe, expect, it, vi } from "vitest";
+import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
 import { RecoveryError } from "../src/contexts/gameplay/application/gameplay-recovery-error.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
@@ -50,7 +52,7 @@ const session: AuthenticatedSession = {
 
 function harness(
   overrides: {
-    recovery?: () => Promise<GameEngine>;
+    recovery?: () => Promise<GameplayHand>;
     room?: StoredRoom;
     viewerSeatIndex?: number | null;
   } = {},
@@ -77,11 +79,19 @@ function harness(
       return work();
     },
   };
-  const recover = vi.fn(overrides.recovery ?? (async () => new GameEngine()));
+  const recover = vi.fn(
+    overrides.recovery ??
+      (async () => {
+        throw new Error("Did not expect active gameplay recovery");
+      }),
+  );
   return {
     markRecoveryFailed,
     queries: new RoomProjectionQueryAdapter({
-      activeRoomProjection: new GameplayRoomProjectionReader({ recover }),
+      activeRoomProjection: new GameplayRoomProjectionReader({
+        recovery: { recover },
+        store,
+      }),
       lease,
       lobbyProjection: new LobbyRoomProjectionPresenter(),
       store,
@@ -127,9 +137,14 @@ describe("RoomProjectionQueryAdapter", () => {
       tableMode: "classic_4",
     });
     engine.startMatch();
+    const hand = decodeGameplayHand({
+      ruleProfileId: room.ruleProfileId,
+      schemaVersion: 1,
+      state: engine.getSnapshot(),
+    });
     const activeRoom = { ...room, status: "in_hand" as const };
     const { queries, recover } = harness({
-      recovery: async () => engine,
+      recovery: async () => hand,
       room: activeRoom,
     });
 

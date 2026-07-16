@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { CreateRoomRequest } from "@three-zero-four/contracts";
+import type { CreateRoomRequest, GameAction } from "@three-zero-four/contracts";
 import { GameEngine } from "@three-zero-four/game-engine";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -131,70 +131,47 @@ function completeClassicHandSnapshot(): Record<string, unknown> {
 
 function pausedClassicTrickSnapshot(): Record<string, unknown> {
   const engine = new GameEngine({
+    enableSecondBidding: false,
+    humanCount: 4,
     ruleProfile: "classic_304_4p",
-    tableMode: "classic_4",
-    initialSeats: Array.from({ length: 4 }, (_, index) => ({
-      index,
-      type: "human",
-      displayName: `Player ${index + 1}`,
-    })),
   });
   engine.startMatch();
-  const cards = [
-    { cardId: "clubs-J", points: 30, rank: "J", suit: "clubs" },
-    { cardId: "clubs-9", points: 20, rank: "9", suit: "clubs" },
-    { cardId: "clubs-7", points: 0, rank: "7", suit: "clubs" },
-    { cardId: "clubs-Q", points: 2, rank: "Q", suit: "clubs" },
-  ];
-  engine.state.phase = "trick_play";
-  engine.state.activeSeat = 3;
-  engine.state.currentLedSuit = "clubs";
-  engine.state.completedTricks = [];
-  engine.state.currentTrick = {
-    leaderSeat: 0,
-    plays: cards.slice(0, 3).map((card, seatIndex) => ({
-      card,
-      faceDown: false,
-      fromIndicator: false,
-      seatIndex,
-      source: "hand",
-    })),
-    points: 50,
-    trickIndex: 0,
+  const apply = (action: GameAction): void => {
+    const actor = engine.getSnapshot().activeSeat;
+    if (actor === null) throw new Error("Expected an active gameplay seat");
+    const result = engine.applyAction({
+      ...action,
+      actorSeatIndex: actor,
+      seatIndex: actor,
+    });
+    if (!result.ok) throw new Error("Expected a legal gameplay action");
   };
-  engine.state.seats.forEach((seat, seatIndex) => {
-    seat.hand =
-      seatIndex === 3
-        ? [cards[3]]
-        : [
-            {
-              cardId: `spades-${seatIndex + 6}`,
-              points: 0,
-              rank: String(seatIndex + 6),
-              suit: "spades",
-            },
-          ];
-    seat.wonCards = [];
-    seat.trickPoints = 0;
-  });
-  engine.state.trump = {
-    card: null,
-    indicatorVisible: true,
-    isOpen: true,
-    maker: 0,
-    suit: "hearts",
-  };
-  engine.state.trumpClosed = false;
-  engine.state.trumpSuit = "hearts";
-  const result = engine.applyAction({
-    actorSeatIndex: 3,
-    cardId: cards[3]?.cardId,
-    faceDown: false,
-    fromIndicator: false,
-    seatIndex: 3,
-    type: "PLAY_CARD",
-  });
-  if (!result.ok || engine.state.phase !== "trick_result") {
+  apply({ amount: 160, type: "BID" });
+  while (engine.getSnapshot().phase === "four_bidding") {
+    apply({ type: "PASS_BID" });
+  }
+  const maker = engine.getSnapshot().activeSeat;
+  const indicator =
+    maker === null
+      ? undefined
+      : engine
+          .getLegalActions(maker)
+          .find((candidate) => candidate.type === "SELECT_TRUMP");
+  if (!indicator) throw new Error("Expected a trump indicator action");
+  apply(indicator);
+  apply({ type: "TRUMP_OPEN" });
+  while (engine.getSnapshot().phase === "trick_play") {
+    const actor = engine.getSnapshot().activeSeat;
+    const action =
+      actor === null
+        ? undefined
+        : engine
+            .getLegalActions(actor)
+            .find((candidate) => candidate.type === "PLAY_CARD");
+    if (!action) throw new Error("Expected a legal card play");
+    apply(action);
+  }
+  if (engine.state.phase !== "trick_result") {
     throw new Error("Expected a paused completed trick snapshot");
   }
   return engine.getSnapshot();
@@ -603,6 +580,10 @@ describeIntegration("durable room automation", () => {
     const pausedEngine = GameEngine.hydrate(
       paused as Parameters<typeof GameEngine.hydrate>[0],
     );
+    const winnerSeat = pausedEngine.state.currentTrick?.winnerSeat;
+    if (winnerSeat === null || winnerSeat === undefined) {
+      throw new Error("Expected a completed trick winner");
+    }
     const scheduledAt = Date.now();
     await store.transaction((transaction) =>
       game.scheduler.schedule(transaction, room, pausedEngine),
@@ -621,7 +602,7 @@ describeIntegration("durable room automation", () => {
     expect(jobRow).toMatchObject({
       expected_event_version: String(started.eventVersion),
       kind: "TRICK_ADVANCE",
-      target_seat_index: 0,
+      target_seat_index: winnerSeat,
     });
     expect(jobRow?.due_at.getTime() - scheduledAt).toBeGreaterThanOrEqual(
       1_900,

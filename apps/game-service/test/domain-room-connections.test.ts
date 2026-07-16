@@ -1,5 +1,7 @@
 import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
+import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
+import { serializeGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { DomainRoomConnections } from "../src/contexts/rooms/adapters/integration/domain-room-connections.js";
 import type {
@@ -37,6 +39,11 @@ function harness(connectionStatus: StoredSeat["connectionStatus"]) {
   });
   engine.startMatch();
   const snapshot = engine.getSnapshot();
+  const hand = decodeGameplayHand({
+    ruleProfileId: room.ruleProfileId,
+    schemaVersion: 1,
+    state: snapshot,
+  });
   const seats: StoredSeat[] = Array.from({ length: 4 }, (_, seatIndex) => ({
     botDifficulty: seatIndex === 0 ? null : "easy",
     connectionStatus: seatIndex === 0 ? connectionStatus : "online",
@@ -71,7 +78,7 @@ function harness(connectionStatus: StoredSeat["connectionStatus"]) {
     remove: vi.fn(async () => undefined),
     touch: vi.fn(async () => undefined),
   };
-  const recover = vi.fn(async () => engine);
+  const recover = vi.fn(async () => hand);
   const schedule = vi.fn(async () => undefined);
   const connections = new DomainRoomConnections({
     automation: { schedule },
@@ -127,8 +134,14 @@ describe("DomainRoomConnections", () => {
       payload: { seatIndex: 0 },
       roomId: room.id,
       ruleProfileId: room.ruleProfileId,
-      snapshot,
-      snapshotSchemaVersion: 1,
+      snapshot: serializeGameplaySnapshot(
+        decodeGameplayHand({
+          ruleProfileId: room.ruleProfileId,
+          schemaVersion: 1,
+          state: snapshot,
+        }),
+      ).state,
+      snapshotSchemaVersion: 2,
       status: "in_hand",
     });
     expect(schedule).toHaveBeenCalledWith(

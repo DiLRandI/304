@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NodeAutomationRandomSource } from "../contexts/automation/adapters/entropy/node-automation-random-source.js";
 import { DomainGameplayAutomationExecutor } from "../contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
 import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
-import { LegacyGameplayRecovery } from "../contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.js";
+import { DomainGameplayRecovery } from "../contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
 import { RedisRoomLease } from "../contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { PostgresRoomStore } from "../contexts/rooms/adapters/persistence/postgres-room-store.js";
@@ -40,7 +40,7 @@ const executor = new DomainGameplayAutomationExecutor({
   lease,
   presence,
   random: new NodeAutomationRandomSource(),
-  recovery: new LegacyGameplayRecovery(store),
+  recovery: new DomainGameplayRecovery(store),
   store,
 });
 const readiness = createReadiness(database, redis);

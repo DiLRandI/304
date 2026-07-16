@@ -1,10 +1,9 @@
 import { chooseGameplayBotCommand, seatIndex } from "@three-zero-four/gameplay";
 import {
-  decodeGameplayHand,
-  type LegacyGameplaySnapshotRecord,
-} from "../../../gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
-import { GameplaySnapshotCodecError } from "../../../gameplay/adapters/persistence/gameplay-snapshot-codec.js";
-import type { GameplayRecovery } from "../../../gameplay/application/gameplay-recovery.js";
+  GameplaySnapshotCodecError,
+  serializeGameplaySnapshot,
+} from "../../../gameplay/adapters/persistence/gameplay-snapshot-codec.js";
+import type { GameplayHandRecovery } from "../../../gameplay/application/gameplay-hand-recovery.js";
 import { RecoveryError } from "../../../gameplay/application/gameplay-recovery-error.js";
 import { AutomationExecutionError } from "../../application/automation-execution-error.js";
 import type {
@@ -20,14 +19,14 @@ import type { AutomationRandomSource } from "../../application/automation-random
 import type { AutomationScheduler } from "../../application/automation-scheduler.js";
 import { presentAutomatedGameplayAction } from "./domain-gameplay-automation-action-presenter.js";
 import { presentDomainGameplayForAutomation } from "./domain-gameplay-automation-presenter.js";
-import { transitionAutomatedGameplayCommand } from "./domain-gameplay-automation-transition.js";
+import { transitionHydratedAutomatedGameplayCommand } from "./domain-gameplay-automation-transition.js";
 
 interface DomainGameplayAutomationDependencies {
   readonly automation: AutomationScheduler;
   readonly lease: AutomationJobLease;
   readonly presence: AutomationJobPresence;
   readonly random: AutomationRandomSource;
-  readonly recovery: GameplayRecovery;
+  readonly recovery: GameplayHandRecovery;
   readonly store: AutomationJobStore;
 }
 
@@ -83,16 +82,7 @@ export class DomainGameplayAutomationExecutor {
         return "stale";
       }
 
-      const recovered = await this.dependencies.recovery.recover(
-        transaction,
-        room,
-      );
-      const source: LegacyGameplaySnapshotRecord = {
-        ruleProfileId: room.ruleProfileId,
-        schemaVersion: 1,
-        state: recovered.getSnapshot(),
-      };
-      const hand = decodeGameplayHand(source);
+      const hand = await this.dependencies.recovery.recover(transaction, room);
       const seats = await this.dependencies.store.loadSeats(
         room.id,
         transaction,
@@ -105,7 +95,7 @@ export class DomainGameplayAutomationExecutor {
         ) {
           return "stale";
         }
-        const transition = transitionAutomatedGameplayCommand(source, {
+        const transition = transitionHydratedAutomatedGameplayCommand(hand, {
           actor: null,
           type: "ADVANCE_TRICK",
         });
@@ -120,7 +110,7 @@ export class DomainGameplayAutomationExecutor {
             roomId: room.id,
             ruleProfileId: room.ruleProfileId,
             snapshot: transition.snapshot.state,
-            snapshotSchemaVersion: 1,
+            snapshotSchemaVersion: 2,
             status,
           });
         await this.schedule(
@@ -174,8 +164,8 @@ export class DomainGameplayAutomationExecutor {
             payload: { reason: job.kind, seatIndex: job.targetSeatIndex },
             roomId: room.id,
             ruleProfileId: room.ruleProfileId,
-            snapshot: source.state,
-            snapshotSchemaVersion: 1,
+            snapshot: serializeGameplaySnapshot(hand).state,
+            snapshotSchemaVersion: 2,
             status,
           });
         await this.schedule(
@@ -199,7 +189,10 @@ export class DomainGameplayAutomationExecutor {
         this.dependencies.random,
       );
       if (!command || command.type === "ACK_RESULT") return "stale";
-      const transition = transitionAutomatedGameplayCommand(source, command);
+      const transition = transitionHydratedAutomatedGameplayCommand(
+        hand,
+        command,
+      );
       const status = activeStatus(transition.hand.phase);
       const eventVersion = await this.dependencies.store.appendEventAndSnapshot(
         transaction,
@@ -215,7 +208,7 @@ export class DomainGameplayAutomationExecutor {
           roomId: room.id,
           ruleProfileId: room.ruleProfileId,
           snapshot: transition.snapshot.state,
-          snapshotSchemaVersion: 1,
+          snapshotSchemaVersion: 2,
           status,
         },
       );
