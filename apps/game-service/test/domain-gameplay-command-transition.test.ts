@@ -2,11 +2,15 @@ import type { GameAction } from "@three-zero-four/contracts";
 import { GameEngine } from "@three-zero-four/game-engine";
 import { buildDeck } from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
-import { transitionGameplayCommand } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-transition.js";
+import {
+  transitionGameplayCommand,
+  transitionHydratedGameplayCommand,
+} from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-transition.js";
 import {
   decodeGameplayHand,
   type LegacyGameplaySnapshotRecord,
 } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
+import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 
 function startedSnapshot(): LegacyGameplaySnapshotRecord {
   const engine = new GameEngine({
@@ -28,6 +32,22 @@ const unexpectedShuffle = {
 };
 
 describe("transitionGameplayCommand", () => {
+  it("persists a hydrated aggregate transition as schema v2", () => {
+    const before = decodeGameplayHand(startedSnapshot());
+    if (before.activeSeat === null) throw new Error("Expected an active seat");
+
+    const result = transitionHydratedGameplayCommand(
+      before,
+      { type: "PASS_BID" },
+      before.activeSeat,
+      unexpectedShuffle,
+    );
+
+    expect(result.snapshot.schemaVersion).toBe(2);
+    expect(hydrateGameplaySnapshot(result.snapshot)).toEqual(result.hand);
+    expect(before.bidding.actionsTaken).toBe(0);
+  });
+
   it("applies a wire action through the Gameplay aggregate", () => {
     const source = startedSnapshot();
     const before = decodeGameplayHand(source);
