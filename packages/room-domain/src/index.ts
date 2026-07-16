@@ -2,6 +2,7 @@ export type {
   CreateLobbyInput,
   JoinLobbyResult,
   LeaveRoomResult,
+  PlayerConnectionResult,
   Room,
   RoomPlayer,
   RoomRuleProfileId,
@@ -11,6 +12,7 @@ export {
   createLobby,
   joinLobby,
   leaveRoom,
+  setPlayerConnection,
   startRoom,
 } from "./aggregate.js";
 export type {
