@@ -1,5 +1,4 @@
-import type { GameAction } from "@three-zero-four/contracts";
-import { GameEngine } from "@three-zero-four/game-engine";
+import type { GameplayHand } from "@three-zero-four/gameplay";
 import { describe, expect, it, vi } from "vitest";
 import { DomainGameplayAutomationExecutor } from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
 import type {
@@ -13,62 +12,10 @@ import {
   hydrateGameplaySnapshot,
   serializeGameplaySnapshot,
 } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
-
-function startedSnapshot() {
-  const engine = new GameEngine({
-    humanCount: 4,
-    ruleProfile: "classic_304_4p",
-  });
-  engine.startMatch();
-  return engine.getSnapshot();
-}
-
-function pausedTrickSnapshot() {
-  const engine = new GameEngine({
-    enableSecondBidding: false,
-    humanCount: 4,
-    ruleProfile: "classic_304_4p",
-  });
-  engine.startMatch();
-  const apply = (action: GameAction): void => {
-    const actor = engine.getSnapshot().activeSeat;
-    if (actor === null) throw new Error("Expected an active gameplay seat");
-    expect(
-      engine.applyAction({
-        ...action,
-        actorSeatIndex: actor,
-        seatIndex: actor,
-      }),
-    ).toEqual({ ok: true });
-  };
-  apply({ amount: 160, type: "BID" });
-  while (engine.getSnapshot().phase === "four_bidding") {
-    apply({ type: "PASS_BID" });
-  }
-  const maker = engine.getSnapshot().activeSeat;
-  const indicator =
-    maker === null
-      ? undefined
-      : engine
-          .getLegalActions(maker)
-          .find((candidate) => candidate.type === "SELECT_TRUMP");
-  if (!indicator) throw new Error("Expected a trump indicator action");
-  apply(indicator);
-  apply({ type: "TRUMP_OPEN" });
-  while (engine.getSnapshot().phase === "trick_play") {
-    const actor = engine.getSnapshot().activeSeat;
-    const action =
-      actor === null
-        ? undefined
-        : engine
-            .getLegalActions(actor)
-            .find((candidate) => candidate.type === "PLAY_CARD");
-    if (!action) throw new Error("Expected a legal card play");
-    apply(action);
-  }
-  return engine.getSnapshot();
-}
+import {
+  pausedTrickGameplayHand,
+  startedGameplayHand,
+} from "./support/gameplay-hand-fixture.js";
 
 const room: AutomationJobRoom = {
   eventVersion: 7,
@@ -109,9 +56,9 @@ function job(
 }
 
 function harness(options: {
+  readonly hand: GameplayHand;
   readonly room?: AutomationJobRoom;
   readonly seats: AutomationJobSeat[];
-  readonly snapshot: ReturnType<typeof startedSnapshot>;
 }) {
   const transaction = Symbol("transaction");
   const appendEventAndSnapshot = vi.fn(async () => room.eventVersion + 1);
@@ -134,12 +81,7 @@ function harness(options: {
       return work();
     },
   };
-  const recovered = decodeGameplayHand({
-    ruleProfileId: room.ruleProfileId,
-    schemaVersion: 1,
-    state: options.snapshot,
-  });
-  const recover = vi.fn(async () => recovered);
+  const recover = vi.fn(async () => options.hand);
   const schedule = vi.fn(async () => undefined);
   return {
     appendEventAndSnapshot,
@@ -159,17 +101,12 @@ function harness(options: {
 
 describe("DomainGameplayAutomationExecutor", () => {
   it("rejects a stale job before recovering gameplay", async () => {
-    const snapshot = startedSnapshot();
-    const hand = decodeGameplayHand({
-      ruleProfileId: room.ruleProfileId,
-      schemaVersion: 1,
-      state: snapshot,
-    });
+    const hand = startedGameplayHand();
     if (hand.activeSeat === null) throw new Error("Expected an active seat");
     const { executor, recover } = harness({
       room: { ...room, eventVersion: room.eventVersion + 1 },
       seats: seats(hand.activeSeat),
-      snapshot,
+      hand,
     });
 
     await expect(executor.run(job(hand.activeSeat))).resolves.toBe("stale");
@@ -177,17 +114,12 @@ describe("DomainGameplayAutomationExecutor", () => {
   });
 
   it("chooses, applies, and persists a current domain bot command", async () => {
-    const snapshot = startedSnapshot();
-    const before = decodeGameplayHand({
-      ruleProfileId: room.ruleProfileId,
-      schemaVersion: 1,
-      state: snapshot,
-    });
+    const before = startedGameplayHand();
     if (before.activeSeat === null) throw new Error("Expected an active seat");
     const targetSeats = seats(before.activeSeat);
     const { appendEventAndSnapshot, executor, schedule } = harness({
+      hand: before,
       seats: targetSeats,
-      snapshot,
     });
 
     await expect(executor.run(job(before.activeSeat))).resolves.toBe(
@@ -226,16 +158,11 @@ describe("DomainGameplayAutomationExecutor", () => {
   });
 
   it("enables autopilot without mutating the Gameplay aggregate", async () => {
-    const snapshot = startedSnapshot();
-    const hand = decodeGameplayHand({
-      ruleProfileId: room.ruleProfileId,
-      schemaVersion: 1,
-      state: snapshot,
-    });
+    const hand = startedGameplayHand();
     if (hand.activeSeat === null) throw new Error("Expected an active seat");
     const targetSeats = seats(hand.activeSeat, { occupantType: "human" });
     const { appendEventAndSnapshot, executor, markSeatAutopilot, schedule } =
-      harness({ seats: targetSeats, snapshot });
+      harness({ hand, seats: targetSeats });
 
     await expect(
       executor.run(job(hand.activeSeat, "TURN_TIMEOUT")),
@@ -272,19 +199,14 @@ describe("DomainGameplayAutomationExecutor", () => {
   });
 
   it("persists domain trick advancement as its dedicated event", async () => {
-    const snapshot = pausedTrickSnapshot();
-    const hand = decodeGameplayHand({
-      ruleProfileId: room.ruleProfileId,
-      schemaVersion: 1,
-      state: snapshot,
-    });
+    const hand = pausedTrickGameplayHand();
     const winnerSeat = hand.currentTrick?.winnerSeat;
     if (winnerSeat === null || winnerSeat === undefined) {
       throw new Error("Expected a completed trick winner");
     }
     const { appendEventAndSnapshot, executor } = harness({
+      hand,
       seats: seats(winnerSeat),
-      snapshot,
     });
 
     await expect(executor.run(job(winnerSeat, "TRICK_ADVANCE"))).resolves.toBe(

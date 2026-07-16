@@ -524,6 +524,7 @@ test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => 
   const activeRuntimeTests = await Promise.all(
     [
       "apps/game-service/test/domain-gameplay-command-executor.test.ts",
+      "apps/game-service/test/domain-gameplay-automation-executor.test.ts",
       "apps/game-service/test/domain-room-connections.test.ts",
       "apps/game-service/test/room-store.integration.test.ts",
     ].map((file) => readFile(path.join(repoRoot, file), "utf8")),
