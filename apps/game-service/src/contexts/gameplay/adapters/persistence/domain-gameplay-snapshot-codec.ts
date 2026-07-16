@@ -466,7 +466,9 @@ export function encodeGameplayHand(
     metadata.command.type === "SELECT_TRUMP";
   const isSecondBiddingTransition =
     before.phase === "second-bidding" &&
-    hand.phase === "second-bidding" &&
+    (hand.phase === "second-bidding" ||
+      hand.phase === "trump-choice" ||
+      hand.phase === "trump-selection") &&
     (metadata.command.type === "BID" || metadata.command.type === "PASS_BID");
   if (
     !isOpeningTransition &&
@@ -513,7 +515,9 @@ export function encodeGameplayHand(
   }
   state.bidding.currentBid = hand.bidding.currentBid ?? 0;
   state.bidding.currentBidSeat = hand.bidding.currentBidder;
-  state.bidding.initialMakerSeat = hand.trump.maker;
+  if (isOpeningTransition) {
+    state.bidding.initialMakerSeat = hand.trump.maker;
+  }
   state.bidding.phase = hand.bidding.round;
   state.bidding.secondRound.enabled = hand.bidding.secondBiddingEnabled;
   if (hand.bidding.round === "four") {
