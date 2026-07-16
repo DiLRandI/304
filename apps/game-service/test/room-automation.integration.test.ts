@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { CreateRoomRequest, GameAction } from "@three-zero-four/contracts";
-import { GameEngine } from "@three-zero-four/game-engine";
+import type { CreateRoomRequest } from "@three-zero-four/contracts";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
+import { presentDomainGameplayForAutomation } from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-presenter.js";
+import { serializeGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import type { PlayerAccess } from "../src/contexts/player-access/application/player-access.js";
 import {
   type ClaimedAutomationJob,
@@ -17,6 +18,10 @@ import {
   createDatabase,
   type Database,
 } from "../src/platform/postgres/database.js";
+import {
+  completedGameplayHand,
+  pausedTrickGameplayHand,
+} from "./support/gameplay-hand-fixture.js";
 import {
   RoomTestRuntime,
   type RoomTestRuntimeOptions,
@@ -67,114 +72,6 @@ async function createStartedClassicRoom(
     expectedVersion: eventVersion,
   });
   return { created, guests, host, players: [host, ...guests], started };
-}
-
-function completeClassicHandSnapshot(): Record<string, unknown> {
-  const engine = new GameEngine({
-    ruleProfile: "classic_304_4p",
-    tableMode: "classic_4",
-    initialSeats: Array.from({ length: 4 }, (_, index) => ({
-      index,
-      type: "human",
-      displayName: `Player ${index + 1}`,
-    })),
-  });
-  engine.startMatch();
-  for (let actionsApplied = 0; actionsApplied < 100; actionsApplied += 1) {
-    if (engine.state.phase === "hand_result") return engine.getSnapshot();
-    if (engine.state.phase === "trick_result") {
-      if (!engine.advanceTrick().ok) {
-        throw new Error("Expected a completed trick to advance");
-      }
-      continue;
-    }
-    const seatIndex = engine.state.activeSeat;
-    if (typeof seatIndex !== "number") {
-      throw new Error(`Expected an active seat during ${engine.state.phase}`);
-    }
-    const legalActions = engine.getLegalActions(seatIndex);
-    const action =
-      engine.state.phase === "four_bidding"
-        ? engine.state.bidding.currentBid === 0
-          ? legalActions.find(
-              (candidate) =>
-                candidate.type === "BID" && candidate.amount === 160,
-            )
-          : legalActions.find((candidate) => candidate.type === "PASS_BID")
-        : engine.state.phase === "second_bidding"
-          ? legalActions.find((candidate) => candidate.type === "PASS_BID")
-          : engine.state.phase === "trump_selection"
-            ? legalActions.find(
-                (candidate) => candidate.type === "SELECT_TRUMP",
-              )
-            : engine.state.phase === "trump_choice"
-              ? legalActions.find(
-                  (candidate) => candidate.type === "TRUMP_OPEN",
-                )
-              : legalActions.find(
-                  (candidate) => candidate.type === "PLAY_CARD",
-                );
-    if (!action) {
-      throw new Error(`Expected a legal action during ${engine.state.phase}`);
-    }
-    const result = engine.applyAction({
-      ...action,
-      seatIndex,
-      actorSeatIndex: seatIndex,
-    });
-    if (!result.ok) {
-      throw new Error(result.reason ?? "Expected a legal engine action");
-    }
-  }
-  throw new Error("Classic hand did not complete within the action limit");
-}
-
-function pausedClassicTrickSnapshot(): Record<string, unknown> {
-  const engine = new GameEngine({
-    enableSecondBidding: false,
-    humanCount: 4,
-    ruleProfile: "classic_304_4p",
-  });
-  engine.startMatch();
-  const apply = (action: GameAction): void => {
-    const actor = engine.getSnapshot().activeSeat;
-    if (actor === null) throw new Error("Expected an active gameplay seat");
-    const result = engine.applyAction({
-      ...action,
-      actorSeatIndex: actor,
-      seatIndex: actor,
-    });
-    if (!result.ok) throw new Error("Expected a legal gameplay action");
-  };
-  apply({ amount: 160, type: "BID" });
-  while (engine.getSnapshot().phase === "four_bidding") {
-    apply({ type: "PASS_BID" });
-  }
-  const maker = engine.getSnapshot().activeSeat;
-  const indicator =
-    maker === null
-      ? undefined
-      : engine
-          .getLegalActions(maker)
-          .find((candidate) => candidate.type === "SELECT_TRUMP");
-  if (!indicator) throw new Error("Expected a trump indicator action");
-  apply(indicator);
-  apply({ type: "TRUMP_OPEN" });
-  while (engine.getSnapshot().phase === "trick_play") {
-    const actor = engine.getSnapshot().activeSeat;
-    const action =
-      actor === null
-        ? undefined
-        : engine
-            .getLegalActions(actor)
-            .find((candidate) => candidate.type === "PLAY_CARD");
-    if (!action) throw new Error("Expected a legal card play");
-    apply(action);
-  }
-  if (engine.state.phase !== "trick_result") {
-    throw new Error("Expected a paused completed trick snapshot");
-  }
-  return engine.getSnapshot();
 }
 
 describeIntegration("durable room automation", () => {
@@ -501,22 +398,19 @@ describeIntegration("durable room automation", () => {
       "Oshada",
       "Pavani",
     ]);
-    const completed = completeClassicHandSnapshot();
-    const seats = completed.seats as Array<Record<string, unknown>>;
-    const firstSeat = seats[0];
-    if (!firstSeat) throw new Error("Expected the first completed-hand seat");
-    seats[0] = {
-      ...firstSeat,
-      autopilot: true,
-      connectionStatus: "autopilot",
-    };
+    const completed = serializeGameplaySnapshot(completedGameplayHand());
     await database.query(
       "UPDATE rooms SET status = 'hand_result' WHERE id = $1",
       [created.roomId],
     );
     await database.query(
-      "UPDATE game_snapshots SET schema_version = 1, state = $3::jsonb WHERE room_id = $1 AND event_version = $2",
-      [created.roomId, started.eventVersion, JSON.stringify(completed)],
+      "UPDATE game_snapshots SET schema_version = $3, state = $4::jsonb WHERE room_id = $1 AND event_version = $2",
+      [
+        created.roomId,
+        started.eventVersion,
+        completed.schemaVersion,
+        JSON.stringify(completed.state),
+      ],
     );
     await database.query(
       "UPDATE room_seats SET connection_status = 'autopilot' WHERE room_id = $1 AND seat_index = 0",
@@ -570,23 +464,30 @@ describeIntegration("durable room automation", () => {
       "Pause Host",
       ["Pause North", "Pause East", "Pause West"],
     );
-    const paused = pausedClassicTrickSnapshot();
+    const paused = pausedTrickGameplayHand();
+    const pausedSnapshot = serializeGameplaySnapshot(paused);
     await database.query(
-      "UPDATE game_snapshots SET schema_version = 1, state = $3::jsonb WHERE room_id = $1 AND event_version = $2",
-      [created.roomId, started.eventVersion, JSON.stringify(paused)],
+      "UPDATE game_snapshots SET schema_version = $3, state = $4::jsonb WHERE room_id = $1 AND event_version = $2",
+      [
+        created.roomId,
+        started.eventVersion,
+        pausedSnapshot.schemaVersion,
+        JSON.stringify(pausedSnapshot.state),
+      ],
     );
     const room = await store.loadRoom(created.roomId);
     if (!room) throw new Error("Expected the paused room");
-    const pausedEngine = GameEngine.hydrate(
-      paused as Parameters<typeof GameEngine.hydrate>[0],
-    );
-    const winnerSeat = pausedEngine.state.currentTrick?.winnerSeat;
+    const winnerSeat = paused.currentTrick?.winnerSeat;
     if (winnerSeat === null || winnerSeat === undefined) {
       throw new Error("Expected a completed trick winner");
     }
     const scheduledAt = Date.now();
     await store.transaction((transaction) =>
-      game.scheduler.schedule(transaction, room, pausedEngine),
+      game.scheduler.schedule(
+        transaction,
+        room,
+        presentDomainGameplayForAutomation(paused, []),
+      ),
     );
 
     const pending = await database.query<{
