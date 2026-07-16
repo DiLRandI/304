@@ -11,21 +11,22 @@ state and automated actions.
 | Web client | `apps/web` (Next.js, React, TypeScript) | Entry, lobby, table, private projections, reconnect UI, accessibility |
 | Game service | `apps/game-service` (Fastify, TypeScript) | Guest sessions, authenticated commands, private HTTP/WebSocket views |
 | Worker | `apps/game-service/src/worker.ts` | Bot turns, timeouts, disconnected-player autopilot, maintenance |
-| Rules | `packages/game-engine` | Deterministic legal actions, transitions, scoring, bot choices |
+| Gameplay domain | `packages/gameplay` | Aggregate commands/events, deterministic rules, scoring, projections, bot policy |
+| Rooms domain | `packages/room-domain` | Room lifecycle, seats, joins, starts, leaves, and ownership |
 | Wire contracts | `packages/contracts` | Versioned schemas for commands, responses, projections, and errors |
 | Durable state | PostgreSQL | Sessions, rooms, seats, events, snapshots, outbox, automation jobs |
 | Coordination | Redis | Leases, presence, rate limits, Pub/Sub, bounded telemetry |
-| Compatibility | `server.js`, `index.html`, `src/` | Legacy playable baseline, not the release-facing application |
 
 ```mermaid
 flowchart LR
   Browser[Next.js browser client] -->|HTTPS commands| API[Fastify game service]
   Browser <-->|Private WebSocket projections| API
-  API --> Coordinator[Room coordinator]
-  Worker[Automation and maintenance worker] --> Coordinator
-  Coordinator --> Engine[Game engine]
-  Coordinator --> DB[(PostgreSQL)]
-  Coordinator --> Redis[(Redis)]
+  API --> UseCases[Bounded-context application use cases]
+  Worker[Automation and maintenance worker] --> UseCases
+  UseCases --> Gameplay[Gameplay aggregate]
+  UseCases --> Rooms[Rooms domain]
+  UseCases --> DB[(PostgreSQL)]
+  UseCases --> Redis[(Redis)]
   API --> Contracts[Versioned contracts]
   Worker --> Contracts
 ```
@@ -49,28 +50,29 @@ reject malformed or unsupported payloads before domain code runs.
 
 The Fastify service authenticates a high-entropy guest-session cookie, applies
 origin and rate-limit policy, resolves the caller's seat, and sends a validated
-command to the room coordinator. It never accepts actor identity or a game
-snapshot from the client.
+command to the owning bounded-context application use case. It never accepts
+actor identity or a game snapshot from the client.
 
-### Room coordinator
+### Application use cases
 
-The coordinator serializes a room mutation under a short Redis lease. In one
-PostgreSQL transaction it records the accepted event, updates the private
+Rooms, Gameplay, Automation, and Player Access own separate application ports
+and adapters. A room mutation is serialized under a short Redis lease. One
+PostgreSQL transaction records the accepted event, updates the private
 snapshot, schedules or cancels automation, and creates an outbox notice. A
 duplicate command returns its recorded outcome instead of applying twice.
 
-### Engine
+### Gameplay domain
 
-`packages/game-engine` is storage-independent and deterministic for a supplied
-state/action/random source. It owns Classic four-seat and six-seat 304 rules,
-legal actions, bidding, trump, tricks, scoring, match progression, and legal
-bot choices. Viewer-specific projections prevent hidden-card and closed-trump
-leaks.
+`packages/gameplay` is storage-independent and deterministic for supplied
+commands, state, and randomness. It owns Classic four-seat and six-seat 304
+rules, legal commands, bidding, trump, tricks, scoring, match progression,
+bot policy, and viewer-specific projections. The service composes persistence
+and transport adapters around this domain instead of exposing its state.
 
 ### Worker
 
 The worker claims durable automation jobs and submits them through the same
-validated coordinator path used for human commands. Bot, timeout, and
+validated Gameplay application path used for human commands. Bot, timeout, and
 autopilot actions are therefore version-bound and retry-safe. A separate
 maintenance pass closes only eligible stale lobbies or terminal rooms and
 purges data after configured retention; it never advances an active hand.
@@ -82,8 +84,8 @@ purges data after configured retention; it never advances an active hand.
 3. The service returns a projection containing only that guest's private hand
    plus public room state and server-issued legal controls.
 4. The browser submits a command with its idempotency key and expected version.
-5. The coordinator validates, reduces, persists, and publishes the next room
-   version.
+5. The owning application use case validates, reduces, persists, and publishes
+   the next room version.
 6. The HTTP response and WebSocket update contain only the caller's current
    private projection.
 7. Clients discard stale updates and fetch a new snapshot after a version gap.
@@ -110,7 +112,8 @@ apps/
   web/                    Next.js player application and Playwright coverage
   game-service/           Fastify API, WebSocket delivery, worker, tests
 packages/
-  game-engine/            Deterministic JavaScript rules package
+  gameplay/               Authoritative Gameplay domain and projections
+  room-domain/            Rooms lifecycle domain
   contracts/              TypeScript wire schemas
 infra/
   compose/                Local and AWS-oriented service topologies
@@ -121,7 +124,6 @@ scripts/
   backup-restore-rehearsal.sh
 docs/
   product/ features/ technical/ planning/ operations/ deployment/
-server.js                 Legacy compatibility server
 ```
 
 ## Deployment
@@ -158,7 +160,7 @@ backup/restore, and rollback have operator runbooks.
 
 Architecture invariants are executable:
 
-- engine and contract unit tests cover rules and wire schemas;
+- Gameplay, Rooms, and contract unit tests cover domain rules and wire schemas;
 - service tests cover identity, commands, projection privacy, realtime,
   recovery, automation, and maintenance;
 - PostgreSQL/Redis integration tests exercise the durable topology;
