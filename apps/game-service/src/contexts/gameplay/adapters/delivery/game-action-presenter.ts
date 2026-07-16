@@ -27,7 +27,7 @@ export function presentGameAction(action: Record<string, unknown>): GameAction {
       if (isString(action.cardId)) {
         return {
           type: "PLAY_CARD",
-          cardId: action.cardId,
+          cardId: action.fromIndicator ? "__trump_indicator__" : action.cardId,
           faceDown: Boolean(action.faceDown),
           fromIndicator: Boolean(action.fromIndicator),
         };

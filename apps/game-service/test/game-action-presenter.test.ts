@@ -23,6 +23,20 @@ describe("presentGameAction", () => {
         fromIndicator: false,
       },
     ],
+    [
+      {
+        type: "PLAY_CARD",
+        cardId: "S_J",
+        faceDown: true,
+        fromIndicator: true,
+      },
+      {
+        type: "PLAY_CARD",
+        cardId: "__trump_indicator__",
+        faceDown: true,
+        fromIndicator: true,
+      },
+    ],
     [{ type: "ACK_RESULT" }, { type: "ACK_RESULT" }],
   ])("maps %j to its wire action", (engineAction, expected) => {
     expect(presentGameAction(engineAction)).toEqual(expected);
