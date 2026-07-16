@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import ts from "typescript";
@@ -481,6 +481,17 @@ test("retired legacy gameplay runtimes stay deleted", async () => {
     undefined,
   );
   assert.doesNotMatch(JSON.stringify(rootManifest.scripts), /server\.js/);
+  for (const filename of [
+    "index.html",
+    "server.js",
+    "styles.css",
+    "src/ui/app.js",
+    "src/ui/view.js",
+  ]) {
+    await assert.rejects(access(path.join(repoRoot, filename)), {
+      code: "ENOENT",
+    });
+  }
 });
 
 test("active runtimes recover the domain Gameplay aggregate", async () => {
