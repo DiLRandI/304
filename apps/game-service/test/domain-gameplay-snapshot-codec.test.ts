@@ -125,6 +125,74 @@ describe("domain gameplay compatibility snapshot decoder", () => {
     });
   });
 
+  it("decodes second bidding and the following trump choice", () => {
+    const { engine, record } = snapshot("classic_304_4p");
+    const apply = (action: Record<string, unknown>) => {
+      const actor = engine.getSnapshot().activeSeat;
+      if (actor === null) throw new Error("Expected an active gameplay seat");
+      expect(
+        engine.applyAction({
+          ...action,
+          actorSeatIndex: actor,
+          seatIndex: actor,
+        }),
+      ).toEqual({ ok: true });
+    };
+    const maker = engine.getSnapshot().activeSeat;
+    if (maker === null) throw new Error("Expected an active bidding seat");
+    apply({ amount: 160, type: "BID" });
+    while (engine.getSnapshot().phase === "four_bidding") {
+      apply({ type: "PASS_BID" });
+    }
+    const indicator = engine
+      .getLegalActions(maker)
+      .find((action) => action.type === "SELECT_TRUMP");
+    if (!indicator) throw new Error("Expected a trump indicator action");
+    apply(indicator);
+
+    const secondBidding = decodeGameplayHand({
+      ...record,
+      state: engine.getSnapshot(),
+    });
+    expect(secondBidding.phase).toBe("second-bidding");
+    expect(secondBidding.bidding).toMatchObject({
+      actedInRound: [false, false, false, false],
+      actionsTaken: 0,
+      activeSeat: maker,
+      currentBid: 160,
+      currentBidder: maker,
+      previousBid: 160,
+      round: "second",
+      status: "active",
+    });
+    expect(secondBidding.trump).toMatchObject({
+      indicator: { id: indicator.cardId },
+      maker,
+      mode: null,
+      open: false,
+    });
+    expect(secondBidding.deal.hands.map((cards) => cards.length)).toEqual(
+      Array.from({ length: 4 }, (_, seat) => (seat === maker ? 7 : 8)),
+    );
+
+    while (engine.getSnapshot().phase === "second_bidding") {
+      apply({ type: "PASS_BID" });
+    }
+    const trumpChoice = decodeGameplayHand({
+      ...record,
+      state: engine.getSnapshot(),
+    });
+    expect(trumpChoice.phase).toBe("trump-choice");
+    expect(trumpChoice.activeSeat).toBe(maker);
+    expect(trumpChoice.bidding).toMatchObject({
+      actedInRound: [true, true, true, true],
+      actionsTaken: 4,
+      activeSeat: null,
+      round: "second",
+      status: "complete",
+    });
+  });
+
   it("rejects lobby snapshots because Room Management owns the lobby", () => {
     const engine = new GameEngine({
       humanCount: 4,

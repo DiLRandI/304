@@ -29,17 +29,29 @@ const legacySeatSchema = z.object({
   index: z.number().int().nonnegative(),
   wonCards: z.array(legacyCardSchema),
 });
+const legacyBidActionSchema = z.object({
+  amount: z.number().int().nonnegative().optional(),
+  seatIndex: z.number().int().nonnegative(),
+  type: z.enum(["bid", "pass"]),
+});
 const legacyBiddingSchema = z.object({
   actedInRound: z.array(z.boolean().nullish()),
-  actions: z.array(z.unknown()),
+  actions: z.array(legacyBidActionSchema),
   activeOrderIndex: z.number().int().nonnegative(),
   currentBid: z.number().int().nonnegative(),
   currentBidSeat: z.number().int().nonnegative().nullable(),
   noBidPasses: z.number().int().nonnegative(),
   order: z.array(z.number().int().nonnegative()),
   passesAfterBid: z.number().int().nonnegative(),
-  phase: z.literal("four"),
-  secondRound: z.object({ enabled: z.boolean() }),
+  phase: z.enum(["four", "second"]),
+  secondRound: z.object({
+    actionsTaken: z.number().int().nonnegative(),
+    activeOrderIndex: z.number().int().nonnegative(),
+    enabled: z.boolean(),
+    order: z.array(z.number().int().nonnegative()),
+    previousBid: z.number().int().nonnegative(),
+    previousBidSeat: z.number().int().nonnegative().nullable(),
+  }),
 });
 const openingGameplaySchema = z.object({
   activeSeat: z.number().int().nonnegative(),
@@ -47,7 +59,12 @@ const openingGameplaySchema = z.object({
   dealerSeat: z.number().int().nonnegative(),
   deck: z.array(legacyCardSchema),
   handNumber: z.number().int().positive(),
-  phase: z.enum(["four_bidding", "trump_selection"]),
+  phase: z.enum([
+    "four_bidding",
+    "trump_selection",
+    "second_bidding",
+    "trump_choice",
+  ]),
   profile: z.object({ id: z.string() }),
   profileId: z.string(),
   seatCount: z.union([z.literal(4), z.literal(6)]),
@@ -57,10 +74,10 @@ const openingGameplaySchema = z.object({
     z.number().int().nonnegative(),
   ]),
   trump: z.object({
-    card: z.null(),
+    card: legacyCardSchema.nullable(),
     isOpen: z.literal(false),
     maker: z.number().int().nonnegative().nullable(),
-    suit: z.null(),
+    suit: z.enum(["clubs", "diamonds", "hearts", "spades"]).nullable(),
   }),
 });
 
@@ -108,7 +125,9 @@ export function decodeGameplayHand(
   }
   if (
     header.data.phase !== "four_bidding" &&
-    header.data.phase !== "trump_selection"
+    header.data.phase !== "trump_selection" &&
+    header.data.phase !== "second_bidding" &&
+    header.data.phase !== "trump_choice"
   ) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
@@ -124,22 +143,40 @@ export function decodeGameplayHand(
       state.profile.id !== record.ruleProfileId ||
       state.seatCount !== profile.seatCount ||
       state.seats.length !== profile.seatCount ||
-      state.bidding.order.length !== profile.seatCount
+      state.bidding.order.length !== profile.seatCount ||
+      (state.bidding.phase === "second" &&
+        state.bidding.secondRound.order.length !== profile.seatCount)
     ) {
       throw invalidSnapshot();
     }
-    const isBidding = state.phase === "four_bidding";
+    const isFourBidding = state.phase === "four_bidding";
+    const isTrumpSelection = state.phase === "trump_selection";
+    const isSecondBidding = state.phase === "second_bidding";
+    const isSecondRound = isSecondBidding || state.phase === "trump_choice";
     const trumpMaker =
       state.trump.maker === null
         ? null
         : seatIndex(state.trump.maker, profile.seatCount);
     if (
-      (isBidding && trumpMaker !== null) ||
-      (!isBidding &&
+      (isFourBidding &&
+        (state.bidding.phase !== "four" ||
+          trumpMaker !== null ||
+          state.trump.card !== null ||
+          state.trump.suit !== null)) ||
+      (isTrumpSelection &&
         (trumpMaker === null ||
           state.activeSeat !== trumpMaker ||
           state.bidding.currentBid === 0 ||
-          state.bidding.currentBidSeat !== trumpMaker))
+          state.bidding.currentBidSeat !== trumpMaker ||
+          state.trump.card !== null ||
+          state.trump.suit !== null)) ||
+      (isSecondRound &&
+        (state.bidding.phase !== "second" ||
+          trumpMaker === null ||
+          state.bidding.currentBid === 0 ||
+          state.trump.card === null ||
+          state.trump.suit === null ||
+          state.trump.card.suit !== state.trump.suit))
     ) {
       throw invalidSnapshot();
     }
@@ -152,17 +189,39 @@ export function decodeGameplayHand(
     if (seats.some((seat, index) => seat.index !== index)) {
       throw invalidSnapshot();
     }
+    const secondActions =
+      state.bidding.secondRound.actionsTaken === 0
+        ? []
+        : state.bidding.actions.slice(-state.bidding.secondRound.actionsTaken);
+    const secondActedInRound = Array.from(
+      { length: profile.seatCount },
+      () => false,
+    );
+    for (const action of secondActions) {
+      secondActedInRound[actor(action.seatIndex)] = true;
+    }
+    const secondPassesAfterBid = secondActions
+      .toReversed()
+      .findIndex((action) => action.type === "bid");
+    const biddingRound = isSecondRound ? "second" : "four";
+    const biddingIsActive = isFourBidding || isSecondBidding;
 
     return {
       activeSeat: actor(state.activeSeat),
       bidding: {
-        actedInRound: Array.from(
-          { length: profile.seatCount },
-          (_, index) => state.bidding.actedInRound[index] ?? false,
-        ),
-        actionsTaken: state.bidding.actions.length,
-        activeOrderIndex: state.bidding.activeOrderIndex,
-        activeSeat: isBidding ? actor(state.activeSeat) : null,
+        actedInRound: isSecondRound
+          ? secondActedInRound
+          : Array.from(
+              { length: profile.seatCount },
+              (_, index) => state.bidding.actedInRound[index] ?? false,
+            ),
+        actionsTaken: isSecondRound
+          ? state.bidding.secondRound.actionsTaken
+          : state.bidding.actions.length,
+        activeOrderIndex: isSecondRound
+          ? state.bidding.secondRound.activeOrderIndex % profile.seatCount
+          : state.bidding.activeOrderIndex,
+        activeSeat: biddingIsActive ? actor(state.activeSeat) : null,
         currentBid:
           state.bidding.currentBid === 0
             ? null
@@ -172,13 +231,22 @@ export function decodeGameplayHand(
             ? null
             : actor(state.bidding.currentBidSeat),
         noBidPasses: state.bidding.noBidPasses,
-        order: state.bidding.order.map(actor),
-        passesAfterBid: state.bidding.passesAfterBid,
-        previousBid: null,
-        round: "four",
+        order: (isSecondRound
+          ? state.bidding.secondRound.order
+          : state.bidding.order
+        ).map(actor),
+        passesAfterBid: isSecondRound
+          ? secondPassesAfterBid === -1
+            ? secondActions.length
+            : secondPassesAfterBid
+          : state.bidding.passesAfterBid,
+        previousBid: isSecondRound
+          ? bidAmount(state.bidding.secondRound.previousBid)
+          : null,
+        round: biddingRound,
         seatCount: profile.seatCount,
         secondBiddingEnabled: state.bidding.secondRound.enabled,
-        status: isBidding ? "active" : "complete",
+        status: biddingIsActive ? "active" : "complete",
       },
       capturedCards: seats.map((seat) => mapCards(seat.wonCards)),
       completedTricks: [],
@@ -191,16 +259,24 @@ export function decodeGameplayHand(
       },
       dealer: actor(state.dealerSeat),
       handNumber: state.handNumber,
-      phase: isBidding ? "four-bidding" : "trump-selection",
+      phase: isFourBidding
+        ? "four-bidding"
+        : isTrumpSelection
+          ? "trump-selection"
+          : isSecondBidding
+            ? "second-bidding"
+            : "trump-choice",
       profile,
       result: null,
       tokens: state.tokens,
       trump: {
-        indicator: null,
+        indicator: state.trump.card
+          ? cardFromLegacy(state.trump.card, profile)
+          : null,
         maker: trumpMaker,
         mode: null,
         open: false,
-        suit: null,
+        suit: state.trump.suit,
       },
     };
   } catch (error) {
