@@ -1,7 +1,7 @@
 import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it } from "vitest";
 import { presentDomainGameplayForAutomation } from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-presenter.js";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
+import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 
 describe("presentDomainGameplayForAutomation", () => {
   it("maps domain phases, turns, and room-owned seat state", () => {

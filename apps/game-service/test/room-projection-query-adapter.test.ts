@@ -1,7 +1,7 @@
 import { GameEngine } from "@three-zero-four/game-engine";
 import type { GameplayHand } from "@three-zero-four/gameplay";
 import { describe, expect, it, vi } from "vitest";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
+import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 import { RecoveryError } from "../src/contexts/gameplay/application/gameplay-recovery-error.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";

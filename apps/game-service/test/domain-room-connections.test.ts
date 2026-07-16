@@ -1,7 +1,7 @@
 import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
 import { serializeGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
+import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { DomainRoomConnections } from "../src/contexts/rooms/adapters/integration/domain-room-connections.js";
 import type {

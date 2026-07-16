@@ -1,7 +1,7 @@
 import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it } from "vitest";
 import { projectDomainRoomForPlayer } from "../src/contexts/gameplay/adapters/delivery/domain-gameplay-room-presenter.js";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
+import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 import type { StoredSeat } from "../src/contexts/rooms/application/room-persistence-model.js";
 
 describe("projectDomainRoomForPlayer", () => {

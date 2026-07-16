@@ -2,8 +2,8 @@ import type { GameCommand } from "@three-zero-four/contracts";
 import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
 import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
 import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
+import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 import type {
   GameplayCommandRoom,
   GameplayCommandStore,

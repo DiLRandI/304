@@ -11,14 +11,14 @@ import type {
   PreparedGameplayHandDeck,
 } from "../../application/gameplay-hand-shuffler.js";
 import {
-  decodeGameplayHand,
-  encodeGameplayHand,
-  type LegacyGameplaySnapshotRecord,
-} from "../persistence/domain-gameplay-snapshot-codec.js";
-import {
   type GameplaySnapshotRecord,
   serializeGameplaySnapshot,
 } from "../persistence/gameplay-snapshot-codec.js";
+import {
+  decodeGameplayHand,
+  encodeGameplayHand,
+  type LegacyGameplaySnapshotRecord,
+} from "../persistence/legacy-gameplay-snapshot-codec.js";
 import { toGameplayCommand } from "./wire-gameplay-command-mapper.js";
 
 export interface GameplayCommandTransition {

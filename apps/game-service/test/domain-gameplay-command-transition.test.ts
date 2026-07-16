@@ -6,11 +6,11 @@ import {
   transitionGameplayCommand,
   transitionHydratedGameplayCommand,
 } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-transition.js";
+import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import {
   decodeGameplayHand,
   type LegacyGameplaySnapshotRecord,
-} from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
-import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
+} from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 
 function startedSnapshot(): LegacyGameplaySnapshotRecord {
   const engine = new GameEngine({

@@ -9,11 +9,11 @@ import type {
   AutomationJobStore,
   ClaimedDomainAutomationJob,
 } from "../src/contexts/automation/application/automation-job-store.js";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
 import {
   hydrateGameplaySnapshot,
   serializeGameplaySnapshot,
 } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
+import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 
 function startedSnapshot() {
   const engine = new GameEngine({
