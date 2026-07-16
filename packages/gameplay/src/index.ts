@@ -36,6 +36,14 @@ export type {
 export type { Rank, RuleProfile, TokenRule } from "./profile.js";
 export { getRuleProfile, RULE_PROFILES } from "./profile.js";
 export type {
+  GameplayProjection,
+  ProjectedCard,
+  ProjectedPlay,
+  ProjectedSeat,
+  ProjectedTrick,
+} from "./projection.js";
+export { projectGameplayHand } from "./projection.js";
+export type {
   CancelledHand,
   HandScore,
   ScoreHandInput,
