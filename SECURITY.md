@@ -11,7 +11,8 @@ or other players' data in a public issue.
 
 - The browser sends intents only. `apps/game-service` validates identity,
   command schema, expected room version, actor permissions, and game legality.
-- `packages/game-engine` is authoritative for rules and scoring.
+- `packages/gameplay` is authoritative for Gameplay rules, scoring,
+  projections, and server-selected bot policy.
 - HTTP and WebSocket responses use viewer-specific projections. Other hands,
   closed trump information, shuffle material, and internal snapshots are not
   public client state.
@@ -103,11 +104,3 @@ The canonical hosting and dependency-security decision is
 See [Production Foundation](docs/operations/production-foundation.md) and
 [Public Release](docs/operations/public-release.md) for response and release
 stop conditions.
-
-## Legacy compatibility server
-
-`server.js` remains a compatibility baseline and is not the release-facing
-durable architecture. It still applies a public-file allowlist, request and
-payload limits, server-side action validation, origin controls, rate limits,
-security headers, and graceful shutdown. Do not use its in-memory rooms or
-browser-held legacy session token as evidence for production durability.
