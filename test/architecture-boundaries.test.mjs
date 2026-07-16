@@ -528,6 +528,7 @@ test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => 
       "apps/game-service/test/domain-gameplay-automation-presenter.test.ts",
       "apps/game-service/test/domain-gameplay-room-presenter.test.ts",
       "apps/game-service/test/domain-room-connections.test.ts",
+      "apps/game-service/test/gameplay-snapshot-codec.test.ts",
       "apps/game-service/test/room-projection-query-adapter.test.ts",
       "apps/game-service/test/room-store.integration.test.ts",
     ].map((file) => readFile(path.join(repoRoot, file), "utf8")),
