@@ -1,7 +1,13 @@
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
+import {
+  applyGameplayCommand,
+  bidAmount,
+  type GameplayCommand,
+} from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
 import {
   decodeGameplayHand,
+  encodeGameplayHand,
   type LegacyGameplaySnapshotRecord,
 } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
 import { GameplaySnapshotCodecError } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
@@ -26,6 +32,39 @@ function snapshot(profileId: "classic_304_4p" | "six_304_36"): {
 }
 
 describe("domain gameplay compatibility snapshot decoder", () => {
+  it.each([
+    { amount: 160, type: "BID" },
+    { type: "PASS_BID" },
+  ] as const)("encodes one opening $type transition as schema v1", (action) => {
+    const { engine, record } = snapshot("classic_304_4p");
+    const before = decodeGameplayHand(record);
+    const actor = before.activeSeat;
+    if (actor === null) throw new Error("Expected an active bidding seat");
+    const command: GameplayCommand =
+      action.type === "BID"
+        ? { actor, amount: bidAmount(action.amount), type: "BID" }
+        : { actor, type: "PASS_BID" };
+    const applied = applyGameplayCommand(before, command);
+    if (!applied.ok) throw new Error("Expected a legal opening command");
+
+    const encoded = encodeGameplayHand(applied.hand, {
+      command,
+      source: record,
+    });
+
+    expect(encoded.schemaVersion).toBe(1);
+    expect(decodeGameplayHand(encoded)).toEqual(applied.hand);
+    const legacy = GameEngine.hydrate(
+      encoded.state as EngineState,
+    ).getSnapshot();
+    expect(legacy.activeSeat).toBe(applied.hand.activeSeat);
+    expect(legacy.bidding.currentBid).toBe(
+      applied.hand.bidding.currentBid ?? 0,
+    );
+    expect(legacy.bidding.actions).toHaveLength(1);
+    expect(engine.getSnapshot().bidding.actions).toHaveLength(0);
+  });
+
   it.each([
     "classic_304_4p",
     "six_304_36",

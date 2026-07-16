@@ -1,7 +1,9 @@
 import {
+  applyGameplayCommand,
   bidAmount,
   type Card,
   cardId,
+  type GameplayCommand,
   type GameplayHand,
   getRuleProfile,
   type RuleProfile,
@@ -15,6 +17,11 @@ export interface LegacyGameplaySnapshotRecord {
   readonly ruleProfileId: RuleProfileId;
   readonly schemaVersion: number;
   readonly state: unknown;
+}
+
+export interface LegacyGameplayCompatibilityMetadata {
+  readonly command: GameplayCommand;
+  readonly source: LegacyGameplaySnapshotRecord;
 }
 
 const legacyCardSchema = z.object({
@@ -143,6 +150,15 @@ function cardFromLegacy(
     points: value.points,
     rank: value.rank,
     suit: value.suit,
+  };
+}
+
+function cardToLegacy(card: Card): z.infer<typeof legacyCardSchema> {
+  return {
+    cardId: card.id,
+    points: card.points,
+    rank: card.rank,
+    suit: card.suit,
   };
 }
 
@@ -426,4 +442,68 @@ export function decodeGameplayHand(
     if (error instanceof GameplaySnapshotCodecError) throw error;
     throw invalidSnapshot();
   }
+}
+
+export function encodeGameplayHand(
+  hand: GameplayHand,
+  metadata: LegacyGameplayCompatibilityMetadata,
+): LegacyGameplaySnapshotRecord {
+  const before = decodeGameplayHand(metadata.source);
+  if (
+    before.phase !== "four-bidding" ||
+    hand.phase !== "four-bidding" ||
+    (metadata.command.type !== "BID" && metadata.command.type !== "PASS_BID")
+  ) {
+    throw new GameplaySnapshotCodecError(
+      "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
+      "Gameplay compatibility snapshot transition is not supported",
+    );
+  }
+  const expected = applyGameplayCommand(before, metadata.command);
+  if (!expected.ok || JSON.stringify(expected.hand) !== JSON.stringify(hand)) {
+    throw invalidSnapshot();
+  }
+
+  const state = structuredClone(metadata.source.state) as z.infer<
+    typeof openingGameplaySchema
+  >;
+  openingGameplaySchema.parse(state);
+  const activeSeat = hand.activeSeat;
+  if (activeSeat === null) throw invalidSnapshot();
+  state.activeSeat = activeSeat;
+  state.bidding.actedInRound = [...hand.bidding.actedInRound];
+  state.bidding.actions.push(
+    metadata.command.type === "BID"
+      ? {
+          amount: metadata.command.amount,
+          seatIndex: metadata.command.actor,
+          type: "bid",
+        }
+      : { seatIndex: metadata.command.actor, type: "pass" },
+  );
+  state.bidding.activeOrderIndex = hand.bidding.activeOrderIndex;
+  state.bidding.currentBid = hand.bidding.currentBid ?? 0;
+  state.bidding.currentBidSeat = hand.bidding.currentBidder;
+  state.bidding.noBidPasses = hand.bidding.noBidPasses;
+  state.bidding.order = [...hand.bidding.order];
+  state.bidding.passesAfterBid = hand.bidding.passesAfterBid;
+  state.bidding.phase = "four";
+  state.bidding.secondRound.enabled = hand.bidding.secondBiddingEnabled;
+  state.deck = hand.deal.deck.map(cardToLegacy);
+  state.dealerSeat = hand.dealer;
+  state.handNumber = hand.handNumber;
+  state.phase = "four_bidding";
+  state.seats = state.seats.map((seat, index) => ({
+    ...seat,
+    firstHand: (hand.deal.firstHands[index] ?? []).map(cardToLegacy),
+    hand: (hand.deal.hands[index] ?? []).map(cardToLegacy),
+    wonCards: (hand.capturedCards[index] ?? []).map(cardToLegacy),
+  }));
+  state.tokens = [...hand.tokens];
+
+  return {
+    ruleProfileId: hand.profile.id,
+    schemaVersion: 1,
+    state,
+  };
 }
