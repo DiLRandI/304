@@ -8,7 +8,6 @@ import {
   legalGameplayCommands,
 } from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
-import { GameplaySnapshotCodecError } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import {
   decodeGameplayHand,
   encodeGameplayHand,
@@ -1151,56 +1150,5 @@ describe("domain gameplay compatibility snapshot decoder", () => {
       winningTeam: legacy.handResult?.winningTeam,
     });
     expect(hand.completedTricks).toHaveLength(8);
-  });
-
-  it("rejects lobby snapshots because Room Management owns the lobby", () => {
-    const engine = new GameEngine({
-      humanCount: 4,
-      ruleProfile: "classic_304_4p",
-    });
-
-    expect(() =>
-      decodeGameplayHand({
-        ruleProfileId: "classic_304_4p",
-        schemaVersion: 1,
-        state: engine.getSnapshot(),
-      }),
-    ).toThrowError(
-      new GameplaySnapshotCodecError(
-        "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
-        "Lobby snapshots do not contain a gameplay hand",
-      ),
-    );
-  });
-
-  it("rejects non-production snapshot versions", () => {
-    const { record } = snapshot("classic_304_4p");
-
-    expect(() =>
-      decodeGameplayHand({ ...record, schemaVersion: 2 }),
-    ).toThrowError(
-      new GameplaySnapshotCodecError(
-        "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
-        "Gameplay compatibility snapshot version is not supported",
-      ),
-    );
-  });
-
-  it("rejects a profile mismatch", () => {
-    const { record } = snapshot("classic_304_4p");
-    const state = record.state as EngineState;
-
-    expect(() =>
-      decodeGameplayHand({
-        ...record,
-        ruleProfileId: "six_304_36",
-        state,
-      }),
-    ).toThrowError(
-      new GameplaySnapshotCodecError(
-        "INVALID_GAMEPLAY_SNAPSHOT",
-        "Gameplay compatibility snapshot state is invalid",
-      ),
-    );
   });
 });
