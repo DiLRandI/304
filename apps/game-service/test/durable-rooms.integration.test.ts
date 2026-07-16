@@ -8,8 +8,8 @@ import { runMigrations } from "../scripts/migrate.js";
 import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
 import { NodeAutomationRandomSource } from "../src/contexts/automation/adapters/entropy/node-automation-random-source.js";
 import { DomainGameplayAutomationExecutor } from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
-import { LegacyGameplayAutomationScheduler } from "../src/contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
 import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
+import { GameplayAutomationScheduler } from "../src/contexts/automation/application/gameplay-automation-scheduler.js";
 import { SecureGameplayHandShuffler } from "../src/contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
 import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { DomainGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
@@ -115,7 +115,7 @@ async function buildRealApp(): Promise<TestRuntime> {
   const inviteCodes = new NodeRoomInviteCodeProvider();
   const roomLease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);
   const gameplayRecovery = new DomainGameplayRecovery(store);
-  const gameplayAutomation = new LegacyGameplayAutomationScheduler({
+  const gameplayAutomation = new GameplayAutomationScheduler({
     config: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
     identities,
     store,

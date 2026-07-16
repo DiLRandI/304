@@ -13,8 +13,8 @@ import {
 import type { RedisClientType } from "redis";
 import { NodeAutomationRandomSource } from "../../src/contexts/automation/adapters/entropy/node-automation-random-source.js";
 import { DomainGameplayAutomationExecutor } from "../../src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
-import { LegacyGameplayAutomationScheduler } from "../../src/contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
 import { LegacyStartedRoomAutomationFactory } from "../../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
+import { GameplayAutomationScheduler } from "../../src/contexts/automation/application/gameplay-automation-scheduler.js";
 import { SecureGameplayHandShuffler } from "../../src/contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
 import { DomainGameplayCommandExecutor } from "../../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { DomainGameplayRecovery } from "../../src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
@@ -53,7 +53,7 @@ export class RoomTestRuntime {
   readonly automation: DomainGameplayAutomationExecutor;
   readonly connections: DomainRoomConnections;
   readonly gameplayCommands: DomainGameplayCommandExecutor;
-  readonly scheduler: LegacyGameplayAutomationScheduler;
+  readonly scheduler: GameplayAutomationScheduler;
   readonly store: PostgresRoomStore;
   private readonly create: CreateRoomHandler;
   private readonly join: JoinRoomHandler;
@@ -74,7 +74,7 @@ export class RoomTestRuntime {
       options.presenceTtlSeconds ?? 60,
     );
     const recovery = new DomainGameplayRecovery(this.store);
-    this.scheduler = new LegacyGameplayAutomationScheduler({
+    this.scheduler = new GameplayAutomationScheduler({
       ...(options.automation ? { config: options.automation } : {}),
       identities,
       store: this.store,

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NodeAutomationRandomSource } from "../contexts/automation/adapters/entropy/node-automation-random-source.js";
 import { DomainGameplayAutomationExecutor } from "../contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
-import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
+import { GameplayAutomationScheduler } from "../contexts/automation/application/gameplay-automation-scheduler.js";
 import { DomainGameplayRecovery } from "../contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
 import { RedisRoomLease } from "../contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../contexts/rooms/adapters/coordination/redis-room-presence.js";
@@ -27,7 +27,7 @@ const store = new PostgresRoomStore(database);
 const identities = new NodeRoomIdentityProvider();
 const lease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);
 const presence = new RedisRoomPresence(redis, config.PRESENCE_TTL_SECONDS);
-const automation = new LegacyGameplayAutomationScheduler({
+const automation = new GameplayAutomationScheduler({
   config: {
     botActionDelayMs: config.BOT_ACTION_DELAY_MS,
     disconnectGraceSeconds: config.DISCONNECT_GRACE_SECONDS,

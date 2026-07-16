@@ -1,43 +1,41 @@
-import type { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
-import { LegacyGameplayAutomationScheduler } from "../src/contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
 import type {
-  NewAutomationJob,
-  StoredRoom,
-  StoredSeat,
-} from "../src/contexts/rooms/application/room-persistence-model.js";
+  AutomatableGameplay,
+  AutomatableRoom,
+} from "../src/contexts/automation/application/automation-scheduler.js";
+import type {
+  AutomationSchedulingSeat,
+  ScheduledAutomationJob,
+} from "../src/contexts/automation/application/automation-scheduling-store.js";
+import { GameplayAutomationScheduler } from "../src/contexts/automation/application/gameplay-automation-scheduler.js";
 
-const room: StoredRoom = {
+const room: AutomatableRoom = {
   eventVersion: 7,
-  hostPlayerId: "host-player",
   id: "room-1",
-  inviteCode: "304-room",
-  recoveryError: null,
-  ruleProfileId: "classic_304_4p",
-  settings: { botDifficulty: "easy", enableSecondBidding: true },
   status: "in_hand",
-  updatedAt: new Date(0),
 };
 
-function engine(state: Record<string, unknown>): GameEngine {
-  return { state } as unknown as GameEngine;
+function gameplay(state: AutomatableGameplay["state"]): AutomatableGameplay {
+  return { state };
 }
 
-function harness(seats: StoredSeat[] = []) {
-  const jobs: NewAutomationJob[] = [];
+function harness(seats: AutomationSchedulingSeat[] = []) {
+  const jobs: ScheduledAutomationJob[] = [];
   const cancelAutomationForRoom = vi.fn(async () => undefined);
   const store = {
     cancelAutomationForRoom,
     loadSeats: vi.fn(async () => seats),
-    scheduleAutomation: vi.fn(async (_transaction, job: NewAutomationJob) => {
-      jobs.push(job);
-    }),
+    scheduleAutomation: vi.fn(
+      async (_transaction, job: ScheduledAutomationJob) => {
+        jobs.push(job);
+      },
+    ),
   };
   let identity = 0;
   return {
     cancelAutomationForRoom,
     jobs,
-    scheduler: new LegacyGameplayAutomationScheduler({
+    scheduler: new GameplayAutomationScheduler({
       config: { botActionDelayMs: 250, disconnectGraceSeconds: 120 },
       identities: {
         nextAutomationJobId: () => {
@@ -51,14 +49,14 @@ function harness(seats: StoredSeat[] = []) {
   };
 }
 
-describe("LegacyGameplayAutomationScheduler", () => {
+describe("GameplayAutomationScheduler", () => {
   it("replaces prior jobs and schedules the active human timeout", async () => {
     const { cancelAutomationForRoom, jobs, scheduler } = harness();
 
     await scheduler.schedule(
       Symbol("transaction"),
       room,
-      engine({
+      gameplay({
         activeSeat: 0,
         phase: "four_bidding",
         seats: [{ connectionStatus: "online", type: "human" }],
@@ -93,10 +91,8 @@ describe("LegacyGameplayAutomationScheduler", () => {
     const disconnectedAt = new Date("2026-07-14T23:59:30.000Z");
     const { jobs, scheduler } = harness([
       {
-        botDifficulty: null,
         connectionStatus: "disconnected",
         disconnectedAt,
-        displayName: "Asha",
         occupantType: "human",
         playerId: "player-1",
         seatIndex: 0,
@@ -106,10 +102,10 @@ describe("LegacyGameplayAutomationScheduler", () => {
     await scheduler.schedule(
       Symbol("transaction"),
       room,
-      engine({
+      gameplay({
         activeSeat: 1,
         phase: "trick_play",
-        seats: [{}, { type: "bot" }],
+        seats: [{ type: "empty" }, { type: "bot" }],
       }),
     );
 

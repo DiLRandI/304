@@ -502,20 +502,27 @@ test("active runtimes recover the domain Gameplay aggregate", async () => {
   assert.doesNotMatch(workerSource, /LegacyGameplayRecovery/);
 });
 
-test("legacy gameplay automation scheduling belongs to an Automation adapter", async () => {
+test("gameplay automation scheduling belongs to the Automation application", async () => {
   const schedulerSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.ts",
+      "apps/game-service/src/contexts/automation/application/gameplay-automation-scheduler.ts",
+    ),
+    "utf8",
+  );
+  const storePortSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/automation/application/automation-scheduling-store.ts",
     ),
     "utf8",
   );
 
-  assert.match(
-    schedulerSource,
-    /export class LegacyGameplayAutomationScheduler/,
-  );
+  assert.match(schedulerSource, /export class GameplayAutomationScheduler/);
   assert.match(schedulerSource, /implements AutomationScheduler/);
+  assert.doesNotMatch(schedulerSource, /contexts\/rooms/);
+  assert.match(storePortSource, /interface AutomationSchedulingStore/);
+  assert.doesNotMatch(storePortSource, /contexts\/rooms/);
 });
 
 test("the Automation scheduler port owns its room input", async () => {
@@ -614,7 +621,7 @@ test("gameplay orchestration depends on application behavioral ports", async () 
     const source = await readFile(path.join(repoRoot, filename), "utf8");
     assert.doesNotMatch(
       source,
-      /persistence\/legacy-gameplay-recovery\.js|\.\/legacy-gameplay-automation-scheduler\.js/,
+      /persistence\/legacy-gameplay-recovery\.js/,
       filename,
     );
   }

@@ -1,5 +1,5 @@
-import { LegacyGameplayAutomationScheduler } from "../contexts/automation/adapters/integration/legacy-gameplay-automation-scheduler.js";
 import { LegacyStartedRoomAutomationFactory } from "../contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
+import { GameplayAutomationScheduler } from "../contexts/automation/application/gameplay-automation-scheduler.js";
 import { SecureGameplayHandShuffler } from "../contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
 import { DomainGameplayCommandExecutor } from "../contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { DomainGameplayRecovery } from "../contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
@@ -55,7 +55,7 @@ const identities = new NodeRoomIdentityProvider();
 const inviteCodes = new NodeRoomInviteCodeProvider();
 const roomLease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);
 const gameplayRecovery = new DomainGameplayRecovery(store);
-const gameplayAutomation = new LegacyGameplayAutomationScheduler({
+const gameplayAutomation = new GameplayAutomationScheduler({
   config: {
     botActionDelayMs: config.BOT_ACTION_DELAY_MS,
     disconnectGraceSeconds: config.DISCONNECT_GRACE_SECONDS,

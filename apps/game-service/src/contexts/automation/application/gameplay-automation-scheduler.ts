@@ -1,35 +1,29 @@
-import type { RoomIdentityProvider } from "../../../rooms/application/room-identity-provider.js";
-import type {
-  RoomPersistenceStore,
-  RoomTransaction,
-} from "../../../rooms/application/room-persistence-store.js";
 import {
   automationSeatIndex,
   completedTrickWinner,
   phaseTimeoutMs,
-} from "../../application/automation-policy.js";
+} from "./automation-policy.js";
 import type {
   AutomatableGameplay,
   AutomatableRoom,
   AutomationScheduler,
-} from "../../application/automation-scheduler.js";
+} from "./automation-scheduler.js";
+import type {
+  AutomationJobIdentityProvider,
+  AutomationSchedulingStore,
+} from "./automation-scheduling-store.js";
 
-type AutomationStore = Pick<
-  RoomPersistenceStore,
-  "cancelAutomationForRoom" | "loadSeats" | "scheduleAutomation"
->;
-
-export interface LegacyGameplayAutomationConfig {
+export interface GameplayAutomationConfig {
   readonly botActionDelayMs?: number;
   readonly disconnectGraceSeconds?: number;
   readonly trickRevealDelayMs?: number;
 }
 
-interface LegacyGameplayAutomationDependencies {
-  readonly config?: LegacyGameplayAutomationConfig;
-  readonly identities: Pick<RoomIdentityProvider, "nextAutomationJobId">;
+interface GameplayAutomationDependencies {
+  readonly config?: GameplayAutomationConfig;
+  readonly identities: AutomationJobIdentityProvider;
   readonly now?: () => Date;
-  readonly store: AutomationStore;
+  readonly store: AutomationSchedulingStore;
 }
 
 const DEFAULTS = {
@@ -38,17 +32,15 @@ const DEFAULTS = {
   trickRevealDelayMs: 2_000,
 };
 
-export class LegacyGameplayAutomationScheduler implements AutomationScheduler {
+export class GameplayAutomationScheduler implements AutomationScheduler {
   private readonly now: () => Date;
 
-  constructor(
-    private readonly dependencies: LegacyGameplayAutomationDependencies,
-  ) {
+  constructor(private readonly dependencies: GameplayAutomationDependencies) {
     this.now = dependencies.now ?? (() => new Date());
   }
 
   async schedule(
-    transaction: RoomTransaction,
+    transaction: unknown,
     room: AutomatableRoom,
     gameplay: AutomatableGameplay,
   ): Promise<void> {
@@ -105,7 +97,7 @@ export class LegacyGameplayAutomationScheduler implements AutomationScheduler {
   }
 
   private async scheduleDisconnectGraceJobs(
-    transaction: RoomTransaction,
+    transaction: unknown,
     room: AutomatableRoom,
   ): Promise<void> {
     const disconnectGraceMs =
