@@ -14,6 +14,10 @@ test("production CI and runbook cover immutable install, verification, recovery,
   const gameServiceDockerfile = read("apps/game-service/Dockerfile");
 
   assert.match(workflow, /uses: actions\/checkout@[0-9a-f]{40}/);
+  assert.match(
+    workflow,
+    /uses: actions\/checkout@[0-9a-f]{40}[^\n]*\n\s+with:\n\s+fetch-depth: 0/,
+  );
   assert.match(workflow, /uses: actions\/setup-node@[0-9a-f]{40}/);
   const checkoutIndex = workflow.indexOf("uses: actions/checkout@");
   const composeEnvironmentIndex = workflow.indexOf(
