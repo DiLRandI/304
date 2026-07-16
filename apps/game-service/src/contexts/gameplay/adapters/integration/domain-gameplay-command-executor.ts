@@ -1,13 +1,10 @@
 import type { GameCommand, RoomProjection } from "@three-zero-four/contracts";
-import type {
-  AutomatableGameplay,
-  AutomationScheduler,
-} from "../../../automation/application/automation-scheduler.js";
+import { presentDomainGameplayForAutomation } from "../../../automation/adapters/integration/domain-gameplay-automation-presenter.js";
+import type { AutomationScheduler } from "../../../automation/application/automation-scheduler.js";
 import { GameplayApplicationError } from "../../application/gameplay-application-error.js";
 import type {
   GameplayCommandLease,
   GameplayCommandRoom,
-  GameplayCommandSeat,
   GameplayCommandStore,
   GameplayCommandTransaction,
 } from "../../application/gameplay-command-store.js";
@@ -59,28 +56,6 @@ function activeStatus(
   return phase === "hand-result" || phase === "match-complete"
     ? "hand_result"
     : "in_hand";
-}
-
-function automatableGameplay(
-  phase: string,
-  activeSeat: number | null,
-  currentTrick: { readonly winnerSeat: number | null } | null,
-  seats: readonly GameplayCommandSeat[],
-): AutomatableGameplay {
-  return {
-    state: {
-      activeSeat,
-      currentTrick,
-      phase: phase.replaceAll("-", "_"),
-      seats: seats.map((seat) => ({
-        autopilot: seat.connectionStatus === "autopilot",
-        ...(seat.connectionStatus
-          ? { connectionStatus: seat.connectionStatus }
-          : {}),
-        type: seat.occupantType,
-      })),
-    },
-  };
 }
 
 export class DomainGameplayCommandExecutor implements GameplayCommandExecutor {
@@ -171,12 +146,7 @@ export class DomainGameplayCommandExecutor implements GameplayCommandExecutor {
       await this.dependencies.automation.schedule(
         transaction,
         updatedRoom,
-        automatableGameplay(
-          transition.hand.phase,
-          transition.hand.activeSeat,
-          transition.hand.currentTrick,
-          seats,
-        ),
+        presentDomainGameplayForAutomation(transition.hand, seats),
       );
       return projectDomainRoomForPlayer(
         updatedRoom,
