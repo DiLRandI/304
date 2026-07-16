@@ -20,7 +20,7 @@ import {
   GameplaySnapshotCodecError,
   hydrateGameplaySnapshot,
 } from "../persistence/gameplay-snapshot-codec.js";
-import { transitionHydratedGameplayCommand } from "./domain-gameplay-command-transition.js";
+import { transitionGameplayCommand } from "./domain-gameplay-command-transition.js";
 
 interface DomainGameplayCommandDependencies {
   readonly automation: AutomationScheduler;
@@ -109,7 +109,7 @@ export class DomainGameplayCommandExecutor implements GameplayCommandExecutor {
         );
       }
       const hand = await this.dependencies.recovery.recover(transaction, room);
-      const transition = transitionHydratedGameplayCommand(
+      const transition = transitionGameplayCommand(
         hand,
         command.action,
         viewerSeatIndex,

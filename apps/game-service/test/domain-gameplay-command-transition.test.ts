@@ -1,29 +1,12 @@
 import type { GameAction } from "@three-zero-four/contracts";
-import { GameEngine } from "@three-zero-four/game-engine";
 import { buildDeck } from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
-import {
-  transitionGameplayCommand,
-  transitionHydratedGameplayCommand,
-} from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-transition.js";
+import { transitionGameplayCommand } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-transition.js";
 import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import {
-  decodeGameplayHand,
-  type LegacyGameplaySnapshotRecord,
-} from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
-
-function startedSnapshot(): LegacyGameplaySnapshotRecord {
-  const engine = new GameEngine({
-    humanCount: 4,
-    ruleProfile: "classic_304_4p",
-  });
-  engine.startMatch();
-  return {
-    ruleProfileId: "classic_304_4p",
-    schemaVersion: 1,
-    state: engine.getSnapshot(),
-  };
-}
+  cancelledGameplayHand,
+  startedGameplayHand,
+} from "./support/gameplay-hand-fixture.js";
 
 const unexpectedShuffle = {
   prepare: () => {
@@ -32,11 +15,11 @@ const unexpectedShuffle = {
 };
 
 describe("transitionGameplayCommand", () => {
-  it("persists a hydrated aggregate transition as schema v2", () => {
-    const before = decodeGameplayHand(startedSnapshot());
+  it("persists an aggregate transition as schema v2", () => {
+    const before = startedGameplayHand();
     if (before.activeSeat === null) throw new Error("Expected an active seat");
 
-    const result = transitionHydratedGameplayCommand(
+    const result = transitionGameplayCommand(
       before,
       { type: "PASS_BID" },
       before.activeSeat,
@@ -49,14 +32,13 @@ describe("transitionGameplayCommand", () => {
   });
 
   it("applies a wire action through the Gameplay aggregate", () => {
-    const source = startedSnapshot();
-    const before = decodeGameplayHand(source);
+    const before = startedGameplayHand();
     if (before.activeSeat === null) {
       throw new Error("Expected an active bidding seat");
     }
 
     const result = transitionGameplayCommand(
-      source,
+      before,
       { amount: 160, type: "BID" },
       before.activeSeat,
       unexpectedShuffle,
@@ -68,13 +50,12 @@ describe("transitionGameplayCommand", () => {
       type: "BID",
     });
     expect(result.hand.bidding.currentBid).toBe(160);
-    expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
-    expect(decodeGameplayHand(source)).toEqual(before);
+    expect(hydrateGameplaySnapshot(result.snapshot)).toEqual(result.hand);
+    expect(before.bidding.currentBid).toBeNull();
   });
 
   it("reports a rejected domain decision as an application conflict", () => {
-    const source = startedSnapshot();
-    const before = decodeGameplayHand(source);
+    const before = startedGameplayHand();
     if (before.activeSeat === null) {
       throw new Error("Expected an active bidding seat");
     }
@@ -82,7 +63,7 @@ describe("transitionGameplayCommand", () => {
 
     expect(() =>
       transitionGameplayCommand(
-        source,
+        before,
         { type: "PASS_BID" },
         inactiveSeat,
         unexpectedShuffle,
@@ -93,11 +74,9 @@ describe("transitionGameplayCommand", () => {
   });
 
   it("rejects a malformed wire value before applying the aggregate", () => {
-    const source = startedSnapshot();
-
     expect(() =>
       transitionGameplayCommand(
-        source,
+        startedGameplayHand(),
         { cardId: "not-a-card", type: "SELECT_TRUMP" } as GameAction,
         0,
         unexpectedShuffle,
@@ -108,32 +87,11 @@ describe("transitionGameplayCommand", () => {
   });
 
   it("acknowledges a result with an explicitly prepared next hand", () => {
-    const engine = new GameEngine({
-      humanCount: 4,
-      ruleProfile: "classic_304_4p",
-    });
-    engine.startMatch();
-    while (engine.getSnapshot().phase === "four_bidding") {
-      const actor = engine.getSnapshot().activeSeat;
-      if (actor === null) throw new Error("Expected an active bidding seat");
-      expect(
-        engine.applyAction({
-          actorSeatIndex: actor,
-          seatIndex: actor,
-          type: "PASS_BID",
-        }),
-      ).toEqual({ ok: true });
-    }
-    const source: LegacyGameplaySnapshotRecord = {
-      ruleProfileId: "classic_304_4p",
-      schemaVersion: 1,
-      state: engine.getSnapshot(),
-    };
-    const before = decodeGameplayHand(source);
+    const before = cancelledGameplayHand();
     const nextDeck = buildDeck(before.profile).toReversed();
 
     const result = transitionGameplayCommand(
-      source,
+      before,
       { type: "ACK_RESULT" },
       0,
       {
@@ -154,7 +112,7 @@ describe("transitionGameplayCommand", () => {
 
     expect(result.command).toEqual({ actor: 0, type: "ACK_RESULT" });
     expect(result.hand).toMatchObject({ handNumber: 2, phase: "four-bidding" });
-    expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
+    expect(hydrateGameplaySnapshot(result.snapshot)).toEqual(result.hand);
     expect(result.nextHand).toEqual({
       audit: {
         algorithm: "hmac-sha256-v1",
