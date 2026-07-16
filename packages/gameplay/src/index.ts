@@ -19,6 +19,7 @@ export {
   legalBidAmounts,
   startSecondBidding,
 } from "./bidding.js";
+export { chooseGameplayBotCommand } from "./bot-policy.js";
 export type { Card, RandomSource } from "./card.js";
 export {
   buildDeck,
