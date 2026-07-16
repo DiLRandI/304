@@ -28,6 +28,7 @@ export {
 } from "./card.js";
 export type { DealState, RemoveCardResult } from "./dealing.js";
 export { createDeal, dealBatch, removeCardFromSeat } from "./dealing.js";
+export { legalGameplayCommands } from "./legal-actions.js";
 export type {
   GameplayCommand,
   GameplayDecision,
