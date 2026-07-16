@@ -653,6 +653,19 @@ test("schema-v1 card play tests use frozen compatibility records", async () => {
   assert.doesNotMatch(cardPlayTestSource, /@three-zero-four\/game-engine/);
 });
 
+test("schema-v1 started snapshot tests use frozen compatibility records", async () => {
+  const startedTestSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/test/legacy-gameplay-started-snapshot.test.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(startedTestSource, /legacy-gameplay-snapshot-fixture/);
+  assert.doesNotMatch(startedTestSource, /@three-zero-four\/game-engine/);
+});
+
 test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => {
   const activeRuntimeTests = await Promise.all(
     [
@@ -836,7 +849,7 @@ test("gameplay orchestration depends on application behavioral ports", async () 
     readFile(
       path.join(
         repoRoot,
-      "apps/game-service/src/contexts/gameplay/application/gameplay-hand-recovery.ts",
+        "apps/game-service/src/contexts/gameplay/application/gameplay-hand-recovery.ts",
       ),
       "utf8",
     ),
