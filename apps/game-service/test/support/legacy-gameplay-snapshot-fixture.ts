@@ -27,6 +27,25 @@ const openingHands = [
   ],
 ] as const;
 
+const remainingDeck = [
+  { cardId: "C_10", points: 10, rank: "10", suit: "clubs" },
+  { cardId: "H_A", points: 11, rank: "A", suit: "hearts" },
+  { cardId: "H_J", points: 30, rank: "J", suit: "hearts" },
+  { cardId: "D_9", points: 20, rank: "9", suit: "diamonds" },
+  { cardId: "S_J", points: 30, rank: "J", suit: "spades" },
+  { cardId: "C_A", points: 11, rank: "A", suit: "clubs" },
+  { cardId: "C_Q", points: 2, rank: "Q", suit: "clubs" },
+  { cardId: "H_10", points: 10, rank: "10", suit: "hearts" },
+  { cardId: "C_J", points: 30, rank: "J", suit: "clubs" },
+  { cardId: "D_7", points: 0, rank: "7", suit: "diamonds" },
+  { cardId: "S_A", points: 11, rank: "A", suit: "spades" },
+  { cardId: "D_10", points: 10, rank: "10", suit: "diamonds" },
+  { cardId: "C_8", points: 0, rank: "8", suit: "clubs" },
+  { cardId: "C_9", points: 20, rank: "9", suit: "clubs" },
+  { cardId: "H_7", points: 0, rank: "7", suit: "hearts" },
+  { cardId: "D_J", points: 30, rank: "J", suit: "diamonds" },
+] as const;
+
 const startedClassicSnapshot: LegacyGameplaySnapshotRecord = {
   ruleProfileId: "classic_304_4p",
   schemaVersion: 1,
@@ -55,7 +74,7 @@ const startedClassicSnapshot: LegacyGameplaySnapshotRecord = {
     completedTricks: [],
     currentTrick: null,
     dealerSeat: 0,
-    deck: [],
+    deck: remainingDeck,
     handNumber: 1,
     handResult: null,
     phase: "four_bidding",
@@ -74,8 +93,17 @@ const startedClassicSnapshot: LegacyGameplaySnapshotRecord = {
   },
 };
 
-export function legacyStartedGameplaySnapshot(): LegacyGameplaySnapshotRecord {
-  return structuredClone(startedClassicSnapshot);
+export function legacyStartedGameplaySnapshot(
+  options: { readonly secondBiddingEnabled?: boolean } = {},
+): LegacyGameplaySnapshotRecord {
+  const record = structuredClone(startedClassicSnapshot);
+  if (options.secondBiddingEnabled !== undefined) {
+    const state = record.state as {
+      bidding: { secondRound: { enabled: boolean } };
+    };
+    state.bidding.secondRound.enabled = options.secondBiddingEnabled;
+  }
+  return record;
 }
 
 export function legacyAllPassGameplaySnapshot(): LegacyGameplaySnapshotRecord {
