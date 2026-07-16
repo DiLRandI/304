@@ -1,4 +1,5 @@
 import {
+  acknowledgeGameplayResult,
   applyGameplayCommand,
   bidAmount,
   type Card,
@@ -12,6 +13,7 @@ import {
   seatIndex,
 } from "@three-zero-four/gameplay";
 import { z } from "zod";
+import type { PreparedGameplayHandDeck } from "../../application/gameplay-hand-shuffler.js";
 import { GameplaySnapshotCodecError } from "./gameplay-snapshot-codec-error.js";
 
 export interface LegacyGameplaySnapshotRecord {
@@ -22,6 +24,7 @@ export interface LegacyGameplaySnapshotRecord {
 
 export interface LegacyGameplayCompatibilityMetadata {
   readonly command: GameplayCommand;
+  readonly nextHand?: PreparedGameplayHandDeck;
   readonly source: LegacyGameplaySnapshotRecord;
 }
 
@@ -527,20 +530,28 @@ export function encodeGameplayHand(
       hand.phase === "hand-result" ||
       hand.phase === "match-complete") &&
     metadata.command.type === "ADVANCE_TRICK";
+  const isResultAcknowledgement =
+    (before.phase === "hand-result" || before.phase === "match-complete") &&
+    hand.phase === "four-bidding" &&
+    metadata.command.type === "ACK_RESULT" &&
+    metadata.nextHand !== undefined;
   if (
     !isOpeningTransition &&
     !isIndicatorSelection &&
     !isSecondBiddingTransition &&
     !isTrumpChoiceTransition &&
     !isCardPlayTransition &&
-    !isTrickAdvance
+    !isTrickAdvance &&
+    !isResultAcknowledgement
   ) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
       "Gameplay compatibility snapshot transition is not supported",
     );
   }
-  const expected = applyGameplayCommand(before, metadata.command);
+  const expected = isResultAcknowledgement
+    ? acknowledgeGameplayResult(before, metadata.nextHand.deck)
+    : applyGameplayCommand(before, metadata.command);
   if (!expected.ok || JSON.stringify(expected.hand) !== JSON.stringify(hand)) {
     throw invalidSnapshot();
   }
@@ -556,6 +567,13 @@ export function encodeGameplayHand(
       };
     };
     currentLedSuit: Suit | null;
+    gameMessage: string;
+    handShuffle: {
+      deckVersion: "hmac-sha256-v1";
+      seatCount: number;
+      seed: string;
+      seedCommit: string;
+    };
     trump: z.infer<typeof openingGameplaySchema>["trump"] & {
       indicatorVisible: boolean;
     };
@@ -582,6 +600,16 @@ export function encodeGameplayHand(
           }
         : { seatIndex: metadata.command.actor, type: "pass" },
     );
+  }
+  if (isResultAcknowledgement) {
+    state.bidding.actions = [];
+    state.bidding.initialMakerSeat = null;
+    state.bidding.secondRound.actionsTaken = 0;
+    state.bidding.secondRound.activeOrderIndex = 0;
+    state.bidding.secondRound.order = [];
+    state.bidding.secondRound.previousBid = 0;
+    state.bidding.secondRound.previousBidSeat = null;
+    compatibilityState.bidding.secondRound.anyBid = false;
   }
   state.bidding.currentBid = hand.bidding.currentBid ?? 0;
   state.bidding.currentBidSeat = hand.bidding.currentBidder;
@@ -635,6 +663,7 @@ export function encodeGameplayHand(
     ...seat,
     firstHand: (hand.deal.firstHands[index] ?? []).map(cardToLegacy),
     hand: (hand.deal.hands[index] ?? []).map(cardToLegacy),
+    ...(isResultAcknowledgement ? { trickPoints: 0 } : {}),
     wonCards: (hand.capturedCards[index] ?? []).map(cardToLegacy),
   }));
   state.tokens = [...hand.tokens];
@@ -646,6 +675,8 @@ export function encodeGameplayHand(
   state.trump.suit = hand.trump.suit;
   if (hand.trump.mode !== null) {
     state.trumpClosed = hand.trump.mode === "closed";
+  } else if (isResultAcknowledgement) {
+    state.trumpClosed = true;
   }
   compatibilityState.currentLedSuit =
     hand.currentTrick?.plays[0]?.card.suit ?? null;
@@ -654,6 +685,16 @@ export function encodeGameplayHand(
     ? cardToLegacy(hand.trump.indicator)
     : null;
   compatibilityState.trumpSuit = hand.trump.suit;
+  if (isResultAcknowledgement) {
+    compatibilityState.gameMessage =
+      "Bidding: minimum 160. Pass or bid higher.";
+    compatibilityState.handShuffle = {
+      deckVersion: metadata.nextHand.audit.algorithm,
+      seatCount: hand.profile.seatCount,
+      seed: metadata.nextHand.audit.seed,
+      seedCommit: metadata.nextHand.audit.commitment,
+    };
+  }
 
   return {
     ruleProfileId: hand.profile.id,
