@@ -15,6 +15,17 @@ test("production CI and runbook cover immutable install, verification, recovery,
 
   assert.match(workflow, /uses: actions\/checkout@[0-9a-f]{40}/);
   assert.match(workflow, /uses: actions\/setup-node@[0-9a-f]{40}/);
+  const checkoutIndex = workflow.indexOf("uses: actions/checkout@");
+  const composeEnvironmentIndex = workflow.indexOf(
+    "name: Prepare Compose environment",
+  );
+  const setupNodeIndex = workflow.indexOf("uses: actions/setup-node@");
+  assert.ok(checkoutIndex < composeEnvironmentIndex);
+  assert.ok(composeEnvironmentIndex < setupNodeIndex);
+  assert.match(
+    workflow,
+    /name: Prepare Compose environment\n\s+run: cp infra\/compose\/\.env\.example infra\/compose\/\.env/,
+  );
   assert.match(workflow, /pnpm install --frozen-lockfile/);
   assert.match(workflow, /pnpm check/);
   assert.match(workflow, /pnpm audit --audit-level=high/);
