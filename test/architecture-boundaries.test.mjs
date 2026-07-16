@@ -484,7 +484,9 @@ test("the Automation scheduler port owns its room input", async () => {
   );
 
   assert.doesNotMatch(schedulerPortSource, /contexts\/rooms|\.\.\/\.\.\/rooms/);
+  assert.doesNotMatch(schedulerPortSource, /@three-zero-four\/game-engine/);
   assert.match(schedulerPortSource, /interface AutomatableRoom/);
+  assert.match(schedulerPortSource, /interface AutomatableGameplay/);
 });
 
 test("legacy gameplay automation executes through an Automation adapter", async () => {

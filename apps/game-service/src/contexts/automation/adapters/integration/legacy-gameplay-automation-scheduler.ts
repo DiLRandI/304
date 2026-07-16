@@ -1,4 +1,3 @@
-import type { GameEngine } from "@three-zero-four/game-engine";
 import type { RoomIdentityProvider } from "../../../rooms/application/room-identity-provider.js";
 import type {
   RoomPersistenceStore,
@@ -10,6 +9,7 @@ import {
   phaseTimeoutMs,
 } from "../../application/automation-policy.js";
 import type {
+  AutomatableGameplay,
   AutomatableRoom,
   AutomationScheduler,
 } from "../../application/automation-scheduler.js";
@@ -50,7 +50,7 @@ export class LegacyGameplayAutomationScheduler implements AutomationScheduler {
   async schedule(
     transaction: RoomTransaction,
     room: AutomatableRoom,
-    engine: GameEngine,
+    gameplay: AutomatableGameplay,
   ): Promise<void> {
     await this.dependencies.store.cancelAutomationForRoom(
       transaction,
@@ -65,8 +65,8 @@ export class LegacyGameplayAutomationScheduler implements AutomationScheduler {
     if (room.status === "in_hand") {
       await this.scheduleDisconnectGraceJobs(transaction, room);
     }
-    if (engine.state.phase === "trick_result") {
-      const winnerSeat = completedTrickWinner(engine.state);
+    if (gameplay.state.phase === "trick_result") {
+      const winnerSeat = completedTrickWinner(gameplay.state);
       if (winnerSeat === null) return;
       await this.dependencies.store.scheduleAutomation(transaction, {
         dueAt: new Date(
@@ -82,9 +82,9 @@ export class LegacyGameplayAutomationScheduler implements AutomationScheduler {
       });
       return;
     }
-    const targetSeatIndex = automationSeatIndex(engine.state);
+    const targetSeatIndex = automationSeatIndex(gameplay.state);
     if (targetSeatIndex === null) return;
-    const seat = engine.state.seats[targetSeatIndex];
+    const seat = gameplay.state.seats[targetSeatIndex];
     if (!seat || (seat.type !== "human" && seat.type !== "bot")) return;
     if (seat.type === "human" && seat.connectionStatus === "disconnected") {
       return;
@@ -93,7 +93,7 @@ export class LegacyGameplayAutomationScheduler implements AutomationScheduler {
     const delayMs = isAutomated
       ? (this.dependencies.config?.botActionDelayMs ??
         DEFAULTS.botActionDelayMs)
-      : phaseTimeoutMs(engine.state);
+      : phaseTimeoutMs(gameplay.state);
     await this.dependencies.store.scheduleAutomation(transaction, {
       dueAt: new Date(this.now().getTime() + delayMs),
       expectedEventVersion: room.eventVersion,
