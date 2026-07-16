@@ -9,7 +9,7 @@ import {
   seatIndex,
 } from "@three-zero-four/gameplay";
 import { z } from "zod";
-import { GameplaySnapshotCodecError } from "./gameplay-snapshot-codec.js";
+import { GameplaySnapshotCodecError } from "./gameplay-snapshot-codec-error.js";
 
 export interface LegacyGameplaySnapshotRecord {
   readonly ruleProfileId: RuleProfileId;

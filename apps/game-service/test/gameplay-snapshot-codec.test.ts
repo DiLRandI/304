@@ -1,3 +1,4 @@
+import { GameEngine } from "@three-zero-four/game-engine";
 import {
   buildDeck,
   getRuleProfile,
@@ -50,11 +51,28 @@ describe("gameplay snapshot codec", () => {
     expect(hydrateGameplaySnapshot(record).deal.hands[0]).toHaveLength(4);
   });
 
+  it("hydrates a production schema-v1 started snapshot", () => {
+    const engine = new GameEngine({
+      humanCount: 4,
+      ruleProfile: "classic_304_4p",
+    });
+    engine.startMatch();
+
+    const hydrated = hydrateGameplaySnapshot({
+      ruleProfileId: "classic_304_4p",
+      schemaVersion: 1,
+      state: engine.getSnapshot(),
+    });
+
+    expect(hydrated.phase).toBe("four-bidding");
+    expect(hydrated.profile.id).toBe("classic_304_4p");
+  });
+
   it("rejects unsupported snapshot versions", () => {
     expect(() =>
       hydrateGameplaySnapshot({
         ...serializeGameplaySnapshot(hand("classic_304_4p")),
-        schemaVersion: 1,
+        schemaVersion: 3,
       }),
     ).toThrowError(
       new GameplaySnapshotCodecError(

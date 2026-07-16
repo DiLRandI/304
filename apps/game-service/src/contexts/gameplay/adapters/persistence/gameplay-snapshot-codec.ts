@@ -4,23 +4,15 @@ import {
   type RuleProfileId,
 } from "@three-zero-four/gameplay";
 import { z } from "zod";
+import { decodeGameplayHand } from "./domain-gameplay-snapshot-codec.js";
+import { GameplaySnapshotCodecError } from "./gameplay-snapshot-codec-error.js";
+
+export { GameplaySnapshotCodecError } from "./gameplay-snapshot-codec-error.js";
 
 export interface GameplaySnapshotRecord {
   readonly ruleProfileId: RuleProfileId;
   readonly schemaVersion: number;
   readonly state: unknown;
-}
-
-export class GameplaySnapshotCodecError extends Error {
-  constructor(
-    readonly code:
-      | "INVALID_GAMEPLAY_SNAPSHOT"
-      | "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
-    message: string,
-  ) {
-    super(message);
-    this.name = "GameplaySnapshotCodecError";
-  }
 }
 
 const seatSchema = z.number().int().min(0).max(5);
@@ -187,6 +179,7 @@ export function serializeGameplaySnapshot(
 export function hydrateGameplaySnapshot(
   record: GameplaySnapshotRecord,
 ): GameplayHand {
+  if (record.schemaVersion === 1) return decodeGameplayHand(record);
   if (record.schemaVersion !== 2) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
