@@ -20,7 +20,6 @@ export interface RoomCreationInput {
   ruleProfileId: RuleProfileId;
   settings: RoomSettings;
   seats: readonly StoredSeat[];
-  snapshot: unknown;
 }
 
 export interface RoomEventAppendInput {

@@ -76,7 +76,6 @@ describe("PostgresRoomStore create response replay", () => {
       ],
       sessionId,
       settings: { botDifficulty: "easy", enableSecondBidding: true },
-      snapshot: { phase: "lobby" },
     });
 
     const insert = harness.calls.find((call) =>

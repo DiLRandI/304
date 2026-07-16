@@ -20,8 +20,8 @@ import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/r
 import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import { DomainRoomConnections } from "../src/contexts/rooms/adapters/integration/domain-room-connections.js";
 import { DomainStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/domain-started-room-snapshot-factory.js";
+import { DurableRoomCreationRepository } from "../src/contexts/rooms/adapters/integration/durable-room-creation-repository.js";
 import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
-import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
 import { RoomProjectionQueryAdapter } from "../src/contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import { PostgresRoomCommandRepository } from "../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
@@ -179,7 +179,7 @@ async function buildRealApp(): Promise<TestRuntime> {
       },
       roomUseCases: {
         create: new CreateRoomHandler(
-          new LegacyRoomCreationRepository(store),
+          new DurableRoomCreationRepository(store),
           presence,
           identities,
           inviteCodes,

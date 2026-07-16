@@ -48,23 +48,24 @@ export class DomainGameplayRecovery implements GameplayHandRecovery {
 
   async recover(transaction: unknown, room: RecoverableGameplayHandRoom) {
     try {
+      const ruleProfileId = profileId(room.ruleProfileId, room.id);
       const snapshot = await this.store.loadSnapshot(room.id, transaction);
       if (
-        !snapshot ||
-        snapshot.eventVersion > room.eventVersion ||
-        snapshot.ruleProfileId !== room.ruleProfileId
+        snapshot &&
+        (snapshot.eventVersion > room.eventVersion ||
+          snapshot.ruleProfileId !== ruleProfileId)
       ) {
         throw new RecoveryError(room.id);
       }
-      const ruleProfileId = profileId(snapshot.ruleProfileId, room.id);
       const events = await this.store.loadEventsAfter(
         room.id,
-        snapshot.eventVersion,
+        snapshot?.eventVersion ?? 0,
         transaction,
       );
       let hand: GameplayHand;
       let nextEventIndex = 0;
       try {
+        if (!snapshot) throw new RecoveryError(room.id);
         hand = hydrateGameplaySnapshot({
           ruleProfileId,
           schemaVersion: snapshot.schemaVersion,
