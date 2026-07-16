@@ -1,20 +1,10 @@
-import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it } from "vitest";
 import { presentDomainGameplayForAutomation } from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-presenter.js";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
+import { startedGameplayHand } from "./support/gameplay-hand-fixture.js";
 
 describe("presentDomainGameplayForAutomation", () => {
   it("maps domain phases, turns, and room-owned seat state", () => {
-    const engine = new GameEngine({
-      humanCount: 4,
-      ruleProfile: "classic_304_4p",
-    });
-    engine.startMatch();
-    const hand = decodeGameplayHand({
-      ruleProfileId: "classic_304_4p",
-      schemaVersion: 1,
-      state: engine.getSnapshot(),
-    });
+    const hand = startedGameplayHand();
 
     expect(
       presentDomainGameplayForAutomation(
