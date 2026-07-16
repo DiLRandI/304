@@ -50,6 +50,35 @@ function startSecondBidding(): LegacyGameplaySnapshotRecord {
 }
 
 describe("legacy gameplay second bidding", () => {
+  it("decodes the initial second-round state from a frozen transition", () => {
+    const snapshot = startSecondBidding();
+    const hand = decodeGameplayHand(snapshot);
+    const maker = hand.activeSeat;
+    if (maker === null || hand.trump.indicator === null) {
+      throw new Error("Expected the opening maker and trump indicator");
+    }
+
+    expect(hand.phase).toBe("second-bidding");
+    expect(hand.bidding).toMatchObject({
+      actedInRound: [false, false, false, false],
+      actionsTaken: 0,
+      activeSeat: maker,
+      currentBid: 200,
+      currentBidder: maker,
+      previousBid: 200,
+      round: "second",
+      status: "active",
+    });
+    expect(hand.trump).toMatchObject({
+      maker,
+      mode: null,
+      open: false,
+    });
+    expect(hand.deal.hands.map((cards) => cards.length)).toEqual(
+      Array.from({ length: 4 }, (_, seat) => (seat === maker ? 7 : 8)),
+    );
+  });
+
   it.each([
     { amount: 250, type: "BID" },
     { type: "PASS_BID" },
