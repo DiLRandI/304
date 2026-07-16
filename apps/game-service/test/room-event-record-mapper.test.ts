@@ -131,4 +131,26 @@ describe("room event persistence mapper", () => {
       ),
     );
   });
+
+  it("persists the explicit room-start snapshot schema", () => {
+    const result = accepted(lobby(), {
+      actor: hostId,
+      expectedVersion: eventVersion(1),
+      type: "START_ROOM",
+    });
+
+    expect(
+      mapRoomEventForPersistence(result.event, result.room, {
+        schemaVersion: 2,
+        state: { phase: "four-bidding" },
+      }),
+    ).toEqual({
+      eventType: "ROOM_STARTED",
+      payload: {
+        ruleProfileId: "classic_304_4p",
+        schemaVersion: 2,
+        state: { phase: "four-bidding" },
+      },
+    });
+  });
 });

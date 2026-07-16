@@ -35,7 +35,10 @@ function hydrateStartedHand(
   }
   return hydrateGameplaySnapshot({
     ruleProfileId,
-    schemaVersion: 1,
+    schemaVersion:
+      payload.schemaVersion === 1 || payload.schemaVersion === 2
+        ? payload.schemaVersion
+        : 1,
     state: payload.state,
   });
 }

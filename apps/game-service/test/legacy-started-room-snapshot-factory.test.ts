@@ -23,20 +23,22 @@ describe("LegacyStartedRoomSnapshotFactory", () => {
 
     const snapshot = new LegacyStartedRoomSnapshotFactory().create(
       started.room,
-    ) as {
+    );
+    const state = snapshot.state as {
       humanCount: number;
       phase: string;
       seats: Array<{ difficulty?: string; type: string; userId?: string }>;
     };
 
-    expect(snapshot.phase).toBe("four_bidding");
-    expect(snapshot.humanCount).toBe(1);
-    expect(snapshot.seats).toHaveLength(4);
-    expect(snapshot.seats[0]).toMatchObject({
+    expect(snapshot.schemaVersion).toBe(1);
+    expect(state.phase).toBe("four_bidding");
+    expect(state.humanCount).toBe(1);
+    expect(state.seats).toHaveLength(4);
+    expect(state.seats[0]).toMatchObject({
       type: "human",
       userId: host,
     });
-    expect(snapshot.seats.slice(1)).toMatchObject(
+    expect(state.seats.slice(1)).toMatchObject(
       Array.from({ length: 3 }, () => ({
         difficulty: "normal",
         type: "bot",

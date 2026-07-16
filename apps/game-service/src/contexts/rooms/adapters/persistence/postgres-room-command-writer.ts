@@ -175,12 +175,13 @@ export class PostgresRoomCommandWriter implements RoomCommandWriter {
         );
         if (startedRoomSnapshot !== undefined) {
           await transaction.query(
-            "INSERT INTO game_snapshots (room_id, event_version, schema_version, rule_profile_id, state) VALUES ($1, $2, 1, $3, $4::jsonb)",
+            "INSERT INTO game_snapshots (room_id, event_version, schema_version, rule_profile_id, state) VALUES ($1, $2, $3, $4, $5::jsonb)",
             [
               input.room.id,
               input.room.eventVersion,
+              startedRoomSnapshot.schemaVersion,
               input.room.profileId,
-              JSON.stringify(startedRoomSnapshot),
+              JSON.stringify(startedRoomSnapshot.state),
             ],
           );
         }

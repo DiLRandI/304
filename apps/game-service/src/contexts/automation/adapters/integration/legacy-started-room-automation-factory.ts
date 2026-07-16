@@ -2,7 +2,10 @@ import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
 import type { Room } from "@three-zero-four/room-domain";
 import type { RoomIdentityProvider } from "../../../rooms/application/room-identity-provider.js";
 import type { NewAutomationJob } from "../../../rooms/application/room-persistence-model.js";
-import type { StartedRoomAutomationFactory } from "../../../rooms/application/started-room-initialization.js";
+import type {
+  StartedRoomAutomationFactory,
+  StartedRoomSnapshot,
+} from "../../../rooms/application/started-room-initialization.js";
 import {
   automationSeatIndex,
   phaseTimeoutMs,
@@ -27,7 +30,7 @@ export class LegacyStartedRoomAutomationFactory
     private readonly botActionDelayMs = 900,
   ) {}
 
-  create(room: Room, snapshot: unknown): NewAutomationJob | null {
+  create(room: Room, snapshot: StartedRoomSnapshot): NewAutomationJob | null {
     if (room.status !== "in_hand") {
       throw new LegacyStartedRoomAutomationError(
         "Room automation requires a started room",
@@ -35,7 +38,9 @@ export class LegacyStartedRoomAutomationFactory
     }
     let engine: GameEngine;
     try {
-      engine = GameEngine.hydrate(structuredClone(snapshot) as EngineState);
+      engine = GameEngine.hydrate(
+        structuredClone(snapshot.state) as EngineState,
+      );
     } catch {
       throw new LegacyStartedRoomAutomationError(
         "Started room gameplay snapshot is invalid",

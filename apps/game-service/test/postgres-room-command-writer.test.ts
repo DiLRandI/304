@@ -216,7 +216,10 @@ describe("PostgresRoomCommandWriter", () => {
       type: "START_ROOM",
     });
     if (!result.ok) throw new Error("Expected room start to succeed");
-    const snapshot = { phase: "four_bidding", schemaVersion: 1 };
+    const snapshot = {
+      schemaVersion: 1 as const,
+      state: { phase: "four_bidding" },
+    };
     const database = new TransactionDatabase();
     const writer = new PostgresRoomCommandWriter(database, {
       create: () => snapshot,
@@ -241,7 +244,8 @@ describe("PostgresRoomCommandWriter", () => {
     );
     expect(JSON.parse(String(eventInsert?.values[5]))).toEqual({
       ruleProfileId: "classic_304_4p",
-      state: snapshot,
+      schemaVersion: 1,
+      state: snapshot.state,
     });
     const snapshotInsert = database.calls.find((call) =>
       call.text.startsWith("INSERT INTO game_snapshots"),
@@ -249,8 +253,9 @@ describe("PostgresRoomCommandWriter", () => {
     expect(snapshotInsert?.values).toEqual([
       aggregateId,
       2,
+      1,
       "classic_304_4p",
-      JSON.stringify(snapshot),
+      JSON.stringify(snapshot.state),
     ]);
   });
 
@@ -262,7 +267,10 @@ describe("PostgresRoomCommandWriter", () => {
       type: "START_ROOM",
     });
     if (!result.ok) throw new Error("Expected room start to succeed");
-    const snapshot = { activeSeat: 0, phase: "four_bidding" };
+    const snapshot = {
+      schemaVersion: 1 as const,
+      state: { activeSeat: 0, phase: "four_bidding" },
+    };
     const dueAt = new Date("2030-01-01T00:00:30.000Z");
     const database = new TransactionDatabase();
     const writer = new PostgresRoomCommandWriter(

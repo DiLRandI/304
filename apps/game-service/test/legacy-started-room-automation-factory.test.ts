@@ -24,7 +24,7 @@ describe("LegacyStartedRoomAutomationFactory", () => {
     const snapshot = new LegacyStartedRoomSnapshotFactory().create(
       started.room,
     );
-    const state = snapshot as {
+    const state = snapshot.state as {
       activeSeat: number;
       seats: Array<{ type: "bot" | "human" }>;
     };

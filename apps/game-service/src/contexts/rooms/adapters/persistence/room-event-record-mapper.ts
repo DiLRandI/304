@@ -1,4 +1,5 @@
 import type { Room, RoomEvent } from "@three-zero-four/room-domain";
+import type { StartedRoomSnapshot } from "../../application/started-room-initialization.js";
 
 export interface PersistedRoomEvent {
   readonly eventType: RoomEvent["type"];
@@ -32,7 +33,7 @@ function departedSeat(
 export function mapRoomEventForPersistence(
   event: RoomEvent,
   room: Room,
-  startedRoomSnapshot?: unknown,
+  startedRoomSnapshot?: StartedRoomSnapshot,
 ): PersistedRoomEvent {
   if (event.type === "ROOM_STARTED") {
     if (startedRoomSnapshot === undefined) {
@@ -45,7 +46,8 @@ export function mapRoomEventForPersistence(
       eventType: event.type,
       payload: {
         ruleProfileId: room.profileId,
-        state: startedRoomSnapshot,
+        schemaVersion: startedRoomSnapshot.schemaVersion,
+        state: startedRoomSnapshot.state,
       },
     };
   }
