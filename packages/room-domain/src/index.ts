@@ -1,4 +1,12 @@
 export type {
+  CreateLobbyInput,
+  JoinLobbyResult,
+  Room,
+  RoomPlayer,
+  RoomRuleProfileId,
+} from "./aggregate.js";
+export { createLobby, joinLobby } from "./aggregate.js";
+export type {
   BotDifficulty,
   ConnectionStatus,
   RoomSeat,
