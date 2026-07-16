@@ -1,9 +1,7 @@
 import { type EngineState, GameEngine } from "@three-zero-four/game-engine";
 import {
-  acknowledgeGameplayResult,
   applyGameplayCommand,
   bidAmount,
-  buildDeck,
   type GameplayCommand,
   legalGameplayCommands,
 } from "@three-zero-four/gameplay";
@@ -34,70 +32,6 @@ function snapshot(profileId: "classic_304_4p" | "six_304_36"): {
 }
 
 describe("domain gameplay compatibility snapshot decoder", () => {
-  it("encodes result acknowledgement into a new audited hand", () => {
-    const { engine, record } = snapshot("classic_304_4p");
-    while (engine.getSnapshot().phase === "four_bidding") {
-      const actor = engine.getSnapshot().activeSeat;
-      if (actor === null) throw new Error("Expected an active bidding seat");
-      expect(
-        engine.applyAction({
-          actorSeatIndex: actor,
-          seatIndex: actor,
-          type: "PASS_BID",
-        }),
-      ).toEqual({ ok: true });
-    }
-    const source = { ...record, state: engine.getSnapshot() };
-    const before = decodeGameplayHand(source);
-    const nextDeck = buildDeck(before.profile).toReversed();
-    const acknowledged = acknowledgeGameplayResult(before, nextDeck);
-    if (!acknowledged.ok) {
-      throw new Error("Expected result acknowledgement to be legal");
-    }
-    const command: GameplayCommand = { actor: null, type: "ACK_RESULT" };
-
-    const encoded = encodeGameplayHand(acknowledged.hand, {
-      command,
-      nextHand: {
-        audit: {
-          algorithm: "hmac-sha256-v1",
-          commitment: "c_next-hand",
-          seed: "s_next-hand",
-        },
-        deck: nextDeck,
-      },
-      source,
-    });
-
-    expect(decodeGameplayHand(encoded)).toEqual(acknowledged.hand);
-    const legacy = GameEngine.hydrate(
-      encoded.state as EngineState,
-    ).getSnapshot();
-    expect(legacy).toMatchObject({
-      bidding: {
-        actions: [],
-        currentBid: 0,
-        currentBidSeat: null,
-        initialMakerSeat: null,
-        secondRound: {
-          actionsTaken: 0,
-          anyBid: false,
-          order: [],
-          previousBid: 0,
-          previousBidSeat: null,
-        },
-      },
-      handNumber: 2,
-      handResult: null,
-      handShuffle: {
-        deckVersion: "hmac-sha256-v1",
-        seed: "s_next-hand",
-        seedCommit: "c_next-hand",
-      },
-      phase: "four_bidding",
-    });
-  });
-
   it.each([
     { enableSecondBidding: true, phase: "second-bidding" },
     { enableSecondBidding: false, phase: "trump-choice" },

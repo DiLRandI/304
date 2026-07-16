@@ -78,6 +78,36 @@ export function legacyStartedGameplaySnapshot(): LegacyGameplaySnapshotRecord {
   return structuredClone(startedClassicSnapshot);
 }
 
+export function legacyAllPassGameplaySnapshot(): LegacyGameplaySnapshotRecord {
+  const record = structuredClone(startedClassicSnapshot);
+  const state = record.state as {
+    activeSeat: number | null;
+    bidding: {
+      actedInRound: boolean[];
+      actions: Array<{ seatIndex: number; type: "pass" }>;
+      activeOrderIndex: number;
+      noBidPasses: number;
+    };
+    handResult: unknown;
+    phase: string;
+  };
+  state.activeSeat = null;
+  state.bidding.actedInRound = [true, true, true, true];
+  state.bidding.actions = [1, 2, 3, 0].map((seatIndex) => ({
+    seatIndex,
+    type: "pass",
+  }));
+  state.bidding.activeOrderIndex = 3;
+  state.bidding.noBidPasses = 4;
+  state.handResult = {
+    noScore: true,
+    reason: "All players passed. No score movement this hand.",
+    tokens: [11, 11],
+  };
+  state.phase = "hand_result";
+  return record;
+}
+
 export function legacyLobbyGameplaySnapshot(): LegacyGameplaySnapshotRecord {
   return {
     ruleProfileId: "classic_304_4p",
