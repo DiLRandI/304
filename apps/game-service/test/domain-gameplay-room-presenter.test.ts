@@ -148,4 +148,101 @@ describe("projectDomainRoomForPlayer", () => {
       });
     }
   });
+
+  it("matches host and opponent views for a scored hand result", () => {
+    const engine = new GameEngine({
+      enableSecondBidding: false,
+      humanCount: 4,
+      initialSeats: Array.from({ length: 4 }, (_, index) => ({
+        displayName: `Player ${index + 1}`,
+        index,
+        type: "human" as const,
+        userId: `player-${index + 1}`,
+      })),
+      ruleProfile: "classic_304_4p",
+    });
+    engine.startMatch();
+    engine.state.inviteCode = "304-abcdefghijkl";
+    const apply = (action: Record<string, unknown>) => {
+      const actor = engine.getSnapshot().activeSeat;
+      if (actor === null) throw new Error("Expected an active gameplay seat");
+      expect(
+        engine.applyAction({
+          ...action,
+          actorSeatIndex: actor,
+          seatIndex: actor,
+        }),
+      ).toEqual({ ok: true });
+    };
+    const maker = engine.getSnapshot().activeSeat;
+    if (maker === null) throw new Error("Expected an opening bidder");
+    apply({ amount: 200, type: "BID" });
+    while (engine.getSnapshot().phase === "four_bidding") {
+      apply({ type: "PASS_BID" });
+    }
+    const selection = engine
+      .getLegalActions(maker)
+      .find((action) => action.type === "SELECT_TRUMP");
+    if (!selection) throw new Error("Expected a trump selection");
+    apply(selection);
+    apply({ type: "TRUMP_OPEN" });
+    while (engine.getSnapshot().completedTricks.length < 8) {
+      while (engine.getSnapshot().phase === "trick_play") {
+        const actor = engine.getSnapshot().activeSeat;
+        const play =
+          actor === null
+            ? null
+            : engine
+                .getLegalActions(actor)
+                .find((action) => action.type === "PLAY_CARD");
+        if (!play) throw new Error("Expected a legal card play");
+        apply(play);
+      }
+      expect(engine.advanceTrick()).toEqual({ ok: true });
+    }
+    const state = engine.getSnapshot();
+    expect(state.phase).toBe("hand_result");
+    const room = {
+      eventVersion: state.version,
+      hostPlayerId: `player-${maker + 1}`,
+      id: "12f8e3e8-6729-4c46-b78a-d1a0e804c55a",
+      inviteCode: "304-abcdefghijkl",
+      status: "hand_result" as const,
+    };
+    const seats: StoredSeat[] = state.seats.map((seat) => ({
+      botDifficulty: seat.difficulty ?? null,
+      connectionStatus: seat.connectionStatus ?? "disconnected",
+      displayName: seat.displayName ?? null,
+      occupantType: seat.type,
+      playerId: typeof seat.userId === "string" ? seat.userId : null,
+      seatIndex: seat.index,
+    }));
+    const hand = decodeGameplayHand({
+      ruleProfileId: "classic_304_4p",
+      schemaVersion: 1,
+      state,
+    });
+
+    for (const viewerSeatIndex of [maker, (maker + 1) % 4]) {
+      const domain = projectDomainRoomForPlayer(
+        room,
+        hand,
+        seats,
+        viewerSeatIndex,
+      );
+      const legacy = projectRoomForPlayer(room, engine, viewerSeatIndex);
+
+      expect(domain.view.isHost).toBe(legacy.view.isHost);
+      expect(domain.view.legalActions).toEqual(legacy.view.legalActions);
+      expect(domain.view.privateSeat).toEqual(legacy.view.privateSeat);
+      expect(domain.view.prompt).toBe(legacy.view.prompt);
+      expect(domain.view.publicState).toMatchObject({
+        activeSeat: null,
+        handResult: legacy.view.publicState.handResult,
+        seats: legacy.view.publicState.seats,
+        trickPointsPartial: legacy.view.publicState.trickPointsPartial,
+        trump: legacy.view.publicState.trump,
+      });
+    }
+  });
 });
