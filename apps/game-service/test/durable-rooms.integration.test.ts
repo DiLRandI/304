@@ -8,8 +8,9 @@ import { runMigrations } from "../scripts/migrate.js";
 import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
 import { NodeAutomationRandomSource } from "../src/contexts/automation/adapters/entropy/node-automation-random-source.js";
 import { DomainGameplayAutomationExecutor } from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
-import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
+import { DomainStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/domain-started-room-automation-factory.js";
 import { GameplayAutomationScheduler } from "../src/contexts/automation/application/gameplay-automation-scheduler.js";
+import { NodeGameplayDealerSelector } from "../src/contexts/gameplay/adapters/entropy/node-gameplay-dealer-selector.js";
 import { SecureGameplayHandShuffler } from "../src/contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
 import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { DomainGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
@@ -18,9 +19,9 @@ import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redi
 import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import { DomainRoomConnections } from "../src/contexts/rooms/adapters/integration/domain-room-connections.js";
+import { DomainStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/domain-started-room-snapshot-factory.js";
 import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
-import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
 import { RoomProjectionQueryAdapter } from "../src/contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import { PostgresRoomCommandRepository } from "../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
@@ -115,6 +116,7 @@ async function buildRealApp(): Promise<TestRuntime> {
   const inviteCodes = new NodeRoomInviteCodeProvider();
   const roomLease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);
   const gameplayRecovery = new DomainGameplayRecovery(store);
+  const gameplayShuffler = new SecureGameplayHandShuffler();
   const gameplayAutomation = new GameplayAutomationScheduler({
     config: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
     identities,
@@ -139,8 +141,11 @@ async function buildRealApp(): Promise<TestRuntime> {
   const roomCommands = new ExecuteRoomCommandHandler(
     new PostgresRoomCommandRepository(
       database,
-      new LegacyStartedRoomSnapshotFactory(),
-      new LegacyStartedRoomAutomationFactory(identities, () => new Date(), 0),
+      new DomainStartedRoomSnapshotFactory(
+        new NodeGameplayDealerSelector(),
+        gameplayShuffler,
+      ),
+      new DomainStartedRoomAutomationFactory(identities, () => new Date(), 0),
     ),
   );
   const roomQueries = new RoomProjectionQueryAdapter({
@@ -159,7 +164,7 @@ async function buildRealApp(): Promise<TestRuntime> {
     automation: gameplayAutomation,
     lease: roomLease,
     recovery: gameplayRecovery,
-    shuffler: new SecureGameplayHandShuffler(),
+    shuffler: gameplayShuffler,
     store,
   });
   const app = await buildApp({
@@ -262,25 +267,42 @@ async function advanceToHandResult(
   players: readonly TestPlayer[],
 ): Promise<Map<string, DurableProjection>> {
   const automationOwner = randomUUID();
+  const initialProjections = await collectProjections(
+    currentRuntime,
+    roomId,
+    players,
+  );
+  const playersBySeat = new Map(
+    players.flatMap((player) => {
+      const seatIndex = initialProjections.get(
+        player.playerId,
+      )?.viewerSeatIndex;
+      return seatIndex === null || seatIndex === undefined
+        ? []
+        : [[seatIndex, player] as const];
+    }),
+  );
+  const observer = players[0];
+  if (!observer) throw new Error("Room has no player projection");
   for (let step = 0; step < 240; step += 1) {
-    const projections = await collectProjections(
-      currentRuntime,
+    const observerProjection = await getSnapshot(
+      currentRuntime.app,
+      observer.cookie,
       roomId,
-      players,
     );
-    const firstProjection = projections.values().next().value;
-    if (!firstProjection) throw new Error("Room has no player projection");
-    if (isTerminalPhase(firstProjection.view.publicState?.phase)) {
-      return projections;
+    if (isTerminalPhase(observerProjection.view.publicState?.phase)) {
+      return collectProjections(currentRuntime, roomId, players);
     }
-    const activePlayer = players.find((player) => {
-      const projection = projections.get(player.playerId);
-      return (
-        projection?.viewerSeatIndex === projection?.view.publicState?.activeSeat
-      );
-    });
+    const activeSeat = observerProjection.view.publicState?.activeSeat;
+    const activePlayer =
+      activeSeat === null || activeSeat === undefined
+        ? undefined
+        : playersBySeat.get(activeSeat);
     if (activePlayer) {
-      const projection = projections.get(activePlayer.playerId);
+      const projection =
+        activePlayer.playerId === observer.playerId
+          ? observerProjection
+          : await getSnapshot(currentRuntime.app, activePlayer.cookie, roomId);
       const action = projection?.view.legalActions?.[0];
       if (!action) throw new Error("Active human has no legal action");
       const applied = await currentRuntime.app.inject({
@@ -290,7 +312,7 @@ async function advanceToHandResult(
         payload: {
           action,
           commandId: randomUUID(),
-          expectedVersion: projection?.eventVersion,
+          expectedVersion: projection.eventVersion,
           roomId,
         },
       });
@@ -299,7 +321,7 @@ async function advanceToHandResult(
         JSON.stringify({
           action,
           body: applied.json(),
-          expectedVersion: projection?.eventVersion,
+          expectedVersion: projection.eventVersion,
         }),
       ).toBe(200);
       continue;

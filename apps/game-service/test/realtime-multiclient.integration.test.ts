@@ -6,8 +6,9 @@ import { createClient, type RedisClientType } from "redis";
 import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
 import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
-import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
+import { DomainStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/domain-started-room-automation-factory.js";
 import { GameplayAutomationScheduler } from "../src/contexts/automation/application/gameplay-automation-scheduler.js";
+import { NodeGameplayDealerSelector } from "../src/contexts/gameplay/adapters/entropy/node-gameplay-dealer-selector.js";
 import { SecureGameplayHandShuffler } from "../src/contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
 import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { DomainGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
@@ -16,9 +17,9 @@ import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redi
 import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
 import { DomainRoomConnections } from "../src/contexts/rooms/adapters/integration/domain-room-connections.js";
+import { DomainStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/domain-started-room-snapshot-factory.js";
 import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
 import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
-import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
 import { RoomProjectionQueryAdapter } from "../src/contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
 import { PostgresRoomCommandRepository } from "../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
 import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
@@ -114,6 +115,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
   const inviteCodes = new NodeRoomInviteCodeProvider();
   const roomLease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);
   const gameplayRecovery = new DomainGameplayRecovery(store);
+  const gameplayShuffler = new SecureGameplayHandShuffler();
   const gameplayAutomation = new GameplayAutomationScheduler({
     config: {
       botActionDelayMs: config.BOT_ACTION_DELAY_MS,
@@ -133,8 +135,11 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
   const roomCommands = new ExecuteRoomCommandHandler(
     new PostgresRoomCommandRepository(
       database,
-      new LegacyStartedRoomSnapshotFactory(),
-      new LegacyStartedRoomAutomationFactory(
+      new DomainStartedRoomSnapshotFactory(
+        new NodeGameplayDealerSelector(),
+        gameplayShuffler,
+      ),
+      new DomainStartedRoomAutomationFactory(
         identities,
         () => new Date(),
         config.BOT_ACTION_DELAY_MS,
@@ -157,7 +162,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
     automation: gameplayAutomation,
     lease: roomLease,
     recovery: gameplayRecovery,
-    shuffler: new SecureGameplayHandShuffler(),
+    shuffler: gameplayShuffler,
     store,
   });
   const getRoomSnapshot = new GetRoomSnapshotHandler(roomQueries, roomPresence);
