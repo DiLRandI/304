@@ -1,5 +1,32 @@
 import type { LegacyGameplaySnapshotRecord } from "../../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 
+const openingHands = [
+  [
+    { cardId: "D_K", points: 3, rank: "K", suit: "diamonds" },
+    { cardId: "H_Q", points: 2, rank: "Q", suit: "hearts" },
+    { cardId: "C_K", points: 3, rank: "K", suit: "clubs" },
+    { cardId: "S_10", points: 10, rank: "10", suit: "spades" },
+  ],
+  [
+    { cardId: "S_Q", points: 2, rank: "Q", suit: "spades" },
+    { cardId: "D_Q", points: 2, rank: "Q", suit: "diamonds" },
+    { cardId: "S_8", points: 0, rank: "8", suit: "spades" },
+    { cardId: "H_8", points: 0, rank: "8", suit: "hearts" },
+  ],
+  [
+    { cardId: "D_8", points: 0, rank: "8", suit: "diamonds" },
+    { cardId: "S_9", points: 20, rank: "9", suit: "spades" },
+    { cardId: "S_K", points: 3, rank: "K", suit: "spades" },
+    { cardId: "H_K", points: 3, rank: "K", suit: "hearts" },
+  ],
+  [
+    { cardId: "S_7", points: 0, rank: "7", suit: "spades" },
+    { cardId: "H_9", points: 20, rank: "9", suit: "hearts" },
+    { cardId: "C_7", points: 0, rank: "7", suit: "clubs" },
+    { cardId: "D_A", points: 11, rank: "A", suit: "diamonds" },
+  ],
+] as const;
+
 const startedClassicSnapshot: LegacyGameplaySnapshotRecord = {
   ruleProfileId: "classic_304_4p",
   schemaVersion: 1,
@@ -35,9 +62,9 @@ const startedClassicSnapshot: LegacyGameplaySnapshotRecord = {
     profile: { id: "classic_304_4p" },
     profileId: "classic_304_4p",
     seatCount: 4,
-    seats: Array.from({ length: 4 }, (_, index) => ({
-      firstHand: [],
-      hand: [],
+    seats: openingHands.map((hand, index) => ({
+      firstHand: hand,
+      hand,
       index,
       wonCards: [],
     })),
