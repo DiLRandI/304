@@ -13,6 +13,8 @@ export {
   compareRank,
   shuffleDeck,
 } from "./card.js";
+export type { DealState, RemoveCardResult } from "./dealing.js";
+export { createDeal, dealBatch, removeCardFromSeat } from "./dealing.js";
 export type {
   GameplayCommand,
   GameplayDecision,
