@@ -398,7 +398,7 @@ test("gameplay recovery errors belong to the Gameplay application", async () => 
   const recoverySource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.ts",
+      "apps/game-service/src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.ts",
     ),
     "utf8",
   );
@@ -411,51 +411,55 @@ test("Gameplay recovery persistence depends on a Gameplay-owned store port", asy
   const recoverySource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.ts",
+      "apps/game-service/src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.ts",
     ),
     "utf8",
   );
 
   assert.doesNotMatch(recoverySource, /rooms\/application/);
-  assert.match(recoverySource, /GameplayRecoveryStore/);
+  assert.match(recoverySource, /GameplayHandRecoveryStore/);
 });
 
 test("the Gameplay recovery port owns its recovery input", async () => {
   const recoveryPortSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/application/gameplay-recovery.ts",
+      "apps/game-service/src/contexts/gameplay/application/gameplay-hand-recovery.ts",
     ),
     "utf8",
   );
 
   assert.doesNotMatch(recoveryPortSource, /contexts\/rooms|\.\.\/\.\.\/rooms/);
-  assert.match(recoveryPortSource, /interface RecoverableGameplayRoom/);
+  assert.match(recoveryPortSource, /interface RecoverableGameplayHandRoom/);
 });
 
 test("the Gameplay recovery port owns its recovered runtime", async () => {
   const recoveryPortSource = await readFile(
     path.join(
       repoRoot,
-      "apps/game-service/src/contexts/gameplay/application/gameplay-recovery.ts",
+      "apps/game-service/src/contexts/gameplay/application/gameplay-hand-recovery.ts",
     ),
     "utf8",
   );
 
   assert.doesNotMatch(recoveryPortSource, /@three-zero-four\/game-engine/);
-  assert.match(recoveryPortSource, /\.\/recovered-gameplay\.js/);
+  assert.match(recoveryPortSource, /@three-zero-four\/gameplay/);
+  assert.match(recoveryPortSource, /Promise<GameplayHand>/);
 });
 
-test("legacy gameplay snapshot replay belongs to a Gameplay adapter", async () => {
-  const recoverySource = await readFile(
-    path.join(
-      repoRoot,
-      "apps/game-service/src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.ts",
-    ),
-    "utf8",
-  );
+test("retired legacy gameplay runtimes stay deleted", async () => {
+  const sourceFiles = await collectSourceFiles("apps/game-service/src");
 
-  assert.match(recoverySource, /export class LegacyGameplayRecovery/);
+  for (const filename of [
+    "apps/game-service/src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.ts",
+    "apps/game-service/src/contexts/gameplay/adapters/integration/legacy-gameplay-command-executor.ts",
+    "apps/game-service/src/contexts/gameplay/adapters/integration/legacy-gameplay-connections.ts",
+    "apps/game-service/src/contexts/gameplay/adapters/persistence/legacy-gameplay-recovery.ts",
+    "apps/game-service/src/contexts/gameplay/application/gameplay-recovery.ts",
+    "apps/game-service/src/contexts/gameplay/application/recovered-gameplay.ts",
+  ]) {
+    assert.equal(sourceFiles.includes(filename), false, filename);
+  }
 });
 
 test("active runtimes recover the domain Gameplay aggregate", async () => {
@@ -611,7 +615,7 @@ test("gameplay orchestration depends on application behavioral ports", async () 
     readFile(
       path.join(
         repoRoot,
-        "apps/game-service/src/contexts/gameplay/application/gameplay-recovery.ts",
+      "apps/game-service/src/contexts/gameplay/application/gameplay-hand-recovery.ts",
       ),
       "utf8",
     ),
@@ -623,7 +627,7 @@ test("gameplay orchestration depends on application behavioral ports", async () 
       "utf8",
     ),
   ]);
-  assert.match(recoveryPortSource, /export interface GameplayRecovery/);
+  assert.match(recoveryPortSource, /export interface GameplayHandRecovery/);
   assert.match(schedulerPortSource, /export interface AutomationScheduler/);
 });
 
@@ -1270,18 +1274,7 @@ test("started room initialization contracts belong to the Rooms application", as
   assert.match(snapshotFactorySource, /implements StartedRoomSnapshotFactory/);
 });
 
-test("automation adapters depend on an application-owned room store port", async () => {
-  const executorSource = await readFile(
-    path.join(
-      repoRoot,
-      "apps/game-service/src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.ts",
-    ),
-    "utf8",
-  );
-
-  assert.doesNotMatch(executorSource, /postgres-room-store\.js/);
-  assert.match(executorSource, /application\/room-persistence-store\.js/);
-
+test("automation execution depends on an Automation-owned job store port", async () => {
   const domainExecutorSource = await readFile(
     path.join(
       repoRoot,

@@ -7,7 +7,7 @@ import {
   type GameplayCommand,
   type GameplayHand,
 } from "@three-zero-four/gameplay";
-import type { GameplayRecoveryEvent } from "../../application/gameplay-recovery.js";
+import type { GameplayHandRecoveryEvent } from "../../application/gameplay-hand-recovery.js";
 import { RecoveryError } from "../../application/gameplay-recovery-error.js";
 import { toGameplayCommand } from "./wire-gameplay-command-mapper.js";
 
@@ -72,7 +72,7 @@ function replayDeck(
 function commandForEvent(
   roomId: string,
   hand: GameplayHand,
-  event: GameplayRecoveryEvent,
+  event: GameplayHandRecoveryEvent,
   actorSeatIndex: number | null,
 ): GameplayCommand | null {
   if (event.eventType === "TRICK_ADVANCED") {
@@ -110,7 +110,7 @@ function commandForEvent(
 export function replayDomainGameplayEvent(
   roomId: string,
   hand: GameplayHand,
-  event: GameplayRecoveryEvent,
+  event: GameplayHandRecoveryEvent,
   actorSeatIndex: number | null,
 ): GameplayHand {
   try {
