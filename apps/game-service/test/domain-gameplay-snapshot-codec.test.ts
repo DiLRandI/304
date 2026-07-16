@@ -336,6 +336,82 @@ describe("domain gameplay compatibility snapshot decoder", () => {
   });
 
   it.each([
+    { commandType: "TRUMP_OPEN", mode: "open" },
+    { commandType: "TRUMP_CLOSE", mode: "closed" },
+  ] as const)("encodes $mode trump choice into trick play", (scenario) => {
+    const engine = new GameEngine({
+      enableSecondBidding: false,
+      humanCount: 4,
+      ruleProfile: "classic_304_4p",
+    });
+    engine.startMatch();
+    const applyLegacy = (legacyAction: Record<string, unknown>) => {
+      const actor = engine.getSnapshot().activeSeat;
+      if (actor === null) throw new Error("Expected an active gameplay seat");
+      expect(
+        engine.applyAction({
+          ...legacyAction,
+          actorSeatIndex: actor,
+          seatIndex: actor,
+        }),
+      ).toEqual({ ok: true });
+    };
+    applyLegacy({ amount: 200, type: "BID" });
+    while (engine.getSnapshot().phase === "four_bidding") {
+      applyLegacy({ type: "PASS_BID" });
+    }
+    const maker = engine.getSnapshot().activeSeat;
+    const indicator =
+      maker === null
+        ? null
+        : engine
+            .getLegalActions(maker)
+            .find((candidate) => candidate.type === "SELECT_TRUMP");
+    if (maker === null || !indicator || typeof indicator.cardId !== "string") {
+      throw new Error("Expected a trump indicator action");
+    }
+    applyLegacy(indicator);
+    const source: LegacyGameplaySnapshotRecord = {
+      ruleProfileId: "classic_304_4p",
+      schemaVersion: 1,
+      state: engine.getSnapshot(),
+    };
+    const before = decodeGameplayHand(source);
+    const command: GameplayCommand = {
+      actor: maker,
+      type: scenario.commandType,
+    };
+    const applied = applyGameplayCommand(before, command);
+    if (!applied.ok) throw new Error("Expected a legal trump choice");
+
+    const encoded = encodeGameplayHand(applied.hand, { command, source });
+
+    expect(decodeGameplayHand(encoded)).toEqual(applied.hand);
+    const legacy = GameEngine.hydrate(
+      encoded.state as EngineState,
+    ).getSnapshot();
+    expect(legacy.phase).toBe("trick_play");
+    expect(legacy.activeSeat).toBe(maker);
+    expect(legacy.currentTrick).toMatchObject({
+      leaderSeat: maker,
+      plays: [],
+      points: 0,
+    });
+    expect(legacy.trumpClosed).toBe(scenario.mode === "closed");
+    expect(legacy.trump.card?.cardId ?? null).toBe(
+      scenario.mode === "closed" ? indicator.cardId : null,
+    );
+    expect(
+      legacy.seats[maker]?.hand.some(
+        (card) => card.cardId === indicator.cardId,
+      ),
+    ).toBe(scenario.mode === "open");
+    expect(
+      GameEngine.hydrate(encoded.state as EngineState).getLegalActions(maker),
+    ).toContainEqual(expect.objectContaining({ type: "PLAY_CARD" }));
+  });
+
+  it.each([
     "classic_304_4p",
     "six_304_36",
   ] as const)("decodes a started %s four-card bidding snapshot", (profileId) => {

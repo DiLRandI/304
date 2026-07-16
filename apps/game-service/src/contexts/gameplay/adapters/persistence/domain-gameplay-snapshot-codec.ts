@@ -164,6 +164,23 @@ function cardToLegacy(card: Card): z.infer<typeof legacyCardSchema> {
   };
 }
 
+function trickToLegacy(
+  trick: NonNullable<GameplayHand["currentTrick"]>,
+): z.infer<typeof legacyTrickSchema> {
+  return {
+    leaderSeat: trick.leaderSeat,
+    openedTrumpThisTrick: trick.openedTrump,
+    plays: trick.plays.map((play) => ({
+      card: cardToLegacy(play.card),
+      faceDown: play.faceDown,
+      fromIndicator: play.fromIndicator,
+      seatIndex: play.actor,
+    })),
+    points: trick.points,
+    winnerSeat: trick.winnerSeat,
+  };
+}
+
 export function decodeGameplayHand(
   record: LegacyGameplaySnapshotRecord,
 ): GameplayHand {
@@ -470,10 +487,16 @@ export function encodeGameplayHand(
       hand.phase === "trump-choice" ||
       hand.phase === "trump-selection") &&
     (metadata.command.type === "BID" || metadata.command.type === "PASS_BID");
+  const isTrumpChoiceTransition =
+    before.phase === "trump-choice" &&
+    hand.phase === "trick-play" &&
+    (metadata.command.type === "TRUMP_OPEN" ||
+      metadata.command.type === "TRUMP_CLOSE");
   if (
     !isOpeningTransition &&
     !isIndicatorSelection &&
-    !isSecondBiddingTransition
+    !isSecondBiddingTransition &&
+    !isTrumpChoiceTransition
   ) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
@@ -496,6 +519,9 @@ export function encodeGameplayHand(
       };
     };
     currentLedSuit: Suit | null;
+    trump: z.infer<typeof openingGameplaySchema>["trump"] & {
+      indicatorVisible: boolean;
+    };
     trumpCard: z.infer<typeof legacyCardSchema> | null;
     trumpSuit: Suit | null;
   };
@@ -538,6 +564,10 @@ export function encodeGameplayHand(
       hand.bidding.currentBid !== hand.bidding.previousBid;
   }
   state.deck = hand.deal.deck.map(cardToLegacy);
+  state.completedTricks = hand.completedTricks.map(trickToLegacy);
+  state.currentTrick = hand.currentTrick
+    ? trickToLegacy(hand.currentTrick)
+    : null;
   state.dealerSeat = hand.dealer;
   state.handNumber = hand.handNumber;
   state.phase =
@@ -547,7 +577,9 @@ export function encodeGameplayHand(
         ? "trump_selection"
         : hand.phase === "second-bidding"
           ? "second_bidding"
-          : "trump_choice";
+          : hand.phase === "trump-choice"
+            ? "trump_choice"
+            : "trick_play";
   state.seats = state.seats.map((seat, index) => ({
     ...seat,
     firstHand: (hand.deal.firstHands[index] ?? []).map(cardToLegacy),
@@ -561,7 +593,12 @@ export function encodeGameplayHand(
   state.trump.isOpen = hand.trump.open;
   state.trump.maker = hand.trump.maker;
   state.trump.suit = hand.trump.suit;
-  compatibilityState.currentLedSuit = null;
+  if (hand.trump.mode !== null) {
+    state.trumpClosed = hand.trump.mode === "closed";
+  }
+  compatibilityState.currentLedSuit =
+    hand.currentTrick?.plays[0]?.card.suit ?? null;
+  compatibilityState.trump.indicatorVisible = hand.trump.open;
   compatibilityState.trumpCard = hand.trump.indicator
     ? cardToLegacy(hand.trump.indicator)
     : null;
