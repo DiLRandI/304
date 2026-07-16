@@ -1,10 +1,12 @@
 import type { GameAction } from "@three-zero-four/contracts";
 import {
+  acknowledgeGameplayResult,
   applyGameplayCommand,
   type GameplayCommand,
   type GameplayHand,
 } from "@three-zero-four/gameplay";
 import { GameplayApplicationError } from "../../application/gameplay-application-error.js";
+import type { GameplayHandShuffler } from "../../application/gameplay-hand-shuffler.js";
 import {
   decodeGameplayHand,
   encodeGameplayHand,
@@ -22,6 +24,7 @@ export function transitionGameplayCommand(
   source: LegacyGameplaySnapshotRecord,
   action: GameAction,
   actorSeatIndex: number,
+  shuffler: GameplayHandShuffler,
 ): GameplayCommandTransition {
   const before = decodeGameplayHand(source);
   const command = toGameplayCommand(
@@ -30,7 +33,13 @@ export function transitionGameplayCommand(
     before.profile.seatCount,
     before.trump.indicator?.id ?? null,
   );
-  const decision = applyGameplayCommand(before, command);
+  const nextHand =
+    command.type === "ACK_RESULT"
+      ? shuffler.prepare(before.profile, before.handNumber + 1)
+      : undefined;
+  const decision = nextHand
+    ? acknowledgeGameplayResult(before, nextHand.deck)
+    : applyGameplayCommand(before, command);
   if (!decision.ok) {
     throw new GameplayApplicationError(
       "ACTION_REJECTED",
@@ -40,6 +49,10 @@ export function transitionGameplayCommand(
   return {
     command,
     hand: decision.hand,
-    snapshot: encodeGameplayHand(decision.hand, { command, source }),
+    snapshot: encodeGameplayHand(decision.hand, {
+      command,
+      ...(nextHand ? { nextHand } : {}),
+      source,
+    }),
   };
 }
