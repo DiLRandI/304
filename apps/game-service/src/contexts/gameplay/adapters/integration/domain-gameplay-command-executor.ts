@@ -132,6 +132,7 @@ export class DomainGameplayCommandExecutor implements GameplayCommandExecutor {
           expectedVersion: room.eventVersion,
           payload: {
             action: command.action,
+            seatIndex: viewerSeatIndex,
             ...(transition.nextHand ? { nextHand: transition.nextHand } : {}),
           },
           roomId: room.id,

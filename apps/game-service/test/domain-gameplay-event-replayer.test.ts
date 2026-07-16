@@ -32,9 +32,9 @@ describe("replayDomainGameplayEvent", () => {
       {
         actorPlayerId: "player-1",
         eventType: "GAME_ACTION",
-        payload: { action: { type: "PASS_BID" } },
+        payload: { action: { type: "PASS_BID" }, seatIndex: hand.activeSeat },
       },
-      hand.activeSeat,
+      null,
     );
 
     expect(replayed.bidding.actionsTaken).toBe(hand.bidding.actionsTaken + 1);

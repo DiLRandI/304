@@ -93,7 +93,7 @@ describe("DomainGameplayCommandExecutor", () => {
       commandId: command.commandId,
       eventType: "GAME_ACTION",
       expectedVersion: 2,
-      payload: { action: command.action },
+      payload: { action: command.action, seatIndex: actorSeatIndex },
       roomId: room.id,
       ruleProfileId: room.ruleProfileId,
       snapshotSchemaVersion: 1,

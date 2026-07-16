@@ -89,7 +89,9 @@ function commandForEvent(
   }
   const parsed = GameActionSchema.safeParse(payload?.action);
   const actor =
-    event.eventType === "GAME_ACTION" ? actorSeatIndex : payload?.seatIndex;
+    event.eventType === "GAME_ACTION"
+      ? (payload?.seatIndex ?? actorSeatIndex)
+      : payload?.seatIndex;
   if (
     !parsed.success ||
     typeof actor !== "number" ||
