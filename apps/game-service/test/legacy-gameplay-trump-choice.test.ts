@@ -86,6 +86,17 @@ describe("legacy gameplay trump choice", () => {
     };
 
     expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
+    expect(result.hand.currentTrick).toMatchObject({
+      activeSeat: started.maker,
+      leaderSeat: started.maker,
+      plays: [],
+      status: "active",
+    });
+    expect(result.hand.trump).toMatchObject({
+      maker: started.maker,
+      mode: scenario.mode,
+      open: scenario.mode === "open",
+    });
     expect(state.phase).toBe("trick_play");
     expect(state.activeSeat).toBe(started.maker);
     expect(state.currentTrick).toMatchObject({
