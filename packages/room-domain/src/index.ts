@@ -22,6 +22,12 @@ export type {
 } from "./commands.js";
 export { executeRoomCommand } from "./commands.js";
 export type {
+  RoomClosureReason,
+  RoomMaintenanceCandidate,
+  RoomMaintenanceCutoffs,
+} from "./maintenance.js";
+export { roomClosureReason } from "./maintenance.js";
+export type {
   RoomProjection,
   RoomSeatProjection,
 } from "./projection.js";

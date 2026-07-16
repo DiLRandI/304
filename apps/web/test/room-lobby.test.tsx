@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RoomLobby } from "../src/components/room-lobby.js";
+import { RoomLobby } from "../src/features/room/ui/room-lobby.js";
 import { lobbyProjection } from "./browser-fixtures.js";
 
 const originalClipboard = navigator.clipboard;

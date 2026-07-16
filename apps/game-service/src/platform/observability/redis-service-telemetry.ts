@@ -1,0 +1,99 @@
+import type { RedisClientType } from "redis";
+
+const AUTOMATION_OUTCOME_METRICS_KEY = "g304:metrics:automation-outcomes";
+const MAINTENANCE_METRICS_KEY = "g304:metrics:maintenance";
+const WORKER_HEARTBEAT_METRICS_KEY = "g304:metrics:worker-heartbeat";
+
+export type AutomationOutcomeMetric = "completed" | "stale" | "failed";
+export interface MaintenanceTelemetrySnapshot {
+  readonly closedRooms: number;
+  readonly purgedRooms: number;
+  readonly revokedSessions: number;
+}
+
+export class AutomationTelemetry {
+  constructor(
+    private readonly redis: RedisClientType,
+    private readonly key = AUTOMATION_OUTCOME_METRICS_KEY,
+  ) {}
+
+  async record(outcome: AutomationOutcomeMetric): Promise<void> {
+    await this.redis.hIncrBy(this.key, outcome, 1);
+  }
+
+  async snapshot(): Promise<Record<AutomationOutcomeMetric, number>> {
+    const values = await this.redis.hGetAll(this.key);
+    const parse = (outcome: AutomationOutcomeMetric): number => {
+      const value = Number(values[outcome] ?? 0);
+      return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+    };
+    return {
+      completed: parse("completed"),
+      stale: parse("stale"),
+      failed: parse("failed"),
+    };
+  }
+}
+
+function requireMaintenanceMetricValue(value: number): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError(
+      "Maintenance metric values must be non-negative integers",
+    );
+  }
+}
+
+export class MaintenanceTelemetry {
+  constructor(
+    private readonly redis: RedisClientType,
+    private readonly key = MAINTENANCE_METRICS_KEY,
+  ) {}
+
+  async record(result: MaintenanceTelemetrySnapshot): Promise<void> {
+    requireMaintenanceMetricValue(result.revokedSessions);
+    requireMaintenanceMetricValue(result.closedRooms);
+    requireMaintenanceMetricValue(result.purgedRooms);
+    const transaction = this.redis.multi();
+    transaction.hIncrBy(this.key, "revoked_sessions", result.revokedSessions);
+    transaction.hIncrBy(this.key, "closed_rooms", result.closedRooms);
+    transaction.hIncrBy(this.key, "purged_rooms", result.purgedRooms);
+    await transaction.exec();
+  }
+
+  async snapshot(): Promise<MaintenanceTelemetrySnapshot> {
+    const values = await this.redis.hGetAll(this.key);
+    const parse = (field: string): number => {
+      const value = Number(values[field] ?? 0);
+      return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+    };
+    return {
+      closedRooms: parse("closed_rooms"),
+      purgedRooms: parse("purged_rooms"),
+      revokedSessions: parse("revoked_sessions"),
+    };
+  }
+}
+
+export class WorkerTelemetry {
+  constructor(
+    private readonly redis: RedisClientType,
+    private readonly key = WORKER_HEARTBEAT_METRICS_KEY,
+    private readonly ttlMs = 90_000,
+  ) {}
+
+  async recordHeartbeat(timestampMs = Date.now()): Promise<void> {
+    if (!Number.isSafeInteger(timestampMs) || timestampMs < 0) return;
+    await this.redis.set(this.key, String(timestampMs), {
+      PX: Math.max(1_000, this.ttlMs),
+    });
+  }
+
+  async ageSeconds(nowMs = Date.now()): Promise<number> {
+    if (!Number.isSafeInteger(nowMs) || nowMs < 0) return Infinity;
+    const raw = await this.redis.get(this.key);
+    if (raw === null) return Infinity;
+    const timestampMs = Number(raw);
+    if (!Number.isSafeInteger(timestampMs) || timestampMs < 0) return Infinity;
+    return Math.max(0, (nowMs - timestampMs) / 1_000);
+  }
+}

@@ -3,9 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { RoomMaintenance } from "../src/domain/room-maintenance.js";
-import { PostgresRoomStore } from "../src/domain/room-store.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
+import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
+import { RoomMaintenance } from "../src/contexts/rooms/application/room-maintenance.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const describeIntegration = databaseUrl ? describe : describe.skip;
@@ -118,6 +121,7 @@ describeIntegration("room maintenance", () => {
     const maintenance = new RoomMaintenance({
       batchSize: 100,
       closedRetentionDays: 30,
+      commandIds: { next: randomUUID },
       expiredSessionRevokeHours: 24,
       lobbyIdleHours: 24,
       store,

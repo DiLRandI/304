@@ -1,6 +1,4 @@
-import { PlayClient } from "../../components/play-client";
-
-export const dynamic = "force-dynamic";
+import { PlayClient } from "../../features/room/ui/play-client";
 
 export default function PlayPage() {
   return (

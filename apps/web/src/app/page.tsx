@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
-
 const gameServiceUrl = process.env.NEXT_PUBLIC_GAME_SERVICE_URL;
 
 export default function HomePage() {

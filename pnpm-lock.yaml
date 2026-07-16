@@ -50,6 +50,12 @@ importers:
       '@three-zero-four/game-engine':
         specifier: workspace:*
         version: link:../../packages/game-engine
+      '@three-zero-four/gameplay':
+        specifier: workspace:*
+        version: link:../../packages/gameplay
+      '@three-zero-four/room-domain':
+        specifier: workspace:*
+        version: link:../../packages/room-domain
       fastify:
         specifier: 5.10.0
         version: 5.10.0

@@ -1,0 +1,138 @@
+import type { RoomProjection } from "@three-zero-four/contracts";
+import {
+  ActiveRoomProjectionError,
+  type ActiveRoomProjectionReader,
+} from "../../application/active-room-projection-reader.js";
+import type {
+  RoomProjectionQueries,
+  RoomViewer,
+} from "../../application/get-room-projection.js";
+import type { LobbyRoomProjector } from "../../application/lobby-room-projector.js";
+import { RoomApplicationError } from "../../application/room-application-error.js";
+import type { RoomLease } from "../../application/room-coordination-ports.js";
+import type { StoredRoom } from "../../application/room-persistence-model.js";
+import type {
+  RoomPersistenceStore,
+  RoomTransaction,
+} from "../../application/room-persistence-store.js";
+
+interface RoomProjectionQueryDependencies {
+  readonly activeRoomProjection: ActiveRoomProjectionReader;
+  readonly lease: RoomLease;
+  readonly lobbyProjection: LobbyRoomProjector;
+  readonly store: RoomPersistenceStore;
+}
+
+function roomNotFound(): RoomApplicationError {
+  return new RoomApplicationError("ROOM_NOT_FOUND", "Room was not found");
+}
+
+function ensureAvailable(room: StoredRoom): void {
+  if (room.status === "recovery_failed") {
+    throw new RoomApplicationError(
+      "ROOM_RECOVERY_FAILED",
+      "Room is unavailable",
+    );
+  }
+  if (room.status === "closed") {
+    throw new RoomApplicationError("ROOM_UNAVAILABLE", "Room is unavailable");
+  }
+}
+
+export class RoomProjectionQueryAdapter implements RoomProjectionQueries {
+  constructor(private readonly dependencies: RoomProjectionQueryDependencies) {}
+
+  async getSnapshot(
+    session: RoomViewer,
+    roomId: string,
+  ): Promise<RoomProjection> {
+    return this.withRoomLease(roomId, async (transaction, room) => {
+      const viewerSeatIndex = await this.dependencies.store.requireHumanSeat(
+        transaction,
+        room.id,
+        session.playerId,
+      );
+      return this.projectCurrent(transaction, room, viewerSeatIndex);
+    });
+  }
+
+  async getRoom(
+    session: RoomViewer,
+    roomReference: string,
+  ): Promise<RoomProjection> {
+    const referencedRoom =
+      await this.dependencies.store.loadRoomByReference(roomReference);
+    if (!referencedRoom) throw roomNotFound();
+    return this.withRoomLease(referencedRoom.id, async (transaction, room) => {
+      const viewerSeatIndex = await this.dependencies.store.findSeatIndex(
+        transaction,
+        room.id,
+        session.playerId,
+      );
+      if (viewerSeatIndex !== null) {
+        return this.projectCurrent(transaction, room, viewerSeatIndex);
+      }
+      if (room.status !== "lobby") {
+        throw new RoomApplicationError(
+          "SEAT_REQUIRED",
+          "You are not seated in this room",
+        );
+      }
+      return this.dependencies.lobbyProjection.project(
+        room,
+        await this.dependencies.store.loadSeats(room.id, transaction),
+        null,
+      );
+    });
+  }
+
+  async projectCurrent(
+    transaction: RoomTransaction,
+    room: StoredRoom,
+    viewerSeatIndex: number,
+  ): Promise<RoomProjection> {
+    if (room.status === "lobby") {
+      return this.dependencies.lobbyProjection.project(
+        room,
+        await this.dependencies.store.loadSeats(room.id, transaction),
+        viewerSeatIndex,
+      );
+    }
+    return this.dependencies.activeRoomProjection.project(
+      transaction,
+      room,
+      viewerSeatIndex,
+    );
+  }
+
+  private async withRoomLease<Result>(
+    roomId: string,
+    work: (transaction: RoomTransaction, room: StoredRoom) => Promise<Result>,
+  ): Promise<Result> {
+    try {
+      return await this.dependencies.lease.withLease(roomId, () =>
+        this.dependencies.store.transaction(async (transaction) => {
+          const room = await this.dependencies.store.loadRoomForUpdate(
+            transaction,
+            roomId,
+          );
+          if (!room) throw roomNotFound();
+          ensureAvailable(room);
+          return work(transaction, room);
+        }),
+      );
+    } catch (error) {
+      if (error instanceof ActiveRoomProjectionError) {
+        await this.dependencies.store.markRecoveryFailed(
+          roomId,
+          "Snapshot replay failed",
+        );
+        throw new RoomApplicationError(
+          "ROOM_RECOVERY_FAILED",
+          "Room is unavailable",
+        );
+      }
+      throw error;
+    }
+  }
+}

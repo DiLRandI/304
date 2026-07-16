@@ -1,6 +1,6 @@
 import type { RoomProjection } from "@three-zero-four/contracts";
 import { describe, expect, it } from "vitest";
-import { applyProjection } from "../src/lib/room-state.js";
+import { applyProjection } from "../src/features/room/model/room-state.js";
 
 function projection(eventVersion: number): RoomProjection {
   return {

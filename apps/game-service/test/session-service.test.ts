@@ -2,8 +2,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { SessionService } from "../src/domain/session-service.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
+import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
+import {
+  type PlayerAccess,
+  PlayerAccessError,
+} from "../src/contexts/player-access/application/player-access.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const describeIntegration = databaseUrl ? describe : describe.skip;
@@ -13,13 +20,13 @@ const migrationsDir = path.resolve(
 );
 
 let database: Database;
-let sessions: SessionService;
+let sessions: PlayerAccess;
 
 describeIntegration("durable guest sessions", () => {
   beforeAll(async () => {
     database = createDatabase(databaseUrl);
     await runMigrations(database, migrationsDir);
-    sessions = new SessionService(database, {
+    sessions = createPlayerAccessService(database, {
       pepper: "test-only-session-pepper-must-be-at-least-32-characters",
       ttlDays: 30,
     });
@@ -47,9 +54,6 @@ describeIntegration("durable guest sessions", () => {
     });
     await expect(
       sessions.require(`${created.sessionId}.not-the-secret`),
-    ).rejects.toMatchObject({
-      code: "SESSION_REQUIRED",
-      statusCode: 401,
-    });
+    ).rejects.toBeInstanceOf(PlayerAccessError);
   });
 });

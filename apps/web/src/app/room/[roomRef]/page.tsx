@@ -1,4 +1,4 @@
-import { RoomClient } from "../../../components/room-client";
+import { RoomClient } from "../../../features/room/ui/room-client";
 
 export const dynamic = "force-dynamic";
 

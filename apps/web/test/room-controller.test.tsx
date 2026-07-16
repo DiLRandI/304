@@ -2,7 +2,7 @@
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useRoomController } from "../src/hooks/use-room-controller.js";
+import { useRoomController } from "../src/features/room/hooks/use-room-controller.js";
 import {
   activeProjection,
   lobbyProjection,

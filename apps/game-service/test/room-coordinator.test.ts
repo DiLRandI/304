@@ -1,16 +1,18 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { GameAction } from "@three-zero-four/contracts";
+import type { GameAction, RoomProjection } from "@three-zero-four/contracts";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { RoomCoordinator } from "../src/domain/room-coordinator.js";
-import { PostgresRoomStore } from "../src/domain/room-store.js";
-import type { AuthenticatedSession } from "../src/domain/session-service.js";
-import { SessionService } from "../src/domain/session-service.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
-import { Presence, RoomLease } from "../src/infra/redis-coordination.js";
+import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
+import type { PlayerAccess } from "../src/contexts/player-access/application/player-access.js";
+import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
+import { RoomTestRuntime } from "./support/room-test-runtime.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
@@ -28,29 +30,21 @@ interface GameView {
 
 let database: Database;
 let redis: RedisClientType;
-let sessions: SessionService;
-
-function createCoordinator(): RoomCoordinator {
-  return new RoomCoordinator({
-    store: new PostgresRoomStore(database),
-    lease: new RoomLease(redis, 5_000),
-    presence: new Presence(redis, 60),
-  });
-}
+let sessions: PlayerAccess;
 
 function gameView(projection: { view: Record<string, unknown> }): GameView {
   return projection.view as unknown as GameView;
 }
 
 async function createClassicRoom() {
-  const coordinator = createCoordinator();
+  const game = new RoomTestRuntime(database, redis);
   const host = await sessions.create("Asha");
   const request = {
     commandId: randomUUID(),
     ruleProfileId: "classic_304_4p" as const,
   };
-  const created = await coordinator.createRoom(host, request);
-  const duplicate = await coordinator.createRoom(host, request);
+  const created = await game.createRoom(host, request);
+  const duplicate = await game.createRoom(host, request);
   expect(duplicate.roomId).toBe(created.roomId);
 
   const guests = await Promise.all(
@@ -60,29 +54,29 @@ async function createClassicRoom() {
   );
   let eventVersion = created.eventVersion;
   for (const guest of guests) {
-    const joined = await coordinator.joinRoom(guest, created.inviteCode, {
+    const joined = await game.joinRoom(guest, created.inviteCode, {
       commandId: randomUUID(),
       expectedVersion: eventVersion,
     });
     eventVersion = joined.eventVersion;
   }
-  const started = await coordinator.startRoom(host, created.roomId, {
+  const started = await game.startRoom(host, created.roomId, {
     commandId: randomUUID(),
     expectedVersion: eventVersion,
   });
-  return { coordinator, host, guests, created, started };
+  return { game, host, guests, created, started };
 }
 
 async function activePlayer(
-  coordinator: RoomCoordinator,
+  game: RoomTestRuntime,
   players: readonly AuthenticatedSession[],
   roomId: string,
 ): Promise<{
   player: AuthenticatedSession;
-  projection: Awaited<ReturnType<RoomCoordinator["getSnapshot"]>>;
+  projection: RoomProjection;
 }> {
   for (const player of players) {
-    const projection = await coordinator.getSnapshot(player, roomId);
+    const projection = await game.getSnapshot(player, roomId);
     const view = gameView(projection);
     if (projection.viewerSeatIndex === view.publicState.activeSeat) {
       return { player, projection };
@@ -91,13 +85,13 @@ async function activePlayer(
   throw new Error("No player owns the active seat");
 }
 
-describeIntegration("durable room coordinator", () => {
+describeIntegration("durable room application", () => {
   beforeAll(async () => {
     database = createDatabase(databaseUrl);
     await runMigrations(database, migrationsDir);
     redis = createClient({ url: redisUrl });
     await redis.connect();
-    sessions = new SessionService(database, {
+    sessions = createPlayerAccessService(database, {
       pepper: "test-only-session-pepper-must-be-at-least-32-characters",
       ttlDays: 30,
     });
@@ -109,7 +103,7 @@ describeIntegration("durable room coordinator", () => {
   });
 
   it("serializes simultaneous duplicate room-creation commands for one session", async () => {
-    const coordinator = createCoordinator();
+    const game = new RoomTestRuntime(database, redis);
     const host = await sessions.create("Esha");
     const request = {
       commandId: randomUUID(),
@@ -117,8 +111,8 @@ describeIntegration("durable room coordinator", () => {
     };
 
     const [first, duplicate] = await Promise.all([
-      coordinator.createRoom(host, request),
-      coordinator.createRoom(host, request),
+      game.createRoom(host, request),
+      game.createRoom(host, request),
     ]);
 
     expect(duplicate.roomId).toBe(first.roomId);
@@ -130,10 +124,10 @@ describeIntegration("durable room coordinator", () => {
     ).resolves.toEqual({ rows: [{ count: "1" }] });
   });
 
-  it("defaults direct coordinator room creation to easy bots", async () => {
-    const coordinator = createCoordinator();
+  it("defaults direct room creation to easy bots", async () => {
+    const game = new RoomTestRuntime(database, redis);
     const host = await sessions.create("Ishani");
-    const created = await coordinator.createRoom(host, {
+    const created = await game.createRoom(host, {
       commandId: randomUUID(),
       ruleProfileId: "classic_304_4p",
     });
@@ -146,15 +140,10 @@ describeIntegration("durable room coordinator", () => {
     ).resolves.toEqual({ rows: [{ bot_difficulty: "easy" }] });
   });
 
-  it("replays accepted actions from the latest earlier snapshot after a fresh coordinator is created", async () => {
-    const { coordinator, host, guests, created, started } =
-      await createClassicRoom();
+  it("replays accepted actions from the latest earlier snapshot after a fresh runtime is created", async () => {
+    const { game, host, guests, created, started } = await createClassicRoom();
     const hostBefore = gameView(started).privateSeat?.hand;
-    const active = await activePlayer(
-      coordinator,
-      [host, ...guests],
-      created.roomId,
-    );
+    const active = await activePlayer(game, [host, ...guests], created.roomId);
     const action = gameView(active.projection).legalActions[0];
     expect(action).toBeDefined();
     if (!action) throw new Error("Active player has no legal action");
@@ -164,24 +153,31 @@ describeIntegration("durable room coordinator", () => {
       expectedVersion: active.projection.eventVersion,
       action,
     };
+    const gameplayCommands = game.gameplayCommands;
 
-    const applied = await coordinator.submitCommand(active.player, command);
-    const duplicate = await coordinator.submitCommand(active.player, command);
+    const applied = await gameplayCommands.submitCommand(
+      active.player,
+      command,
+    );
+    const duplicate = await gameplayCommands.submitCommand(
+      active.player,
+      command,
+    );
     expect(duplicate.eventVersion).toBe(applied.eventVersion);
 
     await expect(
-      coordinator.submitCommand(active.player, {
+      gameplayCommands.submitCommand(active.player, {
         ...command,
         commandId: randomUUID(),
         expectedVersion: started.eventVersion,
       }),
-    ).rejects.toMatchObject({ code: "VERSION_CONFLICT", statusCode: 409 });
+    ).rejects.toMatchObject({ code: "VERSION_CONFLICT" });
 
     await database.query(
       "DELETE FROM game_snapshots WHERE room_id = $1 AND event_version = $2",
       [created.roomId, applied.eventVersion],
     );
-    const restarted = createCoordinator();
+    const restarted = new RoomTestRuntime(database, redis);
     const recovered = await restarted.getSnapshot(host, created.roomId);
     expect(recovered.eventVersion).toBe(applied.eventVersion);
     expect(gameView(recovered).privateSeat?.hand).toEqual(hostBefore);

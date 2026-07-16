@@ -1,10 +1,11 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ConsentBanner } from "../src/components/consent-banner.js";
-import { CONSENT_STORAGE_KEY, track } from "../src/lib/consent.js";
+import { track } from "../src/features/consent/api/browser-analytics.js";
+import { CONSENT_STORAGE_KEY } from "../src/features/consent/api/browser-consent-store.js";
+import { ConsentBanner } from "../src/features/consent/ui/consent-banner.js";
 
 describe("public analytics consent", () => {
   beforeEach(() => {
@@ -49,6 +50,28 @@ describe("public analytics consent", () => {
     );
     expect(track("page_view", { cardId: "private-card" }, options)).toBe(false);
     expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("reflects consent changes made in another browser document", () => {
+    render(<ConsentBanner />);
+
+    expect(
+      screen.getByRole("complementary", { name: "Privacy choices" }),
+    ).toBeTruthy();
+
+    localStorage.setItem(CONSENT_STORAGE_KEY, "essential_only");
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: CONSENT_STORAGE_KEY,
+          newValue: "essential_only",
+        }),
+      );
+    });
+
+    expect(
+      screen.queryByRole("complementary", { name: "Privacy choices" }),
+    ).toBe(null);
   });
 
   it("keeps the choice usable when storage writes fail", async () => {

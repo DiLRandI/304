@@ -5,16 +5,43 @@ import type { GameAction } from "@three-zero-four/contracts";
 import { createClient, type RedisClientType } from "redis";
 import { afterEach, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { buildApp, loadConfig } from "../src/app.js";
-import { RoomCoordinator } from "../src/domain/room-coordinator.js";
-import { PostgresRoomStore } from "../src/domain/room-store.js";
-import { SessionService } from "../src/domain/session-service.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
+import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
+import { NodeAutomationRandomSource } from "../src/contexts/automation/adapters/entropy/node-automation-random-source.js";
+import { DomainGameplayAutomationExecutor } from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
+import { LegacyStartedRoomAutomationFactory } from "../src/contexts/automation/adapters/integration/legacy-started-room-automation-factory.js";
+import { GameplayAutomationScheduler } from "../src/contexts/automation/application/gameplay-automation-scheduler.js";
+import { SecureGameplayHandShuffler } from "../src/contexts/gameplay/adapters/entropy/secure-gameplay-hand-shuffler.js";
+import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
+import { DomainGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
+import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
+import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
+import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
+import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
+import { DomainRoomConnections } from "../src/contexts/rooms/adapters/integration/domain-room-connections.js";
+import { GameplayRoomProjectionReader } from "../src/contexts/rooms/adapters/integration/gameplay-room-projection-reader.js";
+import { LegacyRoomCreationRepository } from "../src/contexts/rooms/adapters/integration/legacy-room-creation-repository.js";
+import { LegacyStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/legacy-started-room-snapshot-factory.js";
+import { RoomProjectionQueryAdapter } from "../src/contexts/rooms/adapters/orchestration/room-projection-query-adapter.js";
+import { PostgresRoomCommandRepository } from "../src/contexts/rooms/adapters/persistence/postgres-room-command-repository.js";
+import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
+import { NodeRoomIdentityProvider } from "../src/contexts/rooms/adapters/security/node-room-identity-provider.js";
+import { NodeRoomInviteCodeProvider } from "../src/contexts/rooms/adapters/security/node-room-invite-code-provider.js";
+import { CreateRoomHandler } from "../src/contexts/rooms/application/create-room.js";
+import { ExecuteRoomCommandHandler } from "../src/contexts/rooms/application/execute-room-command.js";
 import {
-  Presence,
-  RateLimiter,
-  RoomLease,
-} from "../src/infra/redis-coordination.js";
+  GetRoomHandler,
+  GetRoomSnapshotHandler,
+} from "../src/contexts/rooms/application/get-room-projection.js";
+import { JoinRoomHandler } from "../src/contexts/rooms/application/join-room.js";
+import { LeaveRoomHandler } from "../src/contexts/rooms/application/leave-room.js";
+import { StartRoomHandler } from "../src/contexts/rooms/application/start-room.js";
+import { buildApp } from "../src/delivery/http/http-app.js";
+import { loadConfig } from "../src/platform/config/service-config.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
+import { RateLimiter } from "../src/platform/redis/request-rate-limiter.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
@@ -50,7 +77,7 @@ interface DurableProjection {
 
 interface TestRuntime {
   app: Awaited<ReturnType<typeof buildApp>>;
-  coordinator: RoomCoordinator;
+  automation: DomainGameplayAutomationExecutor;
   database: Database;
   redis: RedisClientType;
   store: PostgresRoomStore;
@@ -79,26 +106,90 @@ async function buildRealApp(): Promise<TestRuntime> {
       "test-only-session-pepper-must-be-at-least-32-characters",
   });
   const store = new PostgresRoomStore(database);
-  const sessions = new SessionService(database, {
+  const sessions = createPlayerAccessService(database, {
     pepper: config.SESSION_SECRET_PEPPER,
     ttlDays: config.SESSION_TTL_DAYS,
   });
-  const coordinator = new RoomCoordinator({
+  const presence = new RedisRoomPresence(redis, config.PRESENCE_TTL_SECONDS);
+  const identities = new NodeRoomIdentityProvider();
+  const inviteCodes = new NodeRoomInviteCodeProvider();
+  const roomLease = new RedisRoomLease(redis, config.ROOM_LEASE_TTL_MS);
+  const gameplayRecovery = new DomainGameplayRecovery(store);
+  const gameplayAutomation = new GameplayAutomationScheduler({
+    config: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
+    identities,
     store,
-    lease: new RoomLease(redis, config.ROOM_LEASE_TTL_MS),
-    presence: new Presence(redis, config.PRESENCE_TTL_SECONDS),
-    automation: { botActionDelayMs: 0, trickRevealDelayMs: 0 },
+  });
+  const connections = new DomainRoomConnections({
+    automation: gameplayAutomation,
+    identities,
+    lease: roomLease,
+    presence,
+    recovery: gameplayRecovery,
+    store,
+  });
+  const automation = new DomainGameplayAutomationExecutor({
+    automation: gameplayAutomation,
+    lease: roomLease,
+    presence,
+    random: new NodeAutomationRandomSource(),
+    recovery: gameplayRecovery,
+    store,
+  });
+  const roomCommands = new ExecuteRoomCommandHandler(
+    new PostgresRoomCommandRepository(
+      database,
+      new LegacyStartedRoomSnapshotFactory(),
+      new LegacyStartedRoomAutomationFactory(identities, () => new Date(), 0),
+    ),
+  );
+  const roomQueries = new RoomProjectionQueryAdapter({
+    activeRoomProjection: new GameplayRoomProjectionReader({
+      recovery: gameplayRecovery,
+      store,
+    }),
+    lease: roomLease,
+    lobbyProjection: new LobbyRoomProjectionPresenter(),
+    store,
+  });
+  const roomPresence = {
+    refresh: connections.markRealtimePresence.bind(connections),
+  };
+  const gameplayCommands = new DomainGameplayCommandExecutor({
+    automation: gameplayAutomation,
+    lease: roomLease,
+    recovery: gameplayRecovery,
+    shuffler: new SecureGameplayHandShuffler(),
+    store,
   });
   const app = await buildApp({
     config,
     readiness: { database: () => database.health(), redis: async () => true },
     game: {
-      coordinator,
+      gameplayUseCases: {
+        submit: new SubmitGameplayCommandHandler(
+          gameplayCommands,
+          roomPresence,
+        ),
+      },
+      roomUseCases: {
+        create: new CreateRoomHandler(
+          new LegacyRoomCreationRepository(store),
+          presence,
+          identities,
+          inviteCodes,
+        ),
+        get: new GetRoomHandler(roomQueries, roomPresence),
+        join: new JoinRoomHandler(roomCommands, presence),
+        leave: new LeaveRoomHandler(roomCommands, presence),
+        snapshot: new GetRoomSnapshotHandler(roomQueries, roomPresence),
+        start: new StartRoomHandler(roomCommands, presence),
+      },
       sessions,
       rateLimiter: new RateLimiter(redis, `g304:test:${randomUUID()}`),
     },
   });
-  return { app, coordinator, database, redis, store };
+  return { app, automation, database, redis, store };
 }
 
 async function closeRuntime(): Promise<void> {
@@ -229,9 +320,7 @@ async function advanceToHandResult(
       );
     }
     for (const job of jobs) {
-      expect(await currentRuntime.coordinator.runAutomation(job)).toBe(
-        "completed",
-      );
+      expect(await currentRuntime.automation.run(job)).toBe("completed");
       await currentRuntime.store.completeAutomationJob(job.id, automationOwner);
     }
   }
@@ -649,6 +738,31 @@ describeIntegration("durable room HTTP API", () => {
       hostResult.view.publicState?.dealerSeat,
     );
     expect(nextHand.view.privateSeat?.hand).toHaveLength(4);
+    const acknowledgementEvent = await runtime.database.query<{
+      payload: {
+        action: GameAction;
+        nextHand?: {
+          audit: { algorithm: string; commitment: string; seed: string };
+          deck: unknown[];
+        };
+      };
+    }>(
+      "SELECT payload FROM game_events WHERE room_id = $1 AND event_version = $2",
+      [room.roomId, nextHand.eventVersion],
+    );
+    expect(acknowledgementEvent.rows[0]?.payload).toMatchObject({
+      action: { type: "ACK_RESULT" },
+      nextHand: {
+        audit: {
+          algorithm: "hmac-sha256-v1",
+          commitment: expect.any(String),
+          seed: expect.any(String),
+        },
+      },
+    });
+    expect(acknowledgementEvent.rows[0]?.payload.nextHand?.deck).toHaveLength(
+      32,
+    );
   });
 
   it("replaces a departing result-state human with a configured bot and transfers a departing host", async () => {

@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildApp, loadConfig, redactSensitiveRequestUrl } from "../src/app.js";
-import type { RoomSocketHub } from "../src/realtime/room-socket-hub.js";
-import type { GameRuntime } from "../src/routes/v1.js";
+import { GameplayApplicationError } from "../src/contexts/gameplay/application/gameplay-application-error.js";
+import { PlayerAccessError } from "../src/contexts/player-access/application/player-access.js";
+import { RoomApplicationError } from "../src/contexts/rooms/application/room-application-error.js";
+import { RoomLeaseBusyError } from "../src/contexts/rooms/application/room-coordination-ports.js";
+import {
+  buildApp,
+  redactSensitiveRequestUrl,
+} from "../src/delivery/http/http-app.js";
+import { RequestRateLimitError } from "../src/delivery/http/request-rate-limiter.js";
+import type { GameRuntime } from "../src/delivery/http/v1-routes.js";
+import type { RoomSocketHub } from "../src/delivery/realtime/room-socket-hub.js";
+import { loadConfig } from "../src/platform/config/service-config.js";
 
 const baseConfig = {
   NODE_ENV: "test",
@@ -208,6 +217,148 @@ describe("game service bootstrap", () => {
 });
 
 describe("game service health surface", () => {
+  it("maps Player Access errors at the HTTP delivery boundary", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/session-required", async () => {
+      throw new PlayerAccessError("SESSION_REQUIRED");
+    });
+
+    const response = await app.inject("/session-required");
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({
+      error: {
+        code: "SESSION_REQUIRED",
+        message: "A guest session is required",
+      },
+    });
+    await app.close();
+  });
+
+  it("maps rate limiting at the HTTP delivery boundary", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/rate-limited", async () => {
+      throw new RequestRateLimitError("RATE_LIMITED");
+    });
+
+    const response = await app.inject("/rate-limited");
+
+    expect(response.statusCode).toBe(429);
+    expect(response.json()).toEqual({
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many requests; retry shortly",
+      },
+    });
+    await app.close();
+  });
+
+  it("maps room lease contention at the HTTP delivery boundary", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/room-busy", async () => {
+      throw new RoomLeaseBusyError();
+    });
+
+    const response = await app.inject("/room-busy");
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({
+      error: { code: "ROOM_BUSY", message: "Room is busy; retry shortly" },
+    });
+    await app.close();
+  });
+
+  it("presents room application errors through the public error contract", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/room-application-error", async () => {
+      throw new RoomApplicationError(
+        "VERSION_CONFLICT",
+        "Room state changed; refresh and retry",
+      );
+    });
+    app.get("/room-unavailable", async () => {
+      throw new RoomApplicationError(
+        "ROOM_UNAVAILABLE",
+        "Room is unavailable",
+        "unavailable",
+      );
+    });
+    app.get("/room-session-required", async () => {
+      throw new RoomApplicationError(
+        "SESSION_REQUIRED",
+        "A guest session is required",
+      );
+    });
+
+    const response = await app.inject("/room-application-error");
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "Room state changed; refresh and retry",
+      },
+    });
+    const unavailable = await app.inject("/room-unavailable");
+    expect(unavailable.statusCode).toBe(503);
+    expect(unavailable.json()).toEqual({
+      error: { code: "ROOM_UNAVAILABLE", message: "Room is unavailable" },
+    });
+    const unauthorized = await app.inject("/room-session-required");
+    expect(unauthorized.statusCode).toBe(401);
+    expect(unauthorized.json()).toEqual({
+      error: {
+        code: "SESSION_REQUIRED",
+        message: "A guest session is required",
+      },
+    });
+    await app.close();
+  });
+
+  it("maps gameplay application errors at the HTTP delivery boundary", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+    app.get("/gameplay-forbidden", async () => {
+      throw new GameplayApplicationError(
+        "SEAT_REQUIRED",
+        "A player seat is required",
+      );
+    });
+    app.get("/gameplay-unavailable", async () => {
+      throw new GameplayApplicationError(
+        "ROOM_RECOVERY_FAILED",
+        "Room is unavailable",
+      );
+    });
+
+    const forbidden = await app.inject("/gameplay-forbidden");
+    expect(forbidden.statusCode).toBe(403);
+    expect(forbidden.json()).toEqual({
+      error: { code: "SEAT_REQUIRED", message: "A player seat is required" },
+    });
+
+    const unavailable = await app.inject("/gameplay-unavailable");
+    expect(unavailable.statusCode).toBe(503);
+    expect(unavailable.json()).toEqual({
+      error: { code: "ROOM_RECOVERY_FAILED", message: "Room is unavailable" },
+    });
+    await app.close();
+  });
+
   it("uses forwarded client IPs only from the configured Caddy gateway", async () => {
     const app = await buildApp({
       config: loadConfig({

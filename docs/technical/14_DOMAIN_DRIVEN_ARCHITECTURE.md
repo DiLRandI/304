@@ -83,18 +83,36 @@ apps/game-service/src/
 
 apps/web/src/
   features/
-    player-access/
-    room-entry/
-    room-lobby/
-    gameplay/
+    consent/
+      model/
+      ui/
     preferences/
-  shared/
-    api/
-    ui/
+      ui/
+    room/
+      api/
+      application/
+      hooks/
+      model/
+      ui/
+    rules/
+      ui/
+  lib/                       stable browser infrastructure only
 ```
 
 There is no generic shared-kernel package. Code is shared only after its owner
 and stability are explicit.
+
+### Frontend feature cores
+
+The browser consumes server projections through feature-local layers. A feature
+`model` may depend only on its own model code, wire contracts, and stable shared
+utilities. It cannot import application, API, hooks, UI, React, or Next.js.
+Feature `application` ports may depend on models and wire contracts, but not API,
+hooks, UI, React, or Next.js. API adapters, hooks, and UI depend inward.
+
+Generic `src/components` ownership is forbidden. Cross-feature UI imports are
+allowed only when the imported feature owns the concept, such as the room table
+using the rules feature's drawer.
 
 ## Command and persistence boundary
 
@@ -134,7 +152,11 @@ TypeScript compiler dependency and rejects:
 
 - framework or infrastructure imports from pure domain packages;
 - adapter, delivery, or platform imports from service domain/application code;
+- imports from one bounded context's application layer into another context;
+- cross-context adapter imports outside an explicit `adapters/integration` layer;
 - authoritative domain package imports from the browser;
+- outward framework or feature-layer imports from frontend model/application code;
+- ownerless files in the browser's generic `src/components` directory;
 - relative source dependency cycles in the guarded module roots.
 
 Every new context starts inside these guarded roots. Exceptions require an

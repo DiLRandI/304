@@ -6,6 +6,7 @@ export type {
   TrumpState,
 } from "./aggregate.js";
 export {
+  acknowledgeGameplayResult,
   applyGameplayCommand,
   nextDealer,
   startGameplayHand,
@@ -18,6 +19,7 @@ export {
   legalBidAmounts,
   startSecondBidding,
 } from "./bidding.js";
+export { chooseGameplayBotCommand } from "./bot-policy.js";
 export type { Card, RandomSource } from "./card.js";
 export {
   buildDeck,
@@ -27,6 +29,7 @@ export {
 } from "./card.js";
 export type { DealState, RemoveCardResult } from "./dealing.js";
 export { createDeal, dealBatch, removeCardFromSeat } from "./dealing.js";
+export { legalGameplayCommands } from "./legal-actions.js";
 export type {
   GameplayCommand,
   GameplayDecision,
@@ -43,6 +46,7 @@ export type {
   ProjectedTrick,
 } from "./projection.js";
 export { projectGameplayHand } from "./projection.js";
+export { gameplayPrompt } from "./prompt.js";
 export type {
   CancelledHand,
   HandScore,

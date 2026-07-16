@@ -1,14 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
+import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
+import { RoomLeaseBusyError } from "../src/contexts/rooms/application/room-coordination-ports.js";
+import { RequestRateLimitError } from "../src/delivery/http/request-rate-limiter.js";
 import {
   AutomationTelemetry,
   MaintenanceTelemetry,
-  Presence,
-  RateLimiter,
-  RoomLease,
   WorkerTelemetry,
-} from "../src/infra/redis-coordination.js";
+} from "../src/platform/observability/redis-service-telemetry.js";
+import { RateLimiter } from "../src/platform/redis/request-rate-limiter.js";
 
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
 const describeIntegration = redisUrl ? describe : describe.skip;
@@ -25,20 +27,17 @@ describeIntegration("Redis game coordination", () => {
   it("does not execute a room mutation when another owner holds its lease", async () => {
     const roomId = randomUUID();
     await redis.set(`g304:lease:${roomId}`, "other-owner", { PX: 5_000 });
-    const lease = new RoomLease(redis, 5_000);
+    const lease = new RedisRoomLease(redis, 5_000);
 
     await expect(
       lease.withLease(roomId, async () => "accepted"),
-    ).rejects.toMatchObject({
-      code: "ROOM_BUSY",
-      statusCode: 503,
-    });
+    ).rejects.toBeInstanceOf(RoomLeaseBusyError);
   });
 
   it("waits briefly for a contended lease that is about to expire", async () => {
     const roomId = randomUUID();
     await redis.set(`g304:lease:${roomId}`, "other-owner", { PX: 75 });
-    const lease = new RoomLease(redis, 5_000);
+    const lease = new RedisRoomLease(redis, 5_000);
 
     await expect(
       lease.withLease(roomId, async () => "accepted-after-contention"),
@@ -48,8 +47,8 @@ describeIntegration("Redis game coordination", () => {
   it("releases only its own lease and tracks expiring presence", async () => {
     const roomId = randomUUID();
     const playerId = randomUUID();
-    const lease = new RoomLease(redis, 5_000);
-    const presence = new Presence(redis, 30);
+    const lease = new RedisRoomLease(redis, 5_000);
+    const presence = new RedisRoomPresence(redis, 30);
 
     await expect(lease.withLease(roomId, async () => "accepted")).resolves.toBe(
       "accepted",
@@ -77,12 +76,9 @@ describeIntegration("Redis game coordination", () => {
     await expect(
       limiter.consume(scope, "player", 2, 60),
     ).resolves.toBeUndefined();
-    await expect(limiter.consume(scope, "player", 2, 60)).rejects.toMatchObject(
-      {
-        code: "RATE_LIMITED",
-        statusCode: 429,
-      },
-    );
+    await expect(
+      limiter.consume(scope, "player", 2, 60),
+    ).rejects.toBeInstanceOf(RequestRateLimitError);
   });
 
   it("stores durable automation outcome totals for service metrics", async () => {

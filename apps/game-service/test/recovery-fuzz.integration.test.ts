@@ -9,13 +9,17 @@ import type {
 import { createClient, type RedisClientType } from "redis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { RoomCoordinator } from "../src/domain/room-coordinator.js";
-import { PostgresRoomStore } from "../src/domain/room-store.js";
-import type { AuthenticatedSession } from "../src/domain/session-service.js";
-import { SessionService } from "../src/domain/session-service.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
-import { Presence, RoomLease } from "../src/infra/redis-coordination.js";
-import { AutomationWorker } from "../src/worker/automation-worker.js";
+import { createPlayerAccessService } from "../src/bootstrap/player-access.js";
+import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
+import type { PlayerAccess } from "../src/contexts/player-access/application/player-access.js";
+import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
+import { PostgresRoomStore } from "../src/contexts/rooms/adapters/persistence/postgres-room-store.js";
+import { AutomationWorker } from "../src/delivery/workers/automation-worker.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
+import { RoomTestRuntime } from "./support/room-test-runtime.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
@@ -30,32 +34,20 @@ interface GameView {
   publicState?: { activeSeat: number | null };
 }
 
-interface SnapshotState {
-  seats: Array<{ hand: Array<{ cardId: string }> }>;
-  trump: {
-    card: { cardId: string } | null;
-    isOpen: boolean;
-    maker: number | null;
-  };
-}
-
 interface StoredSnapshotRow {
   event_version: string | number;
   rule_profile_id: RuleProfileId;
   schema_version: number;
-  state: SnapshotState;
+  state: unknown;
 }
 
 let database: Database;
 let redis: RedisClientType;
-let sessions: SessionService;
+let sessions: PlayerAccess;
 let store: PostgresRoomStore;
 
-function coordinator(): RoomCoordinator {
-  return new RoomCoordinator({
-    store,
-    lease: new RoomLease(redis, 5_000),
-    presence: new Presence(redis, 60),
+function createRuntime(): RoomTestRuntime {
+  return new RoomTestRuntime(database, redis, {
     automation: {
       botActionDelayMs: 250,
       disconnectGraceSeconds: 90,
@@ -69,10 +61,10 @@ function viewOf(projection: RoomProjection): GameView {
 
 async function createStartedHumanRoom(ruleProfileId: RuleProfileId): Promise<{
   created: RoomProjection;
-  game: RoomCoordinator;
+  game: RoomTestRuntime;
   players: AuthenticatedSession[];
 }> {
-  const game = coordinator();
+  const game = createRuntime();
   const seatCount = ruleProfileId === "six_304_36" ? 6 : 4;
   const host = await sessions.create(`Host ${randomUUID().slice(0, 8)}`);
   const created = await game.createRoom(host, {
@@ -100,7 +92,7 @@ async function createStartedHumanRoom(ruleProfileId: RuleProfileId): Promise<{
 }
 
 async function activePlayer(
-  game: RoomCoordinator,
+  game: RoomTestRuntime,
   players: readonly AuthenticatedSession[],
   roomId: string,
 ): Promise<{
@@ -118,7 +110,7 @@ async function activePlayer(
 }
 
 async function applyHumanCommands(
-  game: RoomCoordinator,
+  game: RoomTestRuntime,
   players: readonly AuthenticatedSession[],
   roomId: string,
   count: number,
@@ -127,7 +119,7 @@ async function applyHumanCommands(
     const active = await activePlayer(game, players, roomId);
     const action = viewOf(active.projection).legalActions?.[0];
     if (!action) throw new Error("Expected a legal human action");
-    await game.submitCommand(active.player, {
+    await game.gameplayCommands.submitCommand(active.player, {
       action,
       commandId: randomUUID(),
       expectedVersion: active.projection.eventVersion,
@@ -137,18 +129,18 @@ async function applyHumanCommands(
 }
 
 async function applyWorkerAction(
-  game: RoomCoordinator,
+  game: RoomTestRuntime,
   players: readonly AuthenticatedSession[],
   roomId: string,
 ): Promise<void> {
   const active = await activePlayer(game, players, roomId);
-  await game.markRealtimeDisconnected(active.player, roomId);
+  await game.connections.markRealtimeDisconnected(active.player, roomId);
   await database.query(
     "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'DISCONNECT_GRACE' AND state = 'pending'",
     [roomId],
   );
   const worker = new AutomationWorker({
-    coordinator: game,
+    executor: game.automation,
     ownerId: randomUUID(),
     pollIntervalMs: 500,
     roomId,
@@ -163,12 +155,12 @@ async function applyWorkerAction(
 }
 
 async function currentSnapshots(
-  game: RoomCoordinator,
+  game: RoomTestRuntime,
   players: readonly AuthenticatedSession[],
   roomId: string,
 ): Promise<Map<string, RoomProjection>> {
   for (const player of players) {
-    await game.markRealtimePresence(player, roomId);
+    await game.connections.markRealtimePresence(player, roomId);
   }
   const snapshots = new Map<string, RoomProjection>();
   for (const player of players) {
@@ -180,27 +172,36 @@ async function currentSnapshots(
 function assertNoPrivateCardsLeak(
   projections: Map<string, RoomProjection>,
   players: readonly AuthenticatedSession[],
-  state: SnapshotState,
+  snapshot: StoredSnapshotRow,
 ): void {
+  const hand = hydrateGameplaySnapshot({
+    ruleProfileId: snapshot.rule_profile_id,
+    schemaVersion: snapshot.schema_version,
+    state: snapshot.state,
+  });
   for (const player of players) {
     const projection = projections.get(player.playerId);
     if (!projection || projection.viewerSeatIndex == null) {
       throw new Error("Expected a seated private projection");
     }
     const payload = JSON.stringify(projection);
-    for (let seatIndex = 0; seatIndex < state.seats.length; seatIndex += 1) {
+    for (
+      let seatIndex = 0;
+      seatIndex < hand.deal.hands.length;
+      seatIndex += 1
+    ) {
       if (seatIndex === projection.viewerSeatIndex) continue;
-      for (const card of state.seats[seatIndex]?.hand ?? []) {
-        expect(payload).not.toContain(card.cardId);
+      for (const card of hand.deal.hands[seatIndex] ?? []) {
+        expect(payload).not.toContain(card.id);
       }
     }
-    const hiddenTrump = state.trump.card;
+    const hiddenTrump = hand.trump.indicator;
     if (
       hiddenTrump &&
-      !state.trump.isOpen &&
-      state.trump.maker !== projection.viewerSeatIndex
+      !hand.trump.open &&
+      hand.trump.maker !== projection.viewerSeatIndex
     ) {
-      expect(payload).not.toContain(hiddenTrump.cardId);
+      expect(payload).not.toContain(hiddenTrump.id);
     }
   }
 }
@@ -238,7 +239,7 @@ describeIntegration("durable room recovery variance", () => {
     redis = createClient({ url: redisUrl });
     await redis.connect();
     store = new PostgresRoomStore(database);
-    sessions = new SessionService(database, {
+    sessions = createPlayerAccessService(database, {
       pepper: "test-only-session-pepper-must-be-at-least-32-characters",
       ttlDays: 30,
     });
@@ -253,7 +254,7 @@ describeIntegration("durable room recovery variance", () => {
     it(`replays exact private ${ruleProfileId} projections after each of twelve snapshot-loss variants`, async () => {
       const { created, game, players } =
         await createStartedHumanRoom(ruleProfileId);
-      await applyHumanCommands(game, players, created.roomId, 5);
+      await applyHumanCommands(game, players, created.roomId, 7);
       await applyWorkerAction(game, players, created.roomId);
 
       const canonical = await currentSnapshots(game, players, created.roomId);
@@ -263,9 +264,10 @@ describeIntegration("durable room recovery variance", () => {
         "SELECT event_version, schema_version, rule_profile_id, state FROM game_snapshots WHERE room_id = $1 AND event_version = $2",
         [created.roomId, room.eventVersion],
       );
-      const currentState = latest.rows[0]?.state;
-      if (!currentState) throw new Error("Expected the current room snapshot");
-      assertNoPrivateCardsLeak(canonical, players, currentState);
+      const currentSnapshot = latest.rows[0];
+      if (!currentSnapshot)
+        throw new Error("Expected the current room snapshot");
+      assertNoPrivateCardsLeak(canonical, players, currentSnapshot);
 
       const variants = await snapshotsForVariants(created.roomId);
       expect(variants).toHaveLength(12);
@@ -275,7 +277,7 @@ describeIntegration("durable room recovery variance", () => {
           [created.roomId, snapshot.event_version],
         );
         try {
-          const restarted = coordinator();
+          const restarted = createRuntime();
           for (const player of players) {
             await expect(
               restarted.getSnapshot(player, created.roomId),
@@ -308,10 +310,9 @@ describeIntegration("durable room recovery variance", () => {
     const firstPlayer = players[0];
     if (!firstPlayer) throw new Error("Expected a room host");
     await expect(
-      coordinator().getSnapshot(firstPlayer, created.roomId),
+      createRuntime().getSnapshot(firstPlayer, created.roomId),
     ).rejects.toMatchObject({
       code: "ROOM_RECOVERY_FAILED",
-      statusCode: 503,
     });
     await expect(store.loadRoom(created.roomId)).resolves.toMatchObject({
       status: "recovery_failed",

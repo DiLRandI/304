@@ -4,7 +4,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
-import { createDatabase, type Database } from "../src/infra/database.js";
+import {
+  createDatabase,
+  type Database,
+} from "../src/platform/postgres/database.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const migrationsDir = path.resolve(
