@@ -136,7 +136,7 @@ async function applyWorkerAction(
   const active = await activePlayer(game, players, roomId);
   await game.connections.markRealtimeDisconnected(active.player, roomId);
   await database.query(
-    "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'DISCONNECT_GRACE' AND state = 'pending'",
+    "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'DISCONNECT_GRACE' AND state = 'pending'",
     [roomId],
   );
   const worker = new AutomationWorker({
@@ -148,7 +148,7 @@ async function applyWorkerAction(
   });
   await worker.runOnce();
   await database.query(
-    "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
+    "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
     [roomId],
   );
   await worker.runOnce();

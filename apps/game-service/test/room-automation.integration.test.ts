@@ -183,7 +183,7 @@ describeIntegration("durable room automation", () => {
     });
 
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'TURN_TIMEOUT'",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'TURN_TIMEOUT'",
       [created.roomId],
     );
     const owner = randomUUID();
@@ -214,7 +214,7 @@ describeIntegration("durable room automation", () => {
     );
 
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
       [created.roomId],
     );
     const botOwner = randomUUID();
@@ -270,7 +270,7 @@ describeIntegration("durable room automation", () => {
     });
 
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'TURN_TIMEOUT'",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'TURN_TIMEOUT'",
       [created.roomId],
     );
     const owner = randomUUID();
@@ -319,7 +319,7 @@ describeIntegration("durable room automation", () => {
     );
 
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'TURN_TIMEOUT'",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'TURN_TIMEOUT'",
       [created.roomId],
     );
     const timeoutOwner = randomUUID();
@@ -340,7 +340,7 @@ describeIntegration("durable room automation", () => {
     await store.completeAutomationJob(timeoutJob.id, timeoutOwner);
 
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
       [created.roomId],
     );
     const botOwner = randomUUID();
@@ -511,7 +511,7 @@ describeIntegration("durable room automation", () => {
     expect(jobRow?.due_at.getTime() - scheduledAt).toBeLessThanOrEqual(2_100);
 
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'TRICK_ADVANCE'",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'TRICK_ADVANCE'",
       [created.roomId],
     );
     const owner = randomUUID();
@@ -639,7 +639,7 @@ describeIntegration("durable room automation", () => {
     });
 
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'TURN_TIMEOUT'",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'TURN_TIMEOUT'",
       [created.roomId],
     );
     const timeoutOwner = randomUUID();
@@ -660,7 +660,7 @@ describeIntegration("durable room automation", () => {
     await store.completeAutomationJob(timeoutJob.id, timeoutOwner);
 
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
       [created.roomId],
     );
     const botOwner = randomUUID();
@@ -732,7 +732,7 @@ describeIntegration("durable room automation", () => {
       created.roomId,
     );
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'DISCONNECT_GRACE' AND target_seat_index = $2",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'DISCONNECT_GRACE' AND target_seat_index = $2",
       [created.roomId, disconnectedSeat],
     );
     const owner = randomUUID();
@@ -818,7 +818,7 @@ describeIntegration("durable room automation", () => {
       "Umesh",
     ]);
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'TURN_TIMEOUT' AND state = 'pending'",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'TURN_TIMEOUT' AND state = 'pending'",
       [created.roomId],
     );
     const primingWorker = new AutomationWorker({
@@ -830,7 +830,7 @@ describeIntegration("durable room automation", () => {
     });
     await primingWorker.runOnce();
     await database.query(
-      "UPDATE room_automation_jobs SET due_at = now() WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
+      "UPDATE room_automation_jobs SET due_at = now() - interval '1 second' WHERE room_id = $1 AND kind = 'BOT_ACTION' AND state = 'pending'",
       [created.roomId],
     );
 
