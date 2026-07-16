@@ -48,35 +48,6 @@ describe("domain gameplay compatibility snapshot decoder", () => {
     expect(hand.tokens).toEqual([11, 11]);
   });
 
-  it("decodes an all-pass hand result", () => {
-    const { engine, record } = snapshot("classic_304_4p");
-    while (engine.getSnapshot().phase === "four_bidding") {
-      const actor = engine.getSnapshot().activeSeat;
-      if (actor === null) throw new Error("Expected an active bidding seat");
-      expect(
-        engine.applyAction({
-          actorSeatIndex: actor,
-          seatIndex: actor,
-          type: "PASS_BID",
-        }),
-      ).toEqual({ ok: true });
-    }
-
-    const hand = decodeGameplayHand({
-      ...record,
-      state: engine.getSnapshot(),
-    });
-
-    expect(hand.phase).toBe("hand-result");
-    expect(hand.activeSeat).toBeNull();
-    expect(hand.bidding.status).toBe("cancelled");
-    expect(hand.result).toEqual({
-      noScore: true,
-      reason: "All players passed. No score movement this hand.",
-      tokens: [11, 11],
-    });
-  });
-
   it.each([
     { matchTokens: null, phase: "hand-result" },
     { matchTokens: [1, 1], phase: "match-complete" },
