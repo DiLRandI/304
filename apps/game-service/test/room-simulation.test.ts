@@ -1,103 +1,63 @@
-import { GameEngine } from "@three-zero-four/game-engine";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  applyGameplayCommand,
+  buildDeck,
+  chooseGameplayBotCommand,
+  type GameplayCommand,
+  type GameplayHand,
+  getRuleProfile,
+  initialTokens,
+  legalGameplayCommands,
+  projectGameplayHand,
+  type RandomSource,
+  type RuleProfileId,
+  seatIndex,
+  startGameplayHand,
+} from "@three-zero-four/gameplay";
+import { describe, expect, it } from "vitest";
 
-type RuleProfileId = "classic_304_4p" | "six_304_36";
+const deterministicRandom: RandomSource = { next: () => 0.125 };
 
-interface SimulationCard {
-  cardId: string;
-  suit?: string;
-}
-
-interface SimulationState {
-  activeSeat: number | null;
-  completedTricks: Array<{
-    plays: Array<{
-      card: SimulationCard;
-      faceDown: boolean;
-      seatIndex: number;
-    }>;
-  }>;
-  phase: string;
-  seats: Array<{
-    hand: SimulationCard[];
-    trickPoints: number;
-  }>;
-  trump: {
-    card: SimulationCard | null;
-    isOpen: boolean;
-    maker: number | null;
-    suit?: string | null;
-  };
-}
-
-function stateOf(engine: GameEngine): SimulationState {
-  return engine.state as unknown as SimulationState;
-}
-
-function createAutomatedEngine(ruleProfileId: RuleProfileId): GameEngine {
-  const seatCount = ruleProfileId === "six_304_36" ? 6 : 4;
-  return new GameEngine({
-    botDifficulty: "strong",
-    initialSeats: Array.from({ length: seatCount }, (_, index) => ({
-      displayName: `Simulation bot ${index + 1}`,
-      index,
-      type: "bot" as const,
-    })),
-    ruleProfile: ruleProfileId,
-    tableMode: ruleProfileId === "six_304_36" ? "six_6" : "classic_4",
+function startSimulation(ruleProfileId: RuleProfileId): GameplayHand {
+  const profile = getRuleProfile(ruleProfileId);
+  return startGameplayHand({
+    dealer: seatIndex(profile.seatCount - 1, profile.seatCount),
+    deck: buildDeck(profile),
+    handNumber: 1,
+    profile,
+    secondBiddingEnabled: true,
+    tokens: initialTokens(profile),
   });
 }
 
-function useDeterministicEntropy(): void {
-  let handEntropy = 0;
-  vi.stubGlobal("crypto", {
-    getRandomValues(values: Uint32Array): Uint32Array {
-      handEntropy += 1;
-      values[0] = handEntropy;
-      values[1] = handEntropy * 17;
-      return values;
-    },
-  });
-  vi.spyOn(Date, "now").mockReturnValue(1_704_067_200_000);
-  vi.spyOn(Math, "random").mockReturnValue(0.125);
-}
-
-function assertNoPrivateCardLeaks(engine: GameEngine): void {
-  const state = stateOf(engine);
+function assertNoPrivateCardLeaks(hand: GameplayHand): void {
   for (
     let viewerSeatIndex = 0;
-    viewerSeatIndex < state.seats.length;
+    viewerSeatIndex < hand.profile.seatCount;
     viewerSeatIndex += 1
   ) {
-    const payload = JSON.stringify({
-      privateSeat: engine.getSeatView(viewerSeatIndex),
-      publicState: engine.getPublicState(viewerSeatIndex),
-    });
-    for (let seatIndex = 0; seatIndex < state.seats.length; seatIndex += 1) {
-      if (seatIndex === viewerSeatIndex) continue;
-      for (const card of state.seats[seatIndex]?.hand ?? []) {
-        expect(payload).not.toContain(card.cardId);
+    const viewer = seatIndex(viewerSeatIndex, hand.profile.seatCount);
+    const payload = JSON.stringify(projectGameplayHand(hand, viewer));
+    for (
+      let privateSeatIndex = 0;
+      privateSeatIndex < hand.profile.seatCount;
+      privateSeatIndex += 1
+    ) {
+      if (privateSeatIndex === viewerSeatIndex) continue;
+      for (const card of hand.deal.hands[privateSeatIndex] ?? []) {
+        expect(payload).not.toContain(card.id);
       }
     }
-    const hiddenTrump = state.trump.card;
-    if (
-      hiddenTrump &&
-      !state.trump.isOpen &&
-      state.trump.maker !== viewerSeatIndex
-    ) {
-      expect(payload).not.toContain(hiddenTrump.cardId);
+    const hiddenTrump = hand.trump.indicator;
+    if (hiddenTrump && !hand.trump.open && hand.trump.maker !== viewer) {
+      expect(payload).not.toContain(hiddenTrump.id);
     }
-    if (state.phase !== "hand_result" && state.phase !== "match_complete") {
-      for (const trick of state.completedTricks) {
+    if (hand.phase !== "hand-result" && hand.phase !== "match-complete") {
+      for (const trick of hand.completedTricks) {
         for (const play of trick.plays) {
           const publiclyRevealedTrump =
-            state.trump.isOpen && play.card.suit === state.trump.suit;
-          if (
-            play.faceDown &&
-            !publiclyRevealedTrump &&
-            play.seatIndex !== viewerSeatIndex
-          ) {
-            expect(payload).not.toContain(play.card.cardId);
+            hand.trump.open && play.card.suit === hand.trump.suit;
+          if (play.faceDown && !publiclyRevealedTrump) {
+            expect(payload).not.toContain(play.card.id);
           }
         }
       }
@@ -105,62 +65,62 @@ function assertNoPrivateCardLeaks(engine: GameEngine): void {
   }
 }
 
+function applySimulationCommand(
+  hand: GameplayHand,
+  command: GameplayCommand,
+): GameplayHand {
+  const decision = applyGameplayCommand(hand, command);
+  expect(decision).toMatchObject({ ok: true });
+  if (!decision.ok) throw new Error(decision.error.message);
+  return decision.hand;
+}
+
 describe("full-hand automated rule-profile simulations", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-  });
-
   for (const ruleProfileId of ["classic_304_4p", "six_304_36"] as const) {
-    it(`completes a ${ruleProfileId} hand with server-selected legal actions and private views`, () => {
-      useDeterministicEntropy();
-      const engine = createAutomatedEngine(ruleProfileId);
-      engine.startMatch();
+    it(`completes a ${ruleProfileId} hand with domain-selected legal commands and private projections`, () => {
+      let hand = startSimulation(ruleProfileId);
+      let commandsApplied = 0;
 
-      let actionsApplied = 0;
-      while (
-        stateOf(engine).phase !== "hand_result" &&
-        stateOf(engine).phase !== "match_complete" &&
-        actionsApplied < 1_000
-      ) {
-        const state = stateOf(engine);
-        expect(state.phase).not.toBe("match_complete");
-        if (state.phase === "trick_result") {
-          expect(engine.advanceTrick()).toEqual({ ok: true });
-          assertNoPrivateCardLeaks(engine);
-          actionsApplied += 1;
-          continue;
-        }
-        const seatIndex = state.activeSeat ?? 0;
-        if (state.phase !== "hand_result") {
+      while (hand.phase !== "hand-result" && commandsApplied < 1_000) {
+        let command: GameplayCommand;
+        if (hand.phase === "trick-result") {
+          command = { actor: null, type: "ADVANCE_TRICK" };
+        } else {
+          const actor = hand.activeSeat;
           expect(
-            state.activeSeat,
-            `missing active seat during ${state.phase}`,
+            actor,
+            `missing active seat during ${hand.phase}`,
           ).not.toBeNull();
+          if (actor === null) throw new Error("Expected an active seat");
+          const legalCommands = legalGameplayCommands(hand, actor);
+          const selected = chooseGameplayBotCommand(
+            hand,
+            actor,
+            deterministicRandom,
+          );
+          expect(
+            selected,
+            `missing bot command during ${hand.phase}`,
+          ).not.toBeNull();
+          if (!selected) throw new Error("Expected a bot command");
+          expect(legalCommands).toContainEqual(selected);
+          command = selected;
         }
-        const legalActions = engine.getLegalActions(seatIndex);
-        const action = engine.getBotAction(seatIndex);
-        expect(
-          action,
-          `missing bot action during ${state.phase}`,
-        ).not.toBeNull();
-        if (!action) break;
-        expect(legalActions).toContainEqual(action);
 
-        const result = engine.applyAutomationAction(action, seatIndex);
-        expect(result).toEqual({ ok: true });
-        assertNoPrivateCardLeaks(engine);
-        actionsApplied += 1;
+        hand = applySimulationCommand(hand, command);
+        assertNoPrivateCardLeaks(hand);
+        commandsApplied += 1;
       }
 
-      const completed = stateOf(engine);
-      expect(actionsApplied).toBeLessThan(1_000);
-      expect(completed.phase).toBe("hand_result");
-      expect(completed.completedTricks).toHaveLength(
+      expect(commandsApplied).toBeLessThan(1_000);
+      expect(hand.phase).toBe("hand-result");
+      expect(hand.completedTricks).toHaveLength(
         ruleProfileId === "six_304_36" ? 6 : 8,
       );
       expect(
-        completed.seats.reduce((total, seat) => total + seat.trickPoints, 0),
+        hand.capturedCards
+          .flat()
+          .reduce((total, card) => total + card.points, 0),
       ).toBe(304);
     });
   }
