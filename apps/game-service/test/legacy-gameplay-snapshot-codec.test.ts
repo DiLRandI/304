@@ -8,12 +8,12 @@ import {
   legalGameplayCommands,
 } from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
+import { GameplaySnapshotCodecError } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import {
   decodeGameplayHand,
   encodeGameplayHand,
   type LegacyGameplaySnapshotRecord,
-} from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
-import { GameplaySnapshotCodecError } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
+} from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 
 function snapshot(profileId: "classic_304_4p" | "six_304_36"): {
   engine: GameEngine;

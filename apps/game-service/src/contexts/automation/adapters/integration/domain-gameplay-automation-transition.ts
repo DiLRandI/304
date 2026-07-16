@@ -4,14 +4,14 @@ import {
   type GameplayHand,
 } from "@three-zero-four/gameplay";
 import {
-  decodeGameplayHand,
-  encodeGameplayHand,
-  type LegacyGameplaySnapshotRecord,
-} from "../../../gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
-import {
   type GameplaySnapshotRecord,
   serializeGameplaySnapshot,
 } from "../../../gameplay/adapters/persistence/gameplay-snapshot-codec.js";
+import {
+  decodeGameplayHand,
+  encodeGameplayHand,
+  type LegacyGameplaySnapshotRecord,
+} from "../../../gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 import { AutomationExecutionError } from "../../application/automation-execution-error.js";
 
 export interface AutomatedGameplayCommandTransition {

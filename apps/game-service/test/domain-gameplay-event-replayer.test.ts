@@ -2,7 +2,7 @@ import { GameEngine } from "@three-zero-four/game-engine";
 import { buildDeck, nextDealer } from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
 import { replayDomainGameplayEvent } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-event-replayer.js";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.js";
+import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 
 function engineAtStart(): GameEngine {
   const engine = new GameEngine({

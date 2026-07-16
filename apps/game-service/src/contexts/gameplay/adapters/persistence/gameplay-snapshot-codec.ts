@@ -4,8 +4,8 @@ import {
   type RuleProfileId,
 } from "@three-zero-four/gameplay";
 import { z } from "zod";
-import { decodeGameplayHand } from "./domain-gameplay-snapshot-codec.js";
 import { GameplaySnapshotCodecError } from "./gameplay-snapshot-codec-error.js";
+import { decodeGameplayHand } from "./legacy-gameplay-snapshot-codec.js";
 
 export { GameplaySnapshotCodecError } from "./gameplay-snapshot-codec-error.js";
 

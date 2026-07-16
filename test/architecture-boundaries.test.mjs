@@ -502,6 +502,24 @@ test("active runtimes recover the domain Gameplay aggregate", async () => {
   assert.doesNotMatch(workerSource, /LegacyGameplayRecovery/);
 });
 
+test("schema-v1 Gameplay translation is isolated as a legacy persistence adapter", async () => {
+  const gameplayPersistence = await collectSourceFiles(
+    "apps/game-service/src/contexts/gameplay/adapters/persistence",
+  );
+  assert.equal(
+    gameplayPersistence.includes(
+      "apps/game-service/src/contexts/gameplay/adapters/persistence/domain-gameplay-snapshot-codec.ts",
+    ),
+    false,
+  );
+  assert.equal(
+    gameplayPersistence.includes(
+      "apps/game-service/src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.ts",
+    ),
+    true,
+  );
+});
+
 test("gameplay automation scheduling belongs to the Automation application", async () => {
   const schedulerSource = await readFile(
     path.join(
