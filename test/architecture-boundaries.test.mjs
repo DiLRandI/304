@@ -614,6 +614,19 @@ test("schema-v1 second bidding tests use frozen compatibility records", async ()
   assert.doesNotMatch(biddingTestSource, /@three-zero-four\/game-engine/);
 });
 
+test("schema-v1 second bidding completion uses frozen compatibility records", async () => {
+  const completionTestSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/test/legacy-gameplay-second-bidding-completion.test.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(completionTestSource, /legacy-gameplay-snapshot-fixture/);
+  assert.doesNotMatch(completionTestSource, /@three-zero-four\/game-engine/);
+});
+
 test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => {
   const activeRuntimeTests = await Promise.all(
     [
