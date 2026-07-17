@@ -100,6 +100,14 @@ describe("legacy gameplay second bidding completion", () => {
 
     expect(result.hand.phase).toBe(scenario.phase);
     expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
+    expect(result.hand.bidding).toMatchObject({
+      actedInRound: [true, true, true, true],
+      actionsTaken: 4,
+      activeSeat: null,
+      round: "second",
+      status: "complete",
+    });
+    expect(result.hand.activeSeat).toBe(result.hand.trump.maker);
     expect(state.phase).toBe(scenario.phase.replaceAll("-", "_"));
     expect(state.bidding.initialMakerSeat).toBe(started.originalMaker);
     expect(state.bidding.secondRound.actionsTaken).toBe(4);
