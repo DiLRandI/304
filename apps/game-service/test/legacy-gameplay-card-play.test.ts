@@ -107,4 +107,61 @@ describe("legacy gameplay card play", () => {
     expect(state.activeSeat).toBe(result.hand.activeSeat);
     expect(sourceState.currentTrick?.plays).toHaveLength(0);
   });
+
+  it("encodes a completing card play into trick result", () => {
+    let source = startTrickPlay("TRUMP_OPEN");
+    while ((decodeGameplayHand(source).currentTrick?.plays.length ?? 0) < 3) {
+      const before = decodeGameplayHand(source);
+      const actor = before.activeSeat;
+      const command =
+        actor === null
+          ? null
+          : legalGameplayCommands(before, actor).find(
+              (candidate) => candidate.type === "PLAY_CARD",
+            );
+      if (actor === null || !command || command.type !== "PLAY_CARD") {
+        throw new Error("Expected an in-progress card play");
+      }
+      source = transition(source, command).snapshot;
+    }
+    const before = decodeGameplayHand(source);
+    const actor = before.activeSeat;
+    const command =
+      actor === null
+        ? null
+        : legalGameplayCommands(before, actor).find(
+            (candidate) => candidate.type === "PLAY_CARD",
+          );
+    if (actor === null || !command || command.type !== "PLAY_CARD") {
+      throw new Error("Expected the completing card play");
+    }
+
+    const result = transition(source, command);
+    const sourceState = source.state as { completedTricks: unknown[] };
+    const state = result.snapshot.state as {
+      activeSeat: number | null;
+      completedTricks: unknown[];
+      currentTrick: { winnerSeat?: number | null } | null;
+      phase: string;
+      seats: Array<{ wonCards: unknown[] }>;
+    };
+
+    expect(result.hand.phase).toBe("trick-result");
+    expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
+    expect(state.phase).toBe("trick_result");
+    expect(state.activeSeat).toBeNull();
+    expect(state.currentTrick?.winnerSeat).toBe(
+      result.hand.currentTrick?.winnerSeat,
+    );
+    expect(state.completedTricks).toHaveLength(1);
+    expect(
+      state.seats.reduce((total, seat) => total + seat.wonCards.length, 0),
+    ).toBe(4);
+    const advanced = applyGameplayCommand(result.hand, {
+      actor: null,
+      type: "ADVANCE_TRICK",
+    });
+    expect(advanced).toMatchObject({ hand: { phase: "trick-play" }, ok: true });
+    expect(sourceState.completedTricks).toHaveLength(0);
+  });
 });
