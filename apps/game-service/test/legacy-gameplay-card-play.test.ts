@@ -258,7 +258,12 @@ describe("legacy gameplay card play", () => {
     const state = result.snapshot.state as {
       activeSeat: number | null;
       completedTricks: unknown[];
-      handResult: unknown;
+      handResult: {
+        bid?: number;
+        bidderTeam?: number;
+        bidderTeamPoints?: number;
+        winningTeam?: number;
+      } | null;
       phase: string;
       tokens: [number, number];
     };
@@ -271,6 +276,14 @@ describe("legacy gameplay card play", () => {
     expect(state.handResult).toMatchObject(result.hand.result ?? {});
     expect(state.tokens).toEqual(result.hand.tokens);
     expect(state.completedTricks).toHaveLength(8);
+    expect(result.hand.result).toMatchObject({
+      bid: state.handResult?.bid,
+      bidderTeam: state.handResult?.bidderTeam,
+      bidderTeamPoints: state.handResult?.bidderTeamPoints,
+      matchComplete: scenario.phase === "match-complete",
+      tokens: state.tokens,
+      winningTeam: state.handResult?.winningTeam,
+    });
     const maker = result.hand.trump.maker;
     if (maker === null) throw new Error("Expected a trump maker");
     expect(legalGameplayCommands(result.hand, maker)).toContainEqual({
