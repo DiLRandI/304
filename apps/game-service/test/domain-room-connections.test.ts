@@ -1,7 +1,5 @@
-import { GameEngine } from "@three-zero-four/game-engine";
 import { describe, expect, it, vi } from "vitest";
 import { serializeGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { DomainRoomConnections } from "../src/contexts/rooms/adapters/integration/domain-room-connections.js";
 import type {
@@ -13,6 +11,7 @@ import type {
   StoredSeat,
 } from "../src/contexts/rooms/application/room-persistence-model.js";
 import type { RoomPersistenceStore } from "../src/contexts/rooms/application/room-persistence-store.js";
+import { startedGameplayHand } from "./support/gameplay-hand-fixture.js";
 
 const room: StoredRoom = {
   eventVersion: 7,
@@ -33,17 +32,7 @@ const session: AuthenticatedSession = {
 };
 
 function harness(connectionStatus: StoredSeat["connectionStatus"]) {
-  const engine = new GameEngine({
-    humanCount: 4,
-    ruleProfile: "classic_304_4p",
-  });
-  engine.startMatch();
-  const snapshot = engine.getSnapshot();
-  const hand = decodeGameplayHand({
-    ruleProfileId: room.ruleProfileId,
-    schemaVersion: 1,
-    state: snapshot,
-  });
+  const hand = startedGameplayHand(room.ruleProfileId);
   const seats: StoredSeat[] = Array.from({ length: 4 }, (_, seatIndex) => ({
     botDifficulty: seatIndex === 0 ? null : "easy",
     connectionStatus: seatIndex === 0 ? connectionStatus : "online",
@@ -96,7 +85,7 @@ function harness(connectionStatus: StoredSeat["connectionStatus"]) {
     presence,
     recover,
     schedule,
-    snapshot,
+    hand,
   };
 }
 
@@ -117,10 +106,10 @@ describe("DomainRoomConnections", () => {
     const {
       appendEventAndSnapshot,
       connections,
+      hand,
       markSeatOffline,
       presence,
       schedule,
-      snapshot,
     } = harness("online");
 
     await connections.markRealtimeDisconnected(session, room.id);
@@ -134,13 +123,7 @@ describe("DomainRoomConnections", () => {
       payload: { seatIndex: 0 },
       roomId: room.id,
       ruleProfileId: room.ruleProfileId,
-      snapshot: serializeGameplaySnapshot(
-        decodeGameplayHand({
-          ruleProfileId: room.ruleProfileId,
-          schemaVersion: 1,
-          state: snapshot,
-        }),
-      ).state,
+      snapshot: serializeGameplaySnapshot(hand).state,
       snapshotSchemaVersion: 2,
       status: "in_hand",
     });

@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { GameEngine } from "@three-zero-four/game-engine";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "../scripts/migrate.js";
+import { serializeGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import {
   PostgresRoomStore,
   type StoredSeat,
@@ -12,6 +12,7 @@ import {
   createDatabase,
   type Database,
 } from "../src/platform/postgres/database.js";
+import { startedGameplayHand } from "./support/gameplay-hand-fixture.js";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const describeIntegration = databaseUrl ? describe : describe.skip;
@@ -80,14 +81,7 @@ describeIntegration("durable room store", () => {
     });
     expect(await store.loadSnapshot(roomId)).toBeNull();
 
-    const startedEngine = new GameEngine({
-      playerName: "Asha",
-      humanCount: 1,
-      tableMode: "classic_4",
-      ruleProfile: "classic_304_4p",
-      initialSeats: initialSeats(hostPlayerId),
-    });
-    startedEngine.startMatch();
+    const started = serializeGameplaySnapshot(startedGameplayHand());
     const commandId = randomUUID();
     const eventVersion = await store.transaction((transaction) =>
       store.appendEventAndSnapshot(transaction, {
@@ -96,8 +90,9 @@ describeIntegration("durable room store", () => {
         commandId,
         actorPlayerId: hostPlayerId,
         eventType: "ROOM_STARTED",
-        payload: { ruleProfileId: "classic_304_4p" },
-        snapshot: startedEngine.getSnapshot(),
+        payload: started,
+        snapshot: started.state,
+        snapshotSchemaVersion: 2,
         status: "in_hand",
         ruleProfileId: "classic_304_4p",
       }),
@@ -110,7 +105,8 @@ describeIntegration("durable room store", () => {
     ]);
     expect(await store.loadSnapshot(roomId)).toMatchObject({
       eventVersion: 2,
-      state: expect.objectContaining({ phase: "four_bidding" }),
+      schemaVersion: 2,
+      state: expect.objectContaining({ phase: "four-bidding" }),
     });
     expect(
       await store.findDuplicate(roomId, commandId, hostPlayerId),
