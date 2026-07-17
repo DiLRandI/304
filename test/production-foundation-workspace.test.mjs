@@ -64,6 +64,10 @@ test("declares the pinned production workspace toolchain", () => {
     packageJson.scripts.check,
     "pnpm lint && pnpm typecheck && pnpm test:unit",
   );
+  assert.equal(
+    packageJson.scripts.typecheck,
+    "pnpm --filter @three-zero-four/gameplay build && pnpm --filter @three-zero-four/gameplay typecheck && pnpm --filter @three-zero-four/room-domain build && pnpm --filter @three-zero-four/room-domain typecheck && pnpm --filter @three-zero-four/contracts build && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
+  );
   assert.match(workspace, /packages:\n\s+- apps\/\*/);
   assert.match(workspace, /\s+- packages\/\*/);
   assert.match(workspace, /minimumReleaseAge: 1440/);
