@@ -14,6 +14,16 @@ describe("legacy gameplay result acknowledgement", () => {
   it("encodes a new audited hand", () => {
     const source = legacyAllPassGameplaySnapshot();
     const before = decodeGameplayHand(source);
+
+    expect(before.phase).toBe("hand-result");
+    expect(before.activeSeat).toBeNull();
+    expect(before.bidding.status).toBe("cancelled");
+    expect(before.result).toEqual({
+      noScore: true,
+      reason: "All players passed. No score movement this hand.",
+      tokens: [11, 11],
+    });
+
     const nextDeck = buildDeck(before.profile).toReversed();
     const acknowledged = acknowledgeGameplayResult(before, nextDeck);
     if (!acknowledged.ok) throw new Error(acknowledged.error.message);
