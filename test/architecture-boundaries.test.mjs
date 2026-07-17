@@ -572,6 +572,22 @@ test("schema-v1 opening transition tests use frozen compatibility records", asyn
   assert.doesNotMatch(openingTestSource, /@three-zero-four\/game-engine/);
 });
 
+test("schema-v1 result acknowledgement tests use frozen compatibility records", async () => {
+  const acknowledgementTestSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/test/legacy-gameplay-result-acknowledgement.test.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(acknowledgementTestSource, /legacy-gameplay-snapshot-fixture/);
+  assert.doesNotMatch(
+    acknowledgementTestSource,
+    /@three-zero-four\/game-engine/,
+  );
+});
+
 test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => {
   const activeRuntimeTests = await Promise.all(
     [
