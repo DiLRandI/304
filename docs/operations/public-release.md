@@ -74,7 +74,7 @@ coverage verifies that alternate face-down plays and the reserved closed-trump
 indicator remain reachable without revealing the indicator card. It does not
 inspect PostgreSQL to advance a game.
 
-The game-engine unit suite separately verifies that a viewerless projection
+The Gameplay domain suite separately verifies that a viewerless projection
 marks no seat as the viewer, never inherits seat 0's closed-trump visibility,
 gives a non-maker bot no hidden trump data that can influence its choice, and
 keeps captured or historical face-down non-trump identities private while a

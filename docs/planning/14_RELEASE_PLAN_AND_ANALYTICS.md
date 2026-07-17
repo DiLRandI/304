@@ -296,8 +296,8 @@ Public casual launch is ready when:
     PostgreSQL and Redis.
 - Keep deployment manifests and health checks for frontend/backend parity.
 - Record rollback plan per component boundary.
-- Keep `server.js` as a compatibility baseline, not the release-facing source
-  of game authority.
+- Keep Next.js and Fastify as the only supported application runtime and keep
+  authoritative Gameplay state out of the browser.
 - The Vercel frontend calls only the documented game-service contracts and
   never owns room state.
 - Verify the game service `/livez` and `/readyz` probes before frontend
