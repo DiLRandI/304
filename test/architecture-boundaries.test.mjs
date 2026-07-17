@@ -502,6 +502,19 @@ test("active runtimes recover the domain Gameplay aggregate", async () => {
   assert.doesNotMatch(workerSource, /LegacyGameplayRecovery/);
 });
 
+test("full-hand simulations exercise the domain Gameplay aggregate", async () => {
+  const simulationSource = await readFile(
+    path.join(repoRoot, "apps/game-service/test/room-simulation.test.ts"),
+    "utf8",
+  );
+
+  assert.match(simulationSource, /@three-zero-four\/gameplay/);
+  assert.match(simulationSource, /applyGameplayCommand/);
+  assert.match(simulationSource, /chooseGameplayBotCommand/);
+  assert.match(simulationSource, /projectGameplayHand/);
+  assert.doesNotMatch(simulationSource, /@three-zero-four\/game-engine/);
+});
+
 test("schema-v1 Gameplay translation is isolated as a legacy persistence adapter", async () => {
   const gameplayPersistence = await collectSourceFiles(
     "apps/game-service/src/contexts/gameplay/adapters/persistence",
