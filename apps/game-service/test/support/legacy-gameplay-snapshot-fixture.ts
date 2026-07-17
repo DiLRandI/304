@@ -46,6 +46,60 @@ const remainingDeck = [
   { cardId: "D_J", points: 30, rank: "J", suit: "diamonds" },
 ] as const;
 
+const sixSeatOpeningHands = [
+  [
+    { cardId: "H_7", points: 0, rank: "7", suit: "hearts" },
+    { cardId: "D_6", points: 0, rank: "6", suit: "diamonds" },
+    { cardId: "H_8", points: 0, rank: "8", suit: "hearts" },
+    { cardId: "S_A", points: 11, rank: "A", suit: "spades" },
+  ],
+  [
+    { cardId: "H_Q", points: 2, rank: "Q", suit: "hearts" },
+    { cardId: "C_A", points: 11, rank: "A", suit: "clubs" },
+    { cardId: "S_9", points: 20, rank: "9", suit: "spades" },
+    { cardId: "D_10", points: 10, rank: "10", suit: "diamonds" },
+  ],
+  [
+    { cardId: "S_8", points: 0, rank: "8", suit: "spades" },
+    { cardId: "D_7", points: 0, rank: "7", suit: "diamonds" },
+    { cardId: "C_9", points: 20, rank: "9", suit: "clubs" },
+    { cardId: "C_6", points: 0, rank: "6", suit: "clubs" },
+  ],
+  [
+    { cardId: "S_10", points: 10, rank: "10", suit: "spades" },
+    { cardId: "S_K", points: 3, rank: "K", suit: "spades" },
+    { cardId: "H_J", points: 30, rank: "J", suit: "hearts" },
+    { cardId: "D_9", points: 20, rank: "9", suit: "diamonds" },
+  ],
+  [
+    { cardId: "D_K", points: 3, rank: "K", suit: "diamonds" },
+    { cardId: "H_K", points: 3, rank: "K", suit: "hearts" },
+    { cardId: "C_K", points: 3, rank: "K", suit: "clubs" },
+    { cardId: "H_6", points: 0, rank: "6", suit: "hearts" },
+  ],
+  [
+    { cardId: "S_Q", points: 2, rank: "Q", suit: "spades" },
+    { cardId: "C_Q", points: 2, rank: "Q", suit: "clubs" },
+    { cardId: "H_A", points: 11, rank: "A", suit: "hearts" },
+    { cardId: "C_8", points: 0, rank: "8", suit: "clubs" },
+  ],
+] as const;
+
+const sixSeatRemainingDeck = [
+  { cardId: "C_10", points: 10, rank: "10", suit: "clubs" },
+  { cardId: "D_J", points: 30, rank: "J", suit: "diamonds" },
+  { cardId: "D_A", points: 11, rank: "A", suit: "diamonds" },
+  { cardId: "S_J", points: 30, rank: "J", suit: "spades" },
+  { cardId: "S_7", points: 0, rank: "7", suit: "spades" },
+  { cardId: "H_10", points: 10, rank: "10", suit: "hearts" },
+  { cardId: "H_9", points: 20, rank: "9", suit: "hearts" },
+  { cardId: "C_7", points: 0, rank: "7", suit: "clubs" },
+  { cardId: "D_Q", points: 2, rank: "Q", suit: "diamonds" },
+  { cardId: "S_6", points: 0, rank: "6", suit: "spades" },
+  { cardId: "D_8", points: 0, rank: "8", suit: "diamonds" },
+  { cardId: "C_J", points: 30, rank: "J", suit: "clubs" },
+] as const;
+
 const startedClassicSnapshot: LegacyGameplaySnapshotRecord = {
   ruleProfileId: "classic_304_4p",
   schemaVersion: 1,
@@ -82,6 +136,53 @@ const startedClassicSnapshot: LegacyGameplaySnapshotRecord = {
     profileId: "classic_304_4p",
     seatCount: 4,
     seats: openingHands.map((hand, index) => ({
+      firstHand: hand,
+      hand,
+      index,
+      wonCards: [],
+    })),
+    tokens: [11, 11],
+    trump: { card: null, isOpen: false, maker: null, suit: null },
+    trumpClosed: true,
+  },
+};
+
+const startedSixSeatSnapshot: LegacyGameplaySnapshotRecord = {
+  ruleProfileId: "six_304_36",
+  schemaVersion: 1,
+  state: {
+    activeSeat: 0,
+    bidding: {
+      actedInRound: [],
+      actions: [],
+      activeOrderIndex: 0,
+      currentBid: 0,
+      currentBidSeat: null,
+      initialMakerSeat: null,
+      noBidPasses: 0,
+      order: [0, 1, 2, 3, 4, 5],
+      passesAfterBid: 0,
+      phase: "four",
+      secondRound: {
+        actionsTaken: 0,
+        activeOrderIndex: 0,
+        enabled: true,
+        order: [],
+        previousBid: 0,
+        previousBidSeat: null,
+      },
+    },
+    completedTricks: [],
+    currentTrick: null,
+    dealerSeat: 5,
+    deck: sixSeatRemainingDeck,
+    handNumber: 1,
+    handResult: null,
+    phase: "four_bidding",
+    profile: { id: "six_304_36" },
+    profileId: "six_304_36",
+    seatCount: 6,
+    seats: sixSeatOpeningHands.map((hand, index) => ({
       firstHand: hand,
       hand,
       index,
@@ -141,6 +242,10 @@ export function legacyAllPassGameplaySnapshot(): LegacyGameplaySnapshotRecord {
   };
   state.phase = "hand_result";
   return record;
+}
+
+export function legacyStartedSixSeatGameplaySnapshot(): LegacyGameplaySnapshotRecord {
+  return structuredClone(startedSixSeatSnapshot);
 }
 
 export function legacyLobbyGameplaySnapshot(): LegacyGameplaySnapshotRecord {
