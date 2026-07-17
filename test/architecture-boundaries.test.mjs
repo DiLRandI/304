@@ -588,6 +588,19 @@ test("schema-v1 result acknowledgement tests use frozen compatibility records", 
   );
 });
 
+test("schema-v1 trump selection tests use frozen compatibility records", async () => {
+  const selectionTestSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/test/legacy-gameplay-trump-selection.test.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(selectionTestSource, /legacy-gameplay-snapshot-fixture/);
+  assert.doesNotMatch(selectionTestSource, /@three-zero-four\/game-engine/);
+});
+
 test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => {
   const activeRuntimeTests = await Promise.all(
     [
