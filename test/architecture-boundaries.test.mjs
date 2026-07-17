@@ -484,6 +484,10 @@ test("retired legacy gameplay runtimes stay deleted", async () => {
   for (const filename of [
     "index.html",
     "server.js",
+    "src/engine/bot.js",
+    "src/engine/cardData.js",
+    "src/engine/engine.js",
+    "src/engine/profiles.js",
     "styles.css",
     "src/ui/app.js",
     "src/ui/view.js",
