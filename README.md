@@ -7,14 +7,14 @@ legal approval.
 
 ## Current architecture
 
-- `packages/game-engine` contains deterministic game rules and server-selected bot decisions for Classic and six-seat 304.
+- `packages/gameplay` contains the authoritative Gameplay domain, deterministic rules, scoring, and server-selected bot policy for Classic and six-seat 304.
 - `packages/contracts` validates versioned game commands and private views.
 - `apps/game-service` is the Fastify boundary for the production game API.
 - `apps/web` is a Next.js player client with no game-state authority.
 - PostgreSQL stores durable guest sessions, rooms, seats, accepted events, private snapshots, room outbox rows, and automation jobs; Redis provides leases, presence, Pub/Sub notices, rate limits, and cross-worker telemetry.
 - The game service exposes authenticated `/v1` HTTP commands plus private WebSocket room projections. A separately deployed worker runs bot, timeout, and disconnected-player automation from durable jobs.
-- The legacy static Node.js server remains a compatibility baseline; the
-  Next.js client is the release-facing player interface.
+- The Next.js client and Fastify service are the only supported application
+  runtime.
 
 ## Development
 
@@ -24,13 +24,7 @@ pnpm install --frozen-lockfile
 pnpm check
 ```
 
-The legacy playable baseline runs with:
-
-```bash
-pnpm start
-```
-
-It listens on `http://127.0.0.1:4173` by default.
+Use the production-like Compose topology below for local application runtime.
 
 ## Local and cloud delivery
 

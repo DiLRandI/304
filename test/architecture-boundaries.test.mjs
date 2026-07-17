@@ -462,6 +462,9 @@ test("retired legacy gameplay runtimes stay deleted", async () => {
       "utf8",
     ),
   );
+  const rootManifest = JSON.parse(
+    await readFile(path.join(repoRoot, "package.json"), "utf8"),
+  );
 
   for (const filename of [
     "apps/game-service/src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.ts",
@@ -477,6 +480,7 @@ test("retired legacy gameplay runtimes stay deleted", async () => {
     serviceManifest.dependencies["@three-zero-four/game-engine"],
     undefined,
   );
+  assert.doesNotMatch(JSON.stringify(rootManifest.scripts), /server\.js/);
 });
 
 test("active runtimes recover the domain Gameplay aggregate", async () => {
