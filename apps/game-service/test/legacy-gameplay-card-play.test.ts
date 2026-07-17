@@ -27,9 +27,11 @@ function transition(
 
 function startTrickPlay(
   trumpChoice: "TRUMP_CLOSE" | "TRUMP_OPEN",
+  tokens?: readonly [number, number],
 ): LegacyGameplaySnapshotRecord {
   let snapshot = legacyStartedGameplaySnapshot({
     secondBiddingEnabled: false,
+    tokens,
   });
   while (decodeGameplayHand(snapshot).phase === "four-bidding") {
     const before = decodeGameplayHand(snapshot);
@@ -212,5 +214,59 @@ describe("legacy gameplay card play", () => {
       expect.objectContaining({ type: "PLAY_CARD" }),
     );
     expect(sourceState.phase).toBe("trick_result");
+  });
+
+  it.each([
+    { phase: "hand-result", tokens: undefined },
+    { phase: "match-complete", tokens: [1, 1] as const },
+  ] as const)("encodes final trick advancement into $phase", (scenario) => {
+    let source = startTrickPlay("TRUMP_OPEN", scenario.tokens);
+    while (decodeGameplayHand(source).completedTricks.length < 8) {
+      while (decodeGameplayHand(source).phase === "trick-play") {
+        const before = decodeGameplayHand(source);
+        const actor = before.activeSeat;
+        const command =
+          actor === null
+            ? null
+            : legalGameplayCommands(before, actor).find(
+                (candidate) => candidate.type === "PLAY_CARD",
+              );
+        if (actor === null || !command || command.type !== "PLAY_CARD") {
+          throw new Error("Expected a legal card play");
+        }
+        source = transition(source, command).snapshot;
+      }
+      if (decodeGameplayHand(source).completedTricks.length < 8) {
+        source = transition(source, {
+          actor: null,
+          type: "ADVANCE_TRICK",
+        }).snapshot;
+      }
+    }
+    const before = decodeGameplayHand(source);
+    const result = transition(source, { actor: null, type: "ADVANCE_TRICK" });
+    const state = result.snapshot.state as {
+      activeSeat: number | null;
+      completedTricks: unknown[];
+      handResult: unknown;
+      phase: string;
+      tokens: [number, number];
+    };
+
+    expect(before.phase).toBe("trick-result");
+    expect(result.hand.phase).toBe(scenario.phase);
+    expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
+    expect(state.phase).toBe(scenario.phase.replaceAll("-", "_"));
+    expect(state.activeSeat).toBeNull();
+    expect(state.handResult).toMatchObject(result.hand.result ?? {});
+    expect(state.tokens).toEqual(result.hand.tokens);
+    expect(state.completedTricks).toHaveLength(8);
+    const maker = result.hand.trump.maker;
+    if (maker === null) throw new Error("Expected a trump maker");
+    expect(legalGameplayCommands(result.hand, maker)).toContainEqual({
+      actor: maker,
+      type: "ACK_RESULT",
+    });
+    expect((source.state as { phase: string }).phase).toBe("trick_result");
   });
 });

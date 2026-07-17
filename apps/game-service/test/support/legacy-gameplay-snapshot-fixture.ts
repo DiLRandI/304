@@ -94,7 +94,10 @@ const startedClassicSnapshot: LegacyGameplaySnapshotRecord = {
 };
 
 export function legacyStartedGameplaySnapshot(
-  options: { readonly secondBiddingEnabled?: boolean } = {},
+  options: {
+    readonly secondBiddingEnabled?: boolean;
+    readonly tokens?: readonly [number, number];
+  } = {},
 ): LegacyGameplaySnapshotRecord {
   const record = structuredClone(startedClassicSnapshot);
   if (options.secondBiddingEnabled !== undefined) {
@@ -102,6 +105,10 @@ export function legacyStartedGameplaySnapshot(
       bidding: { secondRound: { enabled: boolean } };
     };
     state.bidding.secondRound.enabled = options.secondBiddingEnabled;
+  }
+  if (options.tokens !== undefined) {
+    const state = record.state as { tokens: [number, number] };
+    state.tokens = [...options.tokens];
   }
   return record;
 }
