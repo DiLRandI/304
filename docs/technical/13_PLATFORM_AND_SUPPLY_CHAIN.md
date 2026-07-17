@@ -1,7 +1,7 @@
 # Platform and Supply-Chain Decision
 
 **Status:** Current
-**Last reviewed:** 2026-07-11
+**Last reviewed:** 2026-07-16
 
 ## Decision
 
@@ -15,10 +15,10 @@
   outbox rows, and automation jobs.
 - Redis provides coordination, leases, presence, rate limits, Pub/Sub, and
   bounded operational telemetry. It is not a source of game history.
-- `packages/game-engine` owns deterministic rules and server-selected bot
-  actions; `packages/contracts` owns validated wire schemas.
-- The legacy `server.js` and static client remain a compatibility baseline,
-  not the release-facing production architecture.
+- `packages/gameplay` owns deterministic Gameplay rules, projections, and
+  server-selected bot policy; `packages/room-domain` owns room lifecycle;
+  `packages/contracts` owns validated wire schemas.
+- Next.js and Fastify are the only supported application runtime.
 
 The browser sends intents and renders private server projections. It never
 owns authoritative room state, shuffle material, other players' cards, or
@@ -88,7 +88,7 @@ suite alone is not release evidence.
 
 - No browser or Vercel environment variable may contain database, Redis,
   migration, session, or cloud credentials.
-- No client path may import the authoritative engine or reconstruct hidden
+- No client path may import an authoritative domain package or reconstruct hidden
   state.
 - Every accepted room mutation is authenticated, validated, idempotent,
   versioned, and durably recorded before publication.

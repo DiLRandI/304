@@ -141,9 +141,9 @@ Transport contracts form an anti-corruption layer. Domain code never imports
 domain commands/results. Legacy snapshot and event codecs remain until every
 persisted state is readable through the new modules.
 
-The root static runtime and old game-engine facade are migration scaffolding.
-They are removed only after public behavior, persistence, browser, recovery,
-and release-rehearsal parity is proven.
+The root static runtime and old game-engine facade have been removed after
+their behavior was characterized and transferred to the Gameplay domain,
+service integration tests, and browser release rehearsal.
 
 ## Enforced rules
 
