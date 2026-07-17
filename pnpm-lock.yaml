@@ -47,9 +47,6 @@ importers:
       '@three-zero-four/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@three-zero-four/game-engine':
-        specifier: workspace:*
-        version: link:../../packages/game-engine
       '@three-zero-four/gameplay':
         specifier: workspace:*
         version: link:../../packages/gameplay

@@ -456,6 +456,12 @@ test("the Gameplay recovery port owns its recovered runtime", async () => {
 
 test("retired legacy gameplay runtimes stay deleted", async () => {
   const sourceFiles = await collectSourceFiles("apps/game-service/src");
+  const serviceManifest = JSON.parse(
+    await readFile(
+      path.join(repoRoot, "apps/game-service/package.json"),
+      "utf8",
+    ),
+  );
 
   for (const filename of [
     "apps/game-service/src/contexts/automation/adapters/integration/legacy-gameplay-automation-executor.ts",
@@ -467,6 +473,10 @@ test("retired legacy gameplay runtimes stay deleted", async () => {
   ]) {
     assert.equal(sourceFiles.includes(filename), false, filename);
   }
+  assert.equal(
+    serviceManifest.dependencies["@three-zero-four/game-engine"],
+    undefined,
+  );
 });
 
 test("active runtimes recover the domain Gameplay aggregate", async () => {
