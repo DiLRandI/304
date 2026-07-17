@@ -116,6 +116,20 @@ test("public-release CI includes browser, scanner, load, and restore gates", () 
   assert.match(readme, /Public-release rehearsal/);
 });
 
+test("integration fixtures make forced-due jobs tolerant of container clock skew", () => {
+  const automation = read(
+    "apps/game-service/test/room-automation.integration.test.ts",
+  );
+  const recovery = read(
+    "apps/game-service/test/recovery-fuzz.integration.test.ts",
+  );
+
+  for (const fixture of [automation, recovery]) {
+    assert.doesNotMatch(fixture, /SET due_at = now\(\) WHERE/);
+    assert.match(fixture, /SET due_at = now\(\) - interval '1 second'/);
+  }
+});
+
 test("delivery workflow keeps local and external-Postgres AWS contracts visible", () => {
   const makefile = read("Makefile");
   const awsCompose = read("infra/compose/compose.aws.yaml");
