@@ -601,6 +601,19 @@ test("schema-v1 trump selection tests use frozen compatibility records", async (
   assert.doesNotMatch(selectionTestSource, /@three-zero-four\/game-engine/);
 });
 
+test("schema-v1 second bidding tests use frozen compatibility records", async () => {
+  const biddingTestSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/test/legacy-gameplay-second-bidding.test.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(biddingTestSource, /legacy-gameplay-snapshot-fixture/);
+  assert.doesNotMatch(biddingTestSource, /@three-zero-four\/game-engine/);
+});
+
 test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => {
   const activeRuntimeTests = await Promise.all(
     [
