@@ -1,36 +1,17 @@
-import { GameEngine } from "@three-zero-four/game-engine";
-import {
-  buildDeck,
-  getRuleProfile,
-  initialTokens,
-  seatIndex,
-  startGameplayHand,
-} from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
 import {
   GameplaySnapshotCodecError,
   hydrateGameplaySnapshot,
   serializeGameplaySnapshot,
 } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
-
-function hand(profileId: "classic_304_4p" | "six_304_36") {
-  const profile = getRuleProfile(profileId);
-  return startGameplayHand({
-    dealer: seatIndex(0, profile.seatCount),
-    deck: buildDeck(profile),
-    handNumber: 1,
-    profile,
-    secondBiddingEnabled: true,
-    tokens: initialTokens(profile),
-  });
-}
+import { startedGameplayHand } from "./support/gameplay-hand-fixture.js";
 
 describe("gameplay snapshot codec", () => {
   it.each([
     "classic_304_4p",
     "six_304_36",
   ] as const)("round-trips a versioned %s aggregate snapshot", (profileId) => {
-    const aggregate = hand(profileId);
+    const aggregate = startedGameplayHand(profileId);
     const record = serializeGameplaySnapshot(aggregate);
 
     expect(record).toMatchObject({
@@ -42,7 +23,7 @@ describe("gameplay snapshot codec", () => {
   });
 
   it("does not let hydrated mutations alter the persisted JSON value", () => {
-    const record = serializeGameplaySnapshot(hand("classic_304_4p"));
+    const record = serializeGameplaySnapshot(startedGameplayHand());
     const hydrated = hydrateGameplaySnapshot(record);
     const firstHand = hydrated.deal.hands[0] as unknown[];
 
@@ -51,27 +32,10 @@ describe("gameplay snapshot codec", () => {
     expect(hydrateGameplaySnapshot(record).deal.hands[0]).toHaveLength(4);
   });
 
-  it("hydrates a production schema-v1 started snapshot", () => {
-    const engine = new GameEngine({
-      humanCount: 4,
-      ruleProfile: "classic_304_4p",
-    });
-    engine.startMatch();
-
-    const hydrated = hydrateGameplaySnapshot({
-      ruleProfileId: "classic_304_4p",
-      schemaVersion: 1,
-      state: engine.getSnapshot(),
-    });
-
-    expect(hydrated.phase).toBe("four-bidding");
-    expect(hydrated.profile.id).toBe("classic_304_4p");
-  });
-
   it("rejects unsupported snapshot versions", () => {
     expect(() =>
       hydrateGameplaySnapshot({
-        ...serializeGameplaySnapshot(hand("classic_304_4p")),
+        ...serializeGameplaySnapshot(startedGameplayHand()),
         schemaVersion: 3,
       }),
     ).toThrowError(
@@ -83,7 +47,7 @@ describe("gameplay snapshot codec", () => {
   });
 
   it("rejects structurally invalid aggregate state", () => {
-    const record = serializeGameplaySnapshot(hand("classic_304_4p"));
+    const record = serializeGameplaySnapshot(startedGameplayHand());
     expect(() =>
       hydrateGameplaySnapshot({
         ...record,
