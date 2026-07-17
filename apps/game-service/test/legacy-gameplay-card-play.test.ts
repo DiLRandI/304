@@ -150,6 +150,16 @@ describe("legacy gameplay card play", () => {
 
     expect(result.hand.phase).toBe("trick-result");
     expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
+    expect(result.hand.activeSeat).toBeNull();
+    expect(result.hand.currentTrick).toMatchObject({
+      activeSeat: null,
+      status: "complete",
+      winnerSeat: state.currentTrick?.winnerSeat,
+    });
+    expect(result.hand.completedTricks).toHaveLength(1);
+    expect(result.hand.capturedCards.map((cards) => cards.length)).toEqual(
+      state.seats.map((seat) => seat.wonCards.length),
+    );
     expect(state.phase).toBe("trick_result");
     expect(state.activeSeat).toBeNull();
     expect(state.currentTrick?.winnerSeat).toBe(
