@@ -55,6 +55,30 @@ describe("legacy gameplay opening transitions", () => {
     ).toHaveLength(0);
   });
 
+  it("decodes an in-progress opening bid without engine internals", () => {
+    const source = legacyStartedGameplaySnapshot();
+    const before = decodeGameplayHand(source);
+    const actor = before.activeSeat;
+    if (actor === null) throw new Error("Expected an active bidding seat");
+
+    const result = transition(source, {
+      actor,
+      amount: bidAmount(160),
+      type: "BID",
+    });
+
+    expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
+    expect(result.hand.activeSeat).toBe((actor + 1) % 4);
+    expect(result.hand.bidding).toMatchObject({
+      actionsTaken: 1,
+      currentBid: 160,
+      currentBidder: actor,
+      round: "four",
+      status: "active",
+    });
+    expect(result.hand.bidding.actedInRound[actor]).toBe(true);
+  });
+
   it("encodes the final opening pass into trump selection", () => {
     let source = legacyStartedGameplaySnapshot();
     for (const type of ["BID", "PASS_BID", "PASS_BID"] as const) {
@@ -79,6 +103,13 @@ describe("legacy gameplay opening transitions", () => {
     expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
     expect(state.phase).toBe("trump_selection");
     expect(state.trump.maker).toBe(result.hand.trump.maker);
+    expect(result.hand.activeSeat).toBe(result.hand.trump.maker);
+    expect(result.hand.bidding).toMatchObject({
+      activeSeat: null,
+      currentBid: 160,
+      currentBidder: result.hand.trump.maker,
+      status: "complete",
+    });
     expect(
       legalGameplayCommands(result.hand, result.hand.activeSeat ?? actor),
     ).toHaveLength(4);
