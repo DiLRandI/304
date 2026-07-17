@@ -1,7 +1,5 @@
-import { GameEngine } from "@three-zero-four/game-engine";
 import type { GameplayHand } from "@three-zero-four/gameplay";
 import { describe, expect, it, vi } from "vitest";
-import { decodeGameplayHand } from "../src/contexts/gameplay/adapters/persistence/legacy-gameplay-snapshot-codec.js";
 import { RecoveryError } from "../src/contexts/gameplay/application/gameplay-recovery-error.js";
 import type { AuthenticatedSession } from "../src/contexts/player-access/application/player-session-ports.js";
 import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
@@ -13,6 +11,7 @@ import type {
   StoredSeat,
 } from "../src/contexts/rooms/application/room-persistence-model.js";
 import type { RoomPersistenceStore } from "../src/contexts/rooms/application/room-persistence-store.js";
+import { startedGameplayHand } from "./support/gameplay-hand-fixture.js";
 
 const room: StoredRoom = {
   eventVersion: 5,
@@ -115,33 +114,7 @@ describe("RoomProjectionQueryAdapter", () => {
   });
 
   it("recovers and projects an active room for its seated viewer", async () => {
-    const engine = new GameEngine({
-      botDifficulty: "easy",
-      enableSecondBidding: true,
-      humanCount: 1,
-      initialSeats: [
-        {
-          connectionStatus: "online",
-          displayName: "Host",
-          type: "human",
-          userId: room.hostPlayerId,
-        },
-        ...[1, 2, 3].map((index) => ({
-          botDifficulty: "easy" as const,
-          displayName: `Bot ${index}`,
-          type: "bot" as const,
-        })),
-      ],
-      playerName: "Host",
-      ruleProfile: "classic_304_4p",
-      tableMode: "classic_4",
-    });
-    engine.startMatch();
-    const hand = decodeGameplayHand({
-      ruleProfileId: room.ruleProfileId,
-      schemaVersion: 1,
-      state: engine.getSnapshot(),
-    });
+    const hand = startedGameplayHand(room.ruleProfileId);
     const activeRoom = { ...room, status: "in_hand" as const };
     const { queries, recover } = harness({
       recovery: async () => hand,
