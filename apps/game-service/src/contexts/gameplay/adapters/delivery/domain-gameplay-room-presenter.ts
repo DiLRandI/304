@@ -40,7 +40,7 @@ function projectableStatus(
   throw new GameplayApplicationError("ROOM_UNAVAILABLE", "Room is unavailable");
 }
 
-function legacyPhase(hand: GameplayHand): string {
+function wirePhase(hand: GameplayHand): string {
   return hand.phase.replaceAll("-", "_");
 }
 
@@ -137,7 +137,7 @@ function gameMessage(hand: GameplayHand): string {
   return gameplayPrompt(hand, null);
 }
 
-function legacyProfile(hand: GameplayHand) {
+function wireProfile(hand: GameplayHand) {
   return {
     ...hand.profile,
     dealerRotateOnStart: true,
@@ -255,8 +255,8 @@ export function projectDomainRoomForPlayer(
         handResult: publicHandResult(hand),
         inviteCode: room.inviteCode,
         latestTrick: completedTricks.at(-1) ?? null,
-        phase: legacyPhase(hand),
-        profile: legacyProfile(hand),
+        phase: wirePhase(hand),
+        profile: wireProfile(hand),
         profileId: hand.profile.id,
         seatCount: hand.profile.seatCount,
         seats: projection.seats.map((seat) => {
