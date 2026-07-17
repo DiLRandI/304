@@ -524,6 +524,7 @@ test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => 
   const activeRuntimeTests = await Promise.all(
     [
       "apps/game-service/test/domain-gameplay-command-executor.test.ts",
+      "apps/game-service/test/domain-gameplay-command-transition.test.ts",
       "apps/game-service/test/domain-gameplay-automation-executor.test.ts",
       "apps/game-service/test/domain-gameplay-automation-presenter.test.ts",
       "apps/game-service/test/domain-gameplay-event-replayer.test.ts",
@@ -622,6 +623,19 @@ test("domain gameplay commands execute through a Gameplay adapter", async () => 
     serverSource,
     /new SubmitGameplayCommandHandler\(gameplayCommands/,
   );
+});
+
+test("Gameplay command transitions persist only domain snapshots", async () => {
+  const transitionSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/src/contexts/gameplay/adapters/integration/domain-gameplay-command-transition.ts",
+    ),
+    "utf8",
+  );
+  assert.match(transitionSource, /export function transitionGameplayCommand/);
+  assert.doesNotMatch(transitionSource, /legacy-gameplay-snapshot-codec/);
+  assert.doesNotMatch(transitionSource, /transitionHydratedGameplayCommand/);
 });
 
 test("the Gameplay command application owns its actor contract", async () => {
