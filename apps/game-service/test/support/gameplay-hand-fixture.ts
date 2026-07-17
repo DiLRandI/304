@@ -38,6 +38,19 @@ export function startedGameplayHand(
   });
 }
 
+export function cancelledGameplayHand(): GameplayHand {
+  let hand = startedGameplayHand();
+  while (hand.phase === "four-bidding") {
+    const actor = hand.activeSeat;
+    if (actor === null) throw new Error("Expected an active bidding seat");
+    hand = applyGameplayFixtureCommand(hand, { actor, type: "PASS_BID" });
+  }
+  if (hand.phase !== "hand-result") {
+    throw new Error("Expected a cancelled hand result");
+  }
+  return hand;
+}
+
 export function selectedTrumpGameplayHand(amount = 200): GameplayHand {
   let hand = startedGameplayHand("classic_304_4p", false);
   const bidder = hand.activeSeat;
