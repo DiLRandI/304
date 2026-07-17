@@ -533,6 +533,19 @@ test("schema-v1 Gameplay translation is isolated as a legacy persistence adapter
   );
 });
 
+test("schema-v1 recovery tests use frozen compatibility records", async () => {
+  const recoveryTestSource = await readFile(
+    path.join(
+      repoRoot,
+      "apps/game-service/test/legacy-gameplay-recovery.test.ts",
+    ),
+    "utf8",
+  );
+
+  assert.match(recoveryTestSource, /legacy-gameplay-snapshot-fixture/);
+  assert.doesNotMatch(recoveryTestSource, /@three-zero-four\/game-engine/);
+});
+
 test("schema-v2 runtime fixtures start native Gameplay aggregates", async () => {
   const activeRuntimeTests = await Promise.all(
     [
