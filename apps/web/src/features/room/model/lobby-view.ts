@@ -9,6 +9,7 @@ export interface LobbyRoomView {
   kind: "lobby";
   isHost: boolean;
   lobby: {
+    endHandWhenOutcomeCertain: boolean;
     ruleProfileId: string;
     seats: Array<{
       botDifficulty: string | null;
@@ -26,6 +27,7 @@ export function readLobbyRoomView(
   const lobby = projection.view.lobby;
   if (
     !isRecord(lobby) ||
+    typeof lobby.endHandWhenOutcomeCertain !== "boolean" ||
     typeof lobby.ruleProfileId !== "string" ||
     typeof projection.view.isHost !== "boolean"
   ) {
@@ -60,6 +62,10 @@ export function readLobbyRoomView(
   return {
     kind: "lobby",
     isHost: projection.view.isHost,
-    lobby: { ruleProfileId: lobby.ruleProfileId, seats },
+    lobby: {
+      endHandWhenOutcomeCertain: lobby.endHandWhenOutcomeCertain,
+      ruleProfileId: lobby.ruleProfileId,
+      seats,
+    },
   };
 }

@@ -71,7 +71,7 @@ test("declares the pinned production workspace toolchain", () => {
   assert.match(workspace, /packages:\n\s+- apps\/\*/);
   assert.match(workspace, /\s+- packages\/\*/);
   assert.match(workspace, /minimumReleaseAge: 1440/);
-  assert.match(workspace, /overrides:\n\s+postcss: 8\.5\.16/);
+  assert.match(workspace, /overrides:\n\s+postcss: 8\.5\.22/);
   assert.match(workspace, /allowBuilds:\n\s+esbuild: true/);
   assert.match(workspace, /\n\s+sharp: false\n/);
   assert.equal(biome.linter.rules.preset, "recommended");

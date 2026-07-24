@@ -19,7 +19,11 @@ function roomInput(): NewRoomInput {
       playerId: seatIndex === 0 ? "player-1" : null,
       seatIndex,
     })),
-    settings: { botDifficulty: "easy", enableSecondBidding: true },
+    settings: {
+      botDifficulty: "easy",
+      enableSecondBidding: true,
+      endHandWhenOutcomeCertain: true,
+    },
   };
 }
 

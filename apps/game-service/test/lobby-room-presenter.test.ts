@@ -7,6 +7,7 @@ const room = {
   id: "room-1",
   inviteCode: "304-room",
   ruleProfileId: "classic_304_4p" as const,
+  settings: { endHandWhenOutcomeCertain: true },
   status: "lobby" as const,
 };
 const seats = [
@@ -33,6 +34,7 @@ describe("projectLobbyForViewer", () => {
     expect(projection.view).toEqual({
       isHost: true,
       lobby: {
+        endHandWhenOutcomeCertain: true,
         ruleProfileId: "classic_304_4p",
         seats: [
           {

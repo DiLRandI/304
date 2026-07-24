@@ -73,6 +73,7 @@ export const CreateRoomRequestSchema = z
     commandId: Uuid,
     ruleProfileId: RuleProfileIdSchema.default("classic_304_4p"),
     botDifficulty: BotDifficulty.default("easy"),
+    endHandWhenOutcomeCertain: z.boolean().default(true),
   })
   .strict();
 

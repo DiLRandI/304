@@ -24,6 +24,7 @@ export type GuestSession = SessionResponse;
 
 export interface CreateRoomOptions {
   botDifficulty?: "easy" | "normal" | "strong";
+  endHandWhenOutcomeCertain?: boolean;
   ruleProfileId: RuleProfileId;
 }
 

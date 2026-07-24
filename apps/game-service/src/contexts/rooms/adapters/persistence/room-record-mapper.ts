@@ -59,9 +59,12 @@ function mapSettings(value: unknown): Room["settings"] {
     );
   }
   const settings = value as Record<string, unknown>;
+  const endHandWhenOutcomeCertain = settings.endHandWhenOutcomeCertain;
   if (
     !botDifficulties.has(settings.botDifficulty as "easy") ||
-    typeof settings.enableSecondBidding !== "boolean"
+    typeof settings.enableSecondBidding !== "boolean" ||
+    (endHandWhenOutcomeCertain !== undefined &&
+      typeof endHandWhenOutcomeCertain !== "boolean")
   ) {
     throw new RoomPersistenceMappingError(
       "INVALID_ROOM_RECORD",
@@ -71,6 +74,7 @@ function mapSettings(value: unknown): Room["settings"] {
   return {
     botDifficulty: settings.botDifficulty as Room["settings"]["botDifficulty"],
     enableSecondBidding: settings.enableSecondBidding,
+    endHandWhenOutcomeCertain: endHandWhenOutcomeCertain ?? false,
   };
 }
 

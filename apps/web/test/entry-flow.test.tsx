@@ -40,9 +40,45 @@ describe("EntryFlow", () => {
     expect(client.createGuest).toHaveBeenCalledWith("Asha");
     expect(client.createRoom).toHaveBeenCalledWith({
       botDifficulty: "easy",
+      endHandWhenOutcomeCertain: true,
       ruleProfileId: "classic_304_4p",
     });
     expect(client.startRoom).toHaveBeenCalledWith(ROOM_ID, 1);
+  });
+
+  it("lets the host turn early settlement off before creating a private room", async () => {
+    const user = userEvent.setup();
+    const client = {
+      createGuest: vi.fn().mockResolvedValue({
+        expiresAt: "2026-07-12T12:00:00.000Z",
+        player: {
+          displayName: "Asha",
+          id: "b4203a72-1ddb-421f-81af-e52ca7b7003c",
+        },
+      }),
+      createRoom: vi.fn().mockResolvedValue(lobbyProjection()),
+      startRoom: vi.fn(),
+    };
+
+    render(<EntryFlow client={client} onNavigate={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Display name"), "Asha");
+    const earlySettlement = screen.getByLabelText(
+      "End hand when outcome is certain",
+    );
+    expect((earlySettlement as HTMLInputElement).checked).toBe(true);
+    await user.click(earlySettlement);
+    await user.click(
+      screen.getByRole("button", { name: "Create private room" }),
+    );
+
+    await waitFor(() =>
+      expect(client.createRoom).toHaveBeenCalledWith({
+        botDifficulty: "easy",
+        endHandWhenOutcomeCertain: false,
+        ruleProfileId: "classic_304_4p",
+      }),
+    );
   });
 
   it("joins with the display name provided inside the join form", async () => {

@@ -12,6 +12,7 @@ export type RoomStatus =
 export interface RoomSettings {
   readonly botDifficulty: BotDifficulty;
   readonly enableSecondBidding: boolean;
+  readonly endHandWhenOutcomeCertain: boolean;
 }
 
 export type SeatOccupant =

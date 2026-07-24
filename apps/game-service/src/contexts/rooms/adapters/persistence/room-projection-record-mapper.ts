@@ -26,6 +26,7 @@ const projectionSchema = z.strictObject({
   settings: z.strictObject({
     botDifficulty: z.enum(["easy", "normal", "strong"]),
     enableSecondBidding: z.boolean(),
+    endHandWhenOutcomeCertain: z.boolean().optional(),
   }),
   status: z.enum([
     "closed",
@@ -86,6 +87,11 @@ export function mapPersistedRoomProjection(value: unknown): RoomProjection {
           ? mappedSeat
           : { ...mappedSeat, botDifficulty };
       }),
+      settings: {
+        ...parsed.settings,
+        endHandWhenOutcomeCertain:
+          parsed.settings.endHandWhenOutcomeCertain ?? false,
+      },
       viewerSeatPosition,
     };
   } catch {

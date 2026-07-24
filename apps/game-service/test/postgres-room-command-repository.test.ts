@@ -53,7 +53,11 @@ describe("PostgresRoomCommandRepository", () => {
       id: aggregateId,
       inviteCode: inviteCode("304-AbCdEfGhIjKl_123"),
       profileId: "classic_304_4p",
-      settings: { botDifficulty: "easy", enableSecondBidding: true },
+      settings: {
+        botDifficulty: "easy",
+        enableSecondBidding: true,
+        endHandWhenOutcomeCertain: true,
+      },
     });
     await expect(
       repository.commit({

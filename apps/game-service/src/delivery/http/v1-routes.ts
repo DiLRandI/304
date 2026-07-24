@@ -123,6 +123,7 @@ export async function registerV1Routes(
       settings: {
         botDifficulty: input.botDifficulty,
         enableSecondBidding: true,
+        endHandWhenOutcomeCertain: input.endHandWhenOutcomeCertain,
       },
     });
     return reply.code(201).send(presentLobbyRoom(projection));

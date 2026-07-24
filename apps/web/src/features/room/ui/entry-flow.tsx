@@ -36,6 +36,8 @@ export function EntryFlow({
     useState<CreateRoomOptions["ruleProfileId"]>("classic_304_4p");
   const [botDifficulty, setBotDifficulty] =
     useState<NonNullable<CreateRoomOptions["botDifficulty"]>>("easy");
+  const [endHandWhenOutcomeCertain, setEndHandWhenOutcomeCertain] =
+    useState(true);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [inviteCodeInvalid, setInviteCodeInvalid] = useState(false);
@@ -75,7 +77,11 @@ export function EntryFlow({
     );
     try {
       await client.createGuest(name);
-      const created = await client.createRoom({ botDifficulty, ruleProfileId });
+      const created = await client.createRoom({
+        botDifficulty,
+        endHandWhenOutcomeCertain,
+        ruleProfileId,
+      });
       if (mode === "practice") {
         const started = await client.startRoom(
           created.roomId,
@@ -137,6 +143,7 @@ export function EntryFlow({
           displayName={displayName}
           displayNameInput={startNameInput}
           displayNameInvalid={startNameInvalid}
+          endHandWhenOutcomeCertain={endHandWhenOutcomeCertain}
           onBotDifficultyChange={setBotDifficulty}
           onCreatePrivate={() => void createTable("private")}
           onDisplayNameChange={updateDisplayName}
@@ -144,6 +151,7 @@ export function EntryFlow({
             setStartNameInvalid(true);
             setStatus("Enter a display name before joining a table.");
           }}
+          onEndHandWhenOutcomeCertainChange={setEndHandWhenOutcomeCertain}
           onRuleProfileChange={setRuleProfileId}
           onStartPractice={() => void createTable("practice")}
           ruleProfileId={ruleProfileId}

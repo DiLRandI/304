@@ -126,4 +126,18 @@ describe("RoomLobby", () => {
 
     expect(screen.getByRole("button", { name: "Start game" })).toBeTruthy();
   });
+
+  it("shows the configured early-settlement choice in the lobby summary", () => {
+    render(
+      <RoomLobby
+        leave={vi.fn()}
+        projection={lobbyProjection()}
+        start={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("End hands early when the outcome is certain"),
+    ).toBeTruthy();
+  });
 });

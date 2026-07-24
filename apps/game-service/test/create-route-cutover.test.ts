@@ -29,7 +29,11 @@ describe("create room route cutover", () => {
       id: roomId("12f8e3e8-6729-4c46-b78a-d1a0e804c55a"),
       inviteCode: inviteCode("304-AbCdEfGhIjKl_123"),
       profileId: "classic_304_4p",
-      settings: { botDifficulty: "normal", enableSecondBidding: true },
+      settings: {
+        botDifficulty: "normal",
+        enableSecondBidding: true,
+        endHandWhenOutcomeCertain: true,
+      },
     });
     const execute = vi.fn().mockResolvedValue(projectRoom(lobby, hostId));
     const game = {
@@ -55,6 +59,7 @@ describe("create room route cutover", () => {
       body: {
         botDifficulty: "normal",
         commandId: "d7c60215-243f-4599-80cb-e8ad78c6ae1f",
+        endHandWhenOutcomeCertain: false,
         ruleProfileId: "classic_304_4p",
       },
       headers: { origin: "http://127.0.0.1:3000" },
@@ -75,7 +80,11 @@ describe("create room route cutover", () => {
       host: { displayName: "Asha", playerId: hostId },
       profileId: "classic_304_4p",
       sessionId,
-      settings: { botDifficulty: "normal", enableSecondBidding: true },
+      settings: {
+        botDifficulty: "normal",
+        enableSecondBidding: true,
+        endHandWhenOutcomeCertain: false,
+      },
     });
     await app.close();
   });

@@ -165,6 +165,7 @@ export function lobbyProjection(
     view: {
       isHost,
       lobby: {
+        endHandWhenOutcomeCertain: true,
         ruleProfileId: "classic_304_4p",
         seats: seats.map((seat) => ({
           botDifficulty: seat.difficulty,

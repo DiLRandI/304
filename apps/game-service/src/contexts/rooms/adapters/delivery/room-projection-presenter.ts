@@ -32,6 +32,8 @@ export function presentLobbyRoom(
     view: {
       isHost: viewerSeat?.isHost ?? false,
       lobby: {
+        endHandWhenOutcomeCertain:
+          projection.settings.endHandWhenOutcomeCertain,
         ruleProfileId: projection.profileId,
         seats: projection.seats.map((seat) => ({
           botDifficulty: seat.botDifficulty ?? null,
