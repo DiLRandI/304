@@ -9,7 +9,6 @@ import {
   getRuleProfile,
   initialTokens,
   legalGameplayCommands,
-  nextDealer,
   seatIndex,
   startGameplayHand,
   type TrickPlay,
@@ -156,11 +155,138 @@ function playCommands(hand: GameplayHand, actor: SeatIndex) {
   );
 }
 
+function closedTrickHand(
+  currentBid: number,
+  completedTrickCount: 0 | 1 = 0,
+): GameplayHand {
+  const profile = getRuleProfile("classic_304_4p");
+  const deck = buildDeck(profile);
+  const maker = seatIndex(2, 4);
+  const started = startGameplayHand({
+    dealer: seatIndex(3, 4),
+    deck,
+    endHandWhenOutcomeCertain: false,
+    handNumber: 1,
+    profile,
+    secondBiddingEnabled: true,
+    tokens: initialTokens(profile),
+  });
+  const previousCards = ["D_J", "D_9", "D_A", "D_10"].map((id) =>
+    requiredCard(deck, id),
+  );
+  const previousTrick = {
+    activeSeat: null,
+    leaderSeat: seatIndex(0, 4),
+    openedTrump: false,
+    plays: previousCards.map(
+      (card, actor): TrickPlay => ({
+        actor: seatIndex(actor, 4),
+        card,
+        faceDown: false,
+        fromIndicator: false,
+      }),
+    ),
+    points: previousCards.reduce((total, card) => total + card.points, 0),
+    status: "complete" as const,
+    winnerSeat: seatIndex(0, 4),
+  };
+  return {
+    ...started,
+    activeSeat: seatIndex(0, 4),
+    bidding: {
+      ...started.bidding,
+      activeSeat: null,
+      currentBid: bidAmount(currentBid),
+      currentBidder: maker,
+      status: "complete",
+    },
+    capturedCards:
+      completedTrickCount === 0
+        ? started.capturedCards
+        : [previousCards, [], [], []],
+    completedTricks: completedTrickCount === 0 ? [] : [previousTrick],
+    currentTrick: createTrick(seatIndex(0, 4)),
+    deal: {
+      ...started.deal,
+      hands: [
+        [requiredCard(deck, "H_J")],
+        [requiredCard(deck, "C_7")],
+        [requiredCard(deck, "H_9")],
+        [requiredCard(deck, "H_A")],
+      ],
+    },
+    phase: "trick-play",
+    trump: {
+      indicator: requiredCard(deck, "S_J"),
+      maker,
+      mode: "closed",
+      open: false,
+      suit: "spades",
+    },
+  };
+}
+
+function completeClosedTrick(hand: GameplayHand): GameplayHand {
+  const commands = [
+    {
+      actor: seatIndex(0, 4),
+      cardId: "H_J",
+      faceDown: false,
+      fromIndicator: false,
+      type: "PLAY_CARD",
+    },
+    {
+      actor: seatIndex(1, 4),
+      cardId: "C_7",
+      faceDown: true,
+      fromIndicator: false,
+      type: "PLAY_CARD",
+    },
+    {
+      actor: seatIndex(2, 4),
+      cardId: "H_9",
+      faceDown: false,
+      fromIndicator: false,
+      type: "PLAY_CARD",
+    },
+    {
+      actor: seatIndex(3, 4),
+      cardId: "H_A",
+      faceDown: false,
+      fromIndicator: false,
+      type: "PLAY_CARD",
+    },
+  ] as const;
+  let current = hand;
+  for (const command of commands) {
+    const result = applyGameplayCommand(current, command);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    current = result.hand;
+  }
+  return current;
+}
+
 describe("classic first leader and closed-mode availability", () => {
   it.each([
-    ["classic_304_4p", 1, 3],
-    ["six_304_36", 2, 4],
-  ] as const)("starts %s trick one with the player to the dealer's right, not the maker", (profileId, dealerValue, makerValue) => {
+    {
+      dealerValue: 1,
+      expectedLeaderValue: 2,
+      makerValue: 3,
+      profileId: "classic_304_4p",
+    },
+    {
+      dealerValue: 2,
+      expectedLeaderValue: 3,
+      makerValue: 4,
+      profileId: "six_304_36",
+    },
+  ] as const)("starts $profileId trick one with concrete dealer-right seat $expectedLeaderValue, not maker seat $makerValue", ({
+    profileId,
+    dealerValue,
+    makerValue,
+    expectedLeaderValue,
+  }) => {
     const hand = trumpChoiceHand(profileId, dealerValue, makerValue);
     const maker = hand.trump.maker;
     if (maker === null) throw new Error("Expected trump maker");
@@ -172,10 +298,13 @@ describe("classic first leader and closed-mode availability", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const firstLeader = nextDealer(hand.dealer, hand.profile.seatCount);
-    expect(firstLeader).not.toBe(maker);
-    expect(result.hand.activeSeat).toBe(firstLeader);
-    expect(result.hand.currentTrick?.leaderSeat).toBe(firstLeader);
+    const expectedLeader = seatIndex(
+      expectedLeaderValue,
+      hand.profile.seatCount,
+    );
+    expect(expectedLeader).not.toBe(maker);
+    expect(result.hand.activeSeat).toBe(expectedLeader);
+    expect(result.hand.currentTrick?.leaderSeat).toBe(expectedLeader);
   });
 
   it.each([
@@ -207,6 +336,36 @@ describe("classic first leader and closed-mode availability", () => {
       },
       ok: false,
     });
+  });
+});
+
+describe("automatic 250-plus first-trick reveal", () => {
+  it("keeps a closed first trick closed when the actual bid is 249", () => {
+    const hand = completeClosedTrick(closedTrickHand(249));
+
+    expect(hand.completedTricks).toHaveLength(1);
+    expect(hand.currentTrick?.openedTrump).toBe(false);
+    expect(hand.trump.open).toBe(false);
+    expect(hand.trump.indicator?.id).toBe("S_J");
+  });
+
+  it("opens trump after a closed first trick when the actual bid is exactly 250", () => {
+    const hand = completeClosedTrick(closedTrickHand(250));
+
+    expect(hand.completedTricks).toHaveLength(1);
+    expect(hand.currentTrick?.openedTrump).toBe(true);
+    expect(hand.trump.open).toBe(true);
+    expect(hand.trump.indicator).toBeNull();
+    expect(hand.deal.hands[2]?.map((card) => card.id)).toContain("S_J");
+  });
+
+  it("does not apply the 250-plus automatic reveal to a later closed trick", () => {
+    const hand = completeClosedTrick(closedTrickHand(250, 1));
+
+    expect(hand.completedTricks).toHaveLength(2);
+    expect(hand.currentTrick?.openedTrump).toBe(false);
+    expect(hand.trump.open).toBe(false);
+    expect(hand.trump.indicator?.id).toBe("S_J");
   });
 });
 
