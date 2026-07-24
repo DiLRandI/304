@@ -185,16 +185,12 @@ describe("gameplay snapshot codec", () => {
     const current = serializeGameplaySnapshot(
       startedGameplayHand("classic_304_4p", true, true),
     );
-    const { endHandWhenOutcomeCertain: _setting, ...v2State } =
-      current.state as typeof current.state & {
-        endHandWhenOutcomeCertain: boolean;
-      };
 
     expect(
       hydrateGameplaySnapshot({
         ...current,
         schemaVersion: 2,
-        state: v2State,
+        state: legacyV2State(current.state as GameplayHandState),
       }).endHandWhenOutcomeCertain,
     ).toBe(false);
     expect(
@@ -203,23 +199,64 @@ describe("gameplay snapshot codec", () => {
     ).toBe(false);
   });
 
-  it("hydrates a scored v2 result as all tricks played", () => {
+  it.each([
+    "revealed indicator",
+    "trick reveal reason",
+  ] as const)("rejects v3-only %s evidence in a v2 snapshot", (evidence) => {
     const current = serializeGameplaySnapshot(completedGameplayHand());
     const {
       endHandWhenOutcomeCertain: _setting,
       result,
-      ...rest
-    } = current.state as GameplayHandState;
+      ...v2State
+    } = structuredClone(current.state) as GameplayHandState;
     if (!result || "noScore" in result) {
       throw new Error("Expected a scored hand result");
     }
     const { settlementReason: _reason, ...v2Result } = result;
+    const state = { ...v2State, result: v2Result };
+    for (const trick of state.completedTricks) {
+      delete (trick as { trumpRevealReason?: unknown }).trumpRevealReason;
+    }
+    if (state.currentTrick) {
+      delete (state.currentTrick as { trumpRevealReason?: unknown })
+        .trumpRevealReason;
+    }
+    delete (
+      state.trump as GameplayHandState["trump"] & {
+        revealedIndicator?: unknown;
+      }
+    ).revealedIndicator;
+
+    if (evidence === "revealed indicator") {
+      Object.assign(state.trump, { revealedIndicator: null });
+    } else {
+      Object.assign(state.completedTricks[0] ?? {}, {
+        trumpRevealReason: null,
+      });
+    }
+
+    expect(() =>
+      hydrateGameplaySnapshot({
+        ...current,
+        schemaVersion: 2,
+        state,
+      }),
+    ).toThrowError(
+      new GameplaySnapshotCodecError(
+        "INVALID_GAMEPLAY_SNAPSHOT",
+        "Gameplay snapshot state is invalid",
+      ),
+    );
+  });
+
+  it("hydrates a scored v2 result as all tricks played", () => {
+    const current = serializeGameplaySnapshot(completedGameplayHand());
 
     expect(
       hydrateGameplaySnapshot({
         ...current,
         schemaVersion: 2,
-        state: { ...rest, result: v2Result },
+        state: legacyV2State(current.state as GameplayHandState),
       }).result,
     ).toMatchObject({ settlementReason: "all-tricks-played" });
   });
@@ -254,3 +291,32 @@ type Mutable<Value> = Value extends readonly (infer Item)[]
   : Value extends object
     ? { -readonly [Key in keyof Value]: Mutable<Value[Key]> }
     : Value;
+
+function legacyV2State(state: GameplayHandState): unknown {
+  const legacy = structuredClone(state) as MutableGameplayHandState;
+  delete (
+    legacy as MutableGameplayHandState & {
+      endHandWhenOutcomeCertain?: unknown;
+    }
+  ).endHandWhenOutcomeCertain;
+  delete (
+    legacy.trump as MutableGameplayHandState["trump"] & {
+      revealedIndicator?: unknown;
+    }
+  ).revealedIndicator;
+  for (const trick of [
+    ...legacy.completedTricks,
+    ...(legacy.currentTrick ? [legacy.currentTrick] : []),
+  ]) {
+    delete (trick as typeof trick & { trumpRevealReason?: unknown })
+      .trumpRevealReason;
+  }
+  if (legacy.result && !("noScore" in legacy.result)) {
+    delete (
+      legacy.result as typeof legacy.result & {
+        settlementReason?: unknown;
+      }
+    ).settlementReason;
+  }
+  return legacy;
+}

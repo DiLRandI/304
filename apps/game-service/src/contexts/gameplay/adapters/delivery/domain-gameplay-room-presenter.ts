@@ -91,15 +91,13 @@ function projectedTrick(trick: ProjectedTrick | null, trickIndex: number) {
   };
 }
 
-function publicTrickPoints(hand: GameplayHand): readonly number[] {
-  const totals = Array.from({ length: hand.profile.seatCount }, () => 0);
-  for (const trick of hand.completedTricks) {
-    const pointsArePublic = trick.plays.every(
-      (play) =>
-        !play.faceDown ||
-        (hand.trump.open && play.card.suit === hand.trump.suit),
-    );
-    if (pointsArePublic && trick.winnerSeat !== null) {
+function publicTrickPoints(
+  seatCount: number,
+  completedTricks: readonly ProjectedTrick[],
+): readonly number[] {
+  const totals = Array.from({ length: seatCount }, () => 0);
+  for (const trick of completedTricks) {
+    if (trick.points !== null && trick.winnerSeat !== null) {
       totals[trick.winnerSeat] = (totals[trick.winnerSeat] ?? 0) + trick.points;
     }
   }
@@ -168,7 +166,10 @@ export function projectDomainRoomForPlayer(
     );
   }
   const projection = projectGameplayHand(hand, viewer);
-  const trickPoints = publicTrickPoints(hand);
+  const trickPoints = publicTrickPoints(
+    hand.profile.seatCount,
+    projection.completedTricks,
+  );
   const isHost = viewerSeat.playerId === room.hostPlayerId;
   const currentTrick = projectedTrick(
     projection.currentTrick,

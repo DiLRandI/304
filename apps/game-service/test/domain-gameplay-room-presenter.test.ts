@@ -235,4 +235,74 @@ describe("projectDomainRoomForPlayer", () => {
     expect(json).toContain("C_9");
     expect(json).not.toContain("D_A");
   });
+
+  it("credits public trick points when an indicator cut reveals every play", () => {
+    const base = completedGameplayHand();
+    const deck = buildDeck(getRuleProfile("classic_304_4p"));
+    const card = (id: string) => {
+      const found = deck.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Expected ${id}`);
+      return found;
+    };
+    const winner = seatIndex(3, 4);
+    const trick = {
+      activeSeat: null,
+      leaderSeat: seatIndex(0, 4),
+      openedTrump: true,
+      plays: [
+        {
+          actor: seatIndex(0, 4),
+          card: card("H_J"),
+          faceDown: false,
+          fromIndicator: false,
+        },
+        {
+          actor: seatIndex(1, 4),
+          card: card("H_9"),
+          faceDown: false,
+          fromIndicator: false,
+        },
+        {
+          actor: seatIndex(2, 4),
+          card: card("C_9"),
+          faceDown: true,
+          fromIndicator: false,
+        },
+        {
+          actor: winner,
+          card: card("S_J"),
+          faceDown: true,
+          fromIndicator: true,
+        },
+      ],
+      points: 80,
+      status: "complete" as const,
+      trumpRevealReason: "face-down-trump-cut" as const,
+      winnerSeat: winner,
+    };
+    const hand: GameplayHand = {
+      ...base,
+      completedTricks: [trick],
+      currentTrick: trick,
+      phase: "trick-result",
+      trump: {
+        indicator: null,
+        maker: winner,
+        mode: "closed",
+        open: true,
+        revealedIndicator: card("S_J"),
+        suit: "spades",
+      },
+    };
+
+    const projection = projectDomainRoomForPlayer(
+      roomFor(seatIndex(0, 4)),
+      hand,
+      seatsFor(hand),
+      seatIndex(0, 4),
+    );
+
+    expect(projection.view.publicState.trickPointsPartial).toBe(false);
+    expect(projection.view.publicState.seats[winner]?.trickPoints).toBe(80);
+  });
 });

@@ -56,18 +56,20 @@ const playSchema = z.strictObject({
   faceDown: z.boolean(),
   fromIndicator: z.boolean(),
 });
-const trickSchema = z.strictObject({
+const trickSchemaV2 = z.strictObject({
   activeSeat: seatSchema.nullable(),
   leaderSeat: seatSchema,
   openedTrump: z.boolean(),
   plays: z.array(playSchema),
   points: z.number().int().nonnegative(),
   status: z.enum(["active", "complete"]),
+  winnerSeat: seatSchema.nullable(),
+});
+const trickSchemaV3 = trickSchemaV2.extend({
   trumpRevealReason: z
     .enum(["face-down-trump-cut", "high-bid-after-first-trick"])
     .nullable()
     .optional(),
-  winnerSeat: seatSchema.nullable(),
 });
 const tokenBalanceSchema = z.tuple([
   z.number().int().nonnegative(),
@@ -96,12 +98,22 @@ const scoredResultSchemaV3 = scoredResultSchemaV2.extend({
     "bid-unreachable",
   ]),
 });
+const trumpSchemaV2 = z.strictObject({
+  indicator: cardSchema.nullable(),
+  maker: seatSchema.nullable(),
+  mode: z.enum(["closed", "open"]).nullable(),
+  open: z.boolean(),
+  suit: z.enum(["clubs", "diamonds", "hearts", "spades"]).nullable(),
+});
+const trumpSchemaV3 = trumpSchemaV2.extend({
+  revealedIndicator: cardSchema.nullable().optional(),
+});
 const stateSchemaV2 = z.strictObject({
   activeSeat: seatSchema.nullable(),
   bidding: biddingSchema,
   capturedCards: z.array(z.array(cardSchema)),
-  completedTricks: z.array(trickSchema),
-  currentTrick: trickSchema.nullable(),
+  completedTricks: z.array(trickSchemaV2),
+  currentTrick: trickSchemaV2.nullable(),
   deal: dealSchema,
   dealer: seatSchema,
   handNumber: z.number().int().positive(),
@@ -117,18 +129,14 @@ const stateSchemaV2 = z.strictObject({
   ]),
   result: z.union([cancelledResultSchema, scoredResultSchemaV2]).nullable(),
   tokens: tokenBalanceSchema,
-  trump: z.strictObject({
-    indicator: cardSchema.nullable(),
-    maker: seatSchema.nullable(),
-    mode: z.enum(["closed", "open"]).nullable(),
-    open: z.boolean(),
-    revealedIndicator: cardSchema.nullable().optional(),
-    suit: z.enum(["clubs", "diamonds", "hearts", "spades"]).nullable(),
-  }),
+  trump: trumpSchemaV2,
 });
 const stateSchemaV3 = stateSchemaV2.extend({
+  completedTricks: z.array(trickSchemaV3),
+  currentTrick: trickSchemaV3.nullable(),
   endHandWhenOutcomeCertain: z.boolean(),
   result: z.union([cancelledResultSchema, scoredResultSchemaV3]).nullable(),
+  trump: trumpSchemaV3,
 });
 
 function validSeat(value: number | null, seatCount: number): boolean {
@@ -201,7 +209,10 @@ function assertAggregateConsistency(
       ? state.currentTrick.plays.map((play) => play.card)
       : []),
   ];
-  const revealedIndicator = state.trump.revealedIndicator ?? null;
+  const revealedIndicator =
+    "revealedIndicator" in state.trump
+      ? (state.trump.revealedIndicator ?? null)
+      : null;
   const revealedIndicatorIsConsistent =
     revealedIndicator === null ||
     (state.trump.open &&
@@ -228,7 +239,8 @@ function assertAggregateConsistency(
       ? [...state.completedTricks, state.currentTrick]
       : state.completedTricks;
   const revealEvidenceIsConsistent = completedTricks.every((trick, index) => {
-    const reason = trick.trumpRevealReason ?? null;
+    const reason =
+      "trumpRevealReason" in trick ? (trick.trumpRevealReason ?? null) : null;
     if (reason === null) return true;
     if (
       !trick.openedTrump ||
@@ -253,7 +265,10 @@ function assertAggregateConsistency(
   const closedRevealHasEvidence =
     revealedIndicator === null ||
     state.trump.mode !== "closed" ||
-    completedTricks.some((trick) => trick.trumpRevealReason != null);
+    completedTricks.some(
+      (trick) =>
+        "trumpRevealReason" in trick && trick.trumpRevealReason != null,
+    );
   if (
     !seatsAreValid ||
     !arraysMatchProfile ||
@@ -320,7 +335,10 @@ export function hydrateGameplaySnapshot(
       profile,
       trump: {
         ...state.trump,
-        revealedIndicator: state.trump.revealedIndicator ?? null,
+        revealedIndicator:
+          "revealedIndicator" in state.trump
+            ? (state.trump.revealedIndicator ?? null)
+            : null,
       },
     } as unknown as GameplayHand;
     return record.schemaVersion === 2 ? hydrateLegacyDefaults(hand) : hand;
