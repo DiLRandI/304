@@ -5,6 +5,13 @@ import type { GameplayCommand } from "./messages.js";
 import type { SeatIndex, Suit } from "./values.js";
 import { InvalidGameplayValue } from "./values.js";
 
+export type GameplayBotDifficulty = "easy" | "normal" | "strong";
+
+export interface GameplayBotOptions {
+  readonly difficulty: GameplayBotDifficulty;
+  readonly random: RandomSource;
+}
+
 type BidCommand = Extract<GameplayCommand, { type: "BID" }>;
 type CardCommand = Extract<GameplayCommand, { type: "PLAY_CARD" }>;
 type TrumpCommand = Extract<GameplayCommand, { type: "SELECT_TRUMP" }>;
@@ -161,8 +168,9 @@ function chooseCard(
 export function chooseGameplayBotCommand(
   hand: GameplayHand,
   actor: SeatIndex,
-  random: RandomSource,
+  options: GameplayBotOptions,
 ): GameplayCommand | null {
+  const { random } = options;
   const legal = legalGameplayCommands(hand, actor);
   if (legal.length === 0) return null;
 

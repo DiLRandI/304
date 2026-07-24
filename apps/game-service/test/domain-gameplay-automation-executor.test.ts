@@ -1,6 +1,9 @@
 import type { GameplayHand } from "@three-zero-four/gameplay";
 import { describe, expect, it, vi } from "vitest";
-import { DomainGameplayAutomationExecutor } from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
+import {
+  DomainGameplayAutomationExecutor,
+  gameplayBotOptionsForSeat,
+} from "../src/contexts/automation/adapters/integration/domain-gameplay-automation-executor.js";
 import type {
   AutomationJobLease,
   AutomationJobRoom,
@@ -31,6 +34,7 @@ function seats(
   return Array.from(
     { length: 4 },
     (_, seatIndex): AutomationJobSeat => ({
+      botDifficulty: seatIndex === targetSeatIndex ? "easy" : null,
       connectionStatus: "online",
       occupantType: seatIndex === targetSeatIndex ? "bot" : "human",
       playerId: `player-${seatIndex}`,
@@ -100,6 +104,46 @@ function harness(options: {
 }
 
 describe("DomainGameplayAutomationExecutor", () => {
+  it.each([
+    "easy",
+    "normal",
+    "strong",
+  ] as const)("uses persisted %s bot difficulty for bot automation", (difficulty) => {
+    expect(
+      gameplayBotOptionsForSeat({
+        botDifficulty: difficulty,
+        connectionStatus: "online",
+        occupantType: "bot",
+        playerId: null,
+        seatIndex: 0,
+      }),
+    ).toEqual({ difficulty });
+  });
+
+  it("rejects invalid persisted bot difficulty", () => {
+    expect(() =>
+      gameplayBotOptionsForSeat({
+        botDifficulty: "expert",
+        connectionStatus: "online",
+        occupantType: "bot",
+        playerId: null,
+        seatIndex: 0,
+      }),
+    ).toThrow(expect.objectContaining({ code: "INVALID_BOT_DIFFICULTY" }));
+  });
+
+  it("uses Normal difficulty for a human autopilot seat", () => {
+    expect(
+      gameplayBotOptionsForSeat({
+        botDifficulty: "strong",
+        connectionStatus: "autopilot",
+        occupantType: "human",
+        playerId: "player-0",
+        seatIndex: 0,
+      }),
+    ).toEqual({ difficulty: "normal" });
+  });
+
   it("rejects a stale job before recovering gameplay", async () => {
     const hand = startedGameplayHand();
     if (hand.activeSeat === null) throw new Error("Expected an active seat");
