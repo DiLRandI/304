@@ -11,7 +11,7 @@ import { hydrateGameplaySnapshot } from "../src/contexts/gameplay/adapters/persi
 import { DomainStartedRoomSnapshotFactory } from "../src/contexts/rooms/adapters/integration/domain-started-room-snapshot-factory.js";
 
 describe("DomainStartedRoomSnapshotFactory", () => {
-  it("starts and serializes a schema-v2 domain Gameplay hand", () => {
+  it("starts and serializes a schema-v3 hand with the room setting", () => {
     const host = playerId("9c9c7530-224f-4d5e-b354-1c78df2f063b");
     const lobby = createLobby({
       host: { displayName: "Asha", playerId: host },
@@ -48,10 +48,11 @@ describe("DomainStartedRoomSnapshotFactory", () => {
       state: snapshot.state,
     });
 
-    expect(snapshot.schemaVersion).toBe(2);
+    expect(snapshot.schemaVersion).toBe(3);
     expect(hand).toMatchObject({
       activeSeat: 0,
       dealer: 3,
+      endHandWhenOutcomeCertain: true,
       handNumber: 1,
       phase: "four-bidding",
     });

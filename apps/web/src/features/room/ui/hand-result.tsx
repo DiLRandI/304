@@ -17,6 +17,8 @@ export function HandResult({
   result: ProjectedHandResult;
   trumpLabel: string;
 }) {
+  const earlyResult =
+    !isNoScoreResult(result) && result.settlementReason !== "all-tricks-played";
   return (
     <section
       aria-label="Hand result"
@@ -55,7 +57,11 @@ export function HandResult({
               <dd>{result.bid}</dd>
             </div>
             <div>
-              <dt>Bidder points</dt>
+              <dt>
+                {earlyResult
+                  ? "Bidder points captured when play stopped"
+                  : "Bidder points"}
+              </dt>
               <dd>{result.bidderTeamPoints}</dd>
             </div>
             <div>
@@ -67,7 +73,11 @@ export function HandResult({
               <dd>{trumpLabel}</dd>
             </div>
             <div>
-              <dt>Other team points</dt>
+              <dt>
+                {earlyResult
+                  ? "Other team points captured when play stopped"
+                  : "Other team points"}
+              </dt>
               <dd>{result.otherTeamPoints}</dd>
             </div>
             <div>

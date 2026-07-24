@@ -123,7 +123,7 @@ export class DomainRoomConnections {
           roomId: room.id,
           ruleProfileId: room.ruleProfileId,
           snapshot: snapshot.state,
-          snapshotSchemaVersion: 2,
+          snapshotSchemaVersion: 3,
           status,
         },
       );
@@ -185,7 +185,7 @@ export class DomainRoomConnections {
           roomId: room.id,
           ruleProfileId: room.ruleProfileId,
           snapshot: snapshot.state,
-          snapshotSchemaVersion: 2,
+          snapshotSchemaVersion: 3,
           status,
         },
       );

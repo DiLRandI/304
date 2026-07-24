@@ -36,7 +36,9 @@ function hydrateStartedHand(
   return hydrateGameplaySnapshot({
     ruleProfileId,
     schemaVersion:
-      payload.schemaVersion === 1 || payload.schemaVersion === 2
+      payload.schemaVersion === 1 ||
+      payload.schemaVersion === 2 ||
+      payload.schemaVersion === 3
         ? payload.schemaVersion
         : 1,
     state: payload.state,

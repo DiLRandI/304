@@ -434,6 +434,7 @@ export function decodeGameplayHand(
         seatCount: profile.seatCount,
       },
       dealer: actor(state.dealerSeat),
+      endHandWhenOutcomeCertain: false,
       handNumber: state.handNumber,
       phase: isFourBidding
         ? "four-bidding"
@@ -467,6 +468,7 @@ export function decodeGameplayHand(
                 matchComplete: state.handResult.matchComplete,
                 movement: state.handResult.movement,
                 otherTeamPoints: state.handResult.otherTeamPoints,
+                settlementReason: "all-tricks-played",
                 success: state.handResult.success,
                 tokens: state.handResult.tokens,
                 winningTeam: state.handResult.winningTeam,

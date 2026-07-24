@@ -139,12 +139,12 @@ describe("DomainGameplayAutomationExecutor", () => {
       },
       roomId: room.id,
       ruleProfileId: room.ruleProfileId,
-      snapshotSchemaVersion: 2,
+      snapshotSchemaVersion: 3,
       status: "in_hand",
     });
     const after = hydrateGameplaySnapshot({
       ruleProfileId: room.ruleProfileId,
-      schemaVersion: 2,
+      schemaVersion: 3,
       state: input?.snapshot,
     });
     expect(after).not.toEqual(before);
@@ -178,7 +178,7 @@ describe("DomainGameplayAutomationExecutor", () => {
       expect.objectContaining({
         eventType: "AUTOPILOT_ENABLED",
         snapshot: serializeGameplaySnapshot(hand).state,
-        snapshotSchemaVersion: 2,
+        snapshotSchemaVersion: 3,
       }),
     );
     expect(schedule).toHaveBeenCalledWith(
@@ -218,13 +218,13 @@ describe("DomainGameplayAutomationExecutor", () => {
       expect.objectContaining({
         eventType: "TRICK_ADVANCED",
         payload: { winnerSeat },
-        snapshotSchemaVersion: 2,
+        snapshotSchemaVersion: 3,
       }),
     );
     const persisted = appendEventAndSnapshot.mock.calls[0]?.[1];
     const after = hydrateGameplaySnapshot({
       ruleProfileId: room.ruleProfileId,
-      schemaVersion: 2,
+      schemaVersion: 3,
       state: persisted?.snapshot,
     });
     expect(after.phase).toBe("trick-play");

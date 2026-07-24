@@ -141,7 +141,9 @@ describe("projectDomainRoomForPlayer", () => {
     });
     expect(hostProjection.view.publicState).toMatchObject({
       activeSeat: null,
-      handResult: expect.any(Object),
+      handResult: {
+        settlementReason: "all-tricks-played",
+      },
       phase: "hand_result",
       trickPointsPartial: false,
       trump: { isOpen: true },

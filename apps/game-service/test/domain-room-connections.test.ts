@@ -174,7 +174,7 @@ describe("DomainRoomConnections", () => {
       roomId: room.id,
       ruleProfileId: room.ruleProfileId,
       snapshot: serializeGameplaySnapshot(hand).state,
-      snapshotSchemaVersion: 2,
+      snapshotSchemaVersion: 3,
       status: "in_hand",
     });
     expect(schedule).toHaveBeenCalledWith(

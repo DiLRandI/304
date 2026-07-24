@@ -273,7 +273,7 @@ describe("legacy gameplay card play", () => {
     expect(decodeGameplayHand(result.snapshot)).toEqual(result.hand);
     expect(state.phase).toBe(scenario.phase.replaceAll("-", "_"));
     expect(state.activeSeat).toBeNull();
-    expect(state.handResult).toMatchObject(result.hand.result ?? {});
+    expect(state.handResult).not.toHaveProperty("settlementReason");
     expect(state.tokens).toEqual(result.hand.tokens);
     expect(state.completedTricks).toHaveLength(8);
     expect(result.hand.result).toMatchObject({

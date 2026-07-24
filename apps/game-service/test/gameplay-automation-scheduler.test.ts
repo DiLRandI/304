@@ -122,4 +122,27 @@ describe("GameplayAutomationScheduler", () => {
       }),
     ]);
   });
+
+  it("cleans up obsolete trick jobs without scheduling a replacement for an early result", async () => {
+    const { cancelAutomationForRoom, jobs, scheduler } = harness();
+
+    await scheduler.schedule(
+      Symbol("transaction"),
+      { ...room, status: "hand_result" },
+      gameplay({
+        activeSeat: null,
+        currentTrick: { winnerSeat: 0 },
+        phase: "hand_result",
+        seats: [{ connectionStatus: "online", type: "human" }],
+      }),
+    );
+
+    expect(cancelAutomationForRoom).toHaveBeenNthCalledWith(
+      1,
+      expect.any(Symbol),
+      room.id,
+      ["BOT_ACTION", "TURN_TIMEOUT", "TRICK_ADVANCE"],
+    );
+    expect(jobs).toEqual([]);
+  });
 });

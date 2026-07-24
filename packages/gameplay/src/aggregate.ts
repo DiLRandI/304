@@ -58,6 +58,7 @@ export interface GameplayHand {
   readonly currentTrick: TrickState | null;
   readonly deal: DealState;
   readonly dealer: SeatIndex;
+  readonly endHandWhenOutcomeCertain: boolean;
   readonly handNumber: number;
   readonly phase: GameplayPhase;
   readonly profile: RuleProfile;
@@ -69,6 +70,7 @@ export interface GameplayHand {
 export interface StartGameplayHandInput {
   readonly dealer: SeatIndex;
   readonly deck: readonly Card[];
+  readonly endHandWhenOutcomeCertain: boolean;
   readonly handNumber: number;
   readonly profile: RuleProfile;
   readonly secondBiddingEnabled: boolean;
@@ -109,6 +111,7 @@ export function startGameplayHand(input: StartGameplayHandInput): GameplayHand {
     currentTrick: null,
     deal,
     dealer: input.dealer,
+    endHandWhenOutcomeCertain: input.endHandWhenOutcomeCertain,
     handNumber: input.handNumber,
     phase: "four-bidding",
     profile: input.profile,
@@ -406,12 +409,35 @@ function applyCardPlay(
       ? [...cards, ...played.trick.plays.map((item) => item.card)]
       : cards,
   );
+  const completedTricks = [...hand.completedTricks, played.trick];
+  const trickCount = hand.profile.cardBatch[0] + hand.profile.cardBatch[1];
+  const earlySettlement =
+    hand.endHandWhenOutcomeCertain && completedTricks.length < trickCount
+      ? settlementAfterCapturedTrick(hand, capturedCards)
+      : null;
+  if (earlySettlement) {
+    return {
+      hand: {
+        ...hand,
+        activeSeat: null,
+        capturedCards,
+        completedTricks,
+        currentTrick: played.trick,
+        deal,
+        phase: earlySettlement.matchComplete ? "match-complete" : "hand-result",
+        result: earlySettlement,
+        tokens: earlySettlement.tokens,
+        trump,
+      },
+      ok: true,
+    };
+  }
   return {
     hand: {
       ...hand,
       activeSeat: null,
       capturedCards,
-      completedTricks: [...hand.completedTricks, played.trick],
+      completedTricks,
       currentTrick: played.trick,
       deal,
       phase: "trick-result",
@@ -419,6 +445,53 @@ function applyCardPlay(
     },
     ok: true,
   };
+}
+
+function capturedTeamPoints(
+  hand: GameplayHand,
+  capturedCards: GameplayHand["capturedCards"],
+): Record<"A" | "B", number> {
+  const teamPoints = { A: 0, B: 0 };
+  for (const [actor, cards] of capturedCards.entries()) {
+    const team = teamForSeat(seatIndex(actor, hand.profile.seatCount));
+    teamPoints[team] += cards.reduce((total, card) => total + card.points, 0);
+  }
+  return teamPoints;
+}
+
+function profileTotalPoints(hand: GameplayHand): number {
+  return (
+    hand.profile.deckRanks.reduce(
+      (total, rank) => total + (hand.profile.cardPoints[rank] ?? 0),
+      0,
+    ) * 4
+  );
+}
+
+function settlementAfterCapturedTrick(
+  hand: GameplayHand,
+  capturedCards: GameplayHand["capturedCards"],
+): HandScore | null {
+  const maker = hand.trump.maker;
+  const bid = hand.bidding.currentBid;
+  if (maker === null || bid === null) return null;
+  const bidderTeam = teamForSeat(maker);
+  const otherTeam = bidderTeam === "A" ? "B" : "A";
+  const teamPoints = capturedTeamPoints(hand, capturedCards);
+  const settlementReason =
+    teamPoints[bidderTeam] >= bid
+      ? "bid-reached"
+      : teamPoints[otherTeam] > profileTotalPoints(hand) - bid
+        ? "bid-unreachable"
+        : null;
+  if (!settlementReason) return null;
+  return scoreHand(hand.profile, {
+    bid,
+    bidderTeam,
+    settlementReason,
+    teamPoints,
+    tokens: hand.tokens,
+  });
 }
 
 function applyAdvanceTrick(hand: GameplayHand): AggregateCommandResult {
@@ -452,11 +525,7 @@ function applyAdvanceTrick(hand: GameplayHand): AggregateCommandResult {
   if (maker === null || bid === null) {
     return rejected("INVALID_STATE", "Scoring requires a maker and bid");
   }
-  const teamPoints = { A: 0, B: 0 };
-  for (const [actor, cards] of hand.capturedCards.entries()) {
-    const team = teamForSeat(seatIndex(actor, hand.profile.seatCount));
-    teamPoints[team] += cards.reduce((total, card) => total + card.points, 0);
-  }
+  const teamPoints = capturedTeamPoints(hand, hand.capturedCards);
   const result = scoreHand(hand.profile, {
     bid,
     bidderTeam: teamForSeat(maker),
@@ -514,6 +583,7 @@ export function acknowledgeGameplayResult(
     hand: startGameplayHand({
       dealer: nextDealer(hand.dealer, hand.profile.seatCount),
       deck: nextDeck,
+      endHandWhenOutcomeCertain: hand.endHandWhenOutcomeCertain,
       handNumber: hand.handNumber + 1,
       profile: hand.profile,
       secondBiddingEnabled: hand.bidding.secondBiddingEnabled,

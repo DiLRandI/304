@@ -96,7 +96,7 @@ describeIntegration("durable room store", () => {
         eventType: "ROOM_STARTED",
         payload: started,
         snapshot: started.state,
-        snapshotSchemaVersion: 2,
+        snapshotSchemaVersion: 3,
         status: "in_hand",
         ruleProfileId: "classic_304_4p",
       }),
@@ -109,7 +109,7 @@ describeIntegration("durable room store", () => {
     ]);
     expect(await store.loadSnapshot(roomId)).toMatchObject({
       eventVersion: 2,
-      schemaVersion: 2,
+      schemaVersion: 3,
       state: expect.objectContaining({ phase: "four-bidding" }),
     });
     expect(

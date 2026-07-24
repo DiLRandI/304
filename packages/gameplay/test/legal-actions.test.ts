@@ -18,6 +18,7 @@ function start(): GameplayHand {
   return startGameplayHand({
     dealer: seatIndex(3, 4),
     deck: buildDeck(profile),
+    endHandWhenOutcomeCertain: false,
     handNumber: 1,
     profile,
     secondBiddingEnabled: true,

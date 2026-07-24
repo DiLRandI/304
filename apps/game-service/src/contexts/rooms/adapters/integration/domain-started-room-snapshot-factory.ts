@@ -39,6 +39,7 @@ export class DomainStartedRoomSnapshotFactory
       startGameplayHand({
         dealer: this.dealers.select(profile),
         deck: prepared.deck,
+        endHandWhenOutcomeCertain: room.settings.endHandWhenOutcomeCertain,
         handNumber: 1,
         profile,
         secondBiddingEnabled: room.settings.enableSecondBidding,

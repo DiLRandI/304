@@ -26,7 +26,7 @@ describe("transitionGameplayCommand", () => {
       unexpectedShuffle,
     );
 
-    expect(result.snapshot.schemaVersion).toBe(2);
+    expect(result.snapshot.schemaVersion).toBe(3);
     expect(hydrateGameplaySnapshot(result.snapshot)).toEqual(result.hand);
     expect(before.bidding.actionsTaken).toBe(0);
   });

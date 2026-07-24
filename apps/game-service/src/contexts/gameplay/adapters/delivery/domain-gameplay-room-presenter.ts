@@ -123,6 +123,7 @@ function publicHandResult(hand: GameplayHand) {
     matchComplete: hand.result.matchComplete,
     movement: hand.result.movement,
     otherTeamPoints: hand.result.otherTeamPoints,
+    settlementReason: hand.result.settlementReason,
     success: hand.result.success,
     tokens: [...hand.result.tokens],
     trickCount: hand.completedTricks.length,

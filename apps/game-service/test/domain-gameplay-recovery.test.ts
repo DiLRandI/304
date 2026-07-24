@@ -6,7 +6,7 @@ import { startedGameplayHand } from "./support/gameplay-hand-fixture.js";
 
 describe("DomainGameplayRecovery", () => {
   it("hydrates a domain snapshot and replays newer domain events", async () => {
-    const started = startedGameplayHand();
+    const started = startedGameplayHand("classic_304_4p", true, true);
     const actorSeatIndex = started.activeSeat;
     if (actorSeatIndex === null) throw new Error("Expected an active seat");
     const snapshot = serializeGameplaySnapshot(started);
@@ -36,6 +36,7 @@ describe("DomainGameplayRecovery", () => {
     });
 
     expect(hand.bidding.actionsTaken).toBe(1);
+    expect(hand.endHandWhenOutcomeCertain).toBe(true);
     expect(store.loadEventsAfter).toHaveBeenCalledWith(
       "room-1",
       4,

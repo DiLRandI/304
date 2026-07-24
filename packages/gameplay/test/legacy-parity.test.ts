@@ -49,6 +49,7 @@ function parityHand(profileId: RuleProfileId): GameplayHand {
   const started = startGameplayHand({
     dealer: seatIndex(profile.seatCount - 1, profile.seatCount),
     deck,
+    endHandWhenOutcomeCertain: false,
     handNumber: 1,
     profile,
     secondBiddingEnabled: true,

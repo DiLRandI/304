@@ -50,7 +50,7 @@ export interface AppendAutomationEventInput {
   readonly roomId: string;
   readonly ruleProfileId: RuleProfileId;
   readonly snapshot: unknown;
-  readonly snapshotSchemaVersion: 1 | 2;
+  readonly snapshotSchemaVersion: 1 | 2 | 3;
   readonly status: "hand_result" | "in_hand";
 }
 

@@ -299,6 +299,7 @@ describe("GameTable", () => {
       matchComplete: false,
       movement: 4,
       otherTeamPoints: 81,
+      settlementReason: "all-tricks-played",
       success: false,
       tokens: [11, 11],
       trickCount: 8,

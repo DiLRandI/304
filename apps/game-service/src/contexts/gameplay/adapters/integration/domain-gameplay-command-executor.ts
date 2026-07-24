@@ -131,7 +131,7 @@ export class DomainGameplayCommandExecutor implements GameplayCommandExecutor {
           roomId: room.id,
           ruleProfileId: room.ruleProfileId,
           snapshot: transition.snapshot.state,
-          snapshotSchemaVersion: 2,
+          snapshotSchemaVersion: 3,
           status,
         },
       );
