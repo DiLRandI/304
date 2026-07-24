@@ -267,6 +267,62 @@ function completeClosedTrick(hand: GameplayHand): GameplayHand {
   return current;
 }
 
+function playFaceDownIndicatorBeforeTrickCompletion(): {
+  readonly afterIndicator: GameplayHand;
+  readonly completed: GameplayHand;
+} {
+  let current = closedTrickHand(180);
+  current = {
+    ...current,
+    deal: {
+      ...current.deal,
+      hands: current.deal.hands.map((cards, actor) =>
+        actor === 2 ? [requiredCard(buildDeck(current.profile), "C_9")] : cards,
+      ),
+    },
+  };
+  const commands = [
+    {
+      actor: seatIndex(0, 4),
+      cardId: "H_J",
+      faceDown: false,
+      fromIndicator: false,
+      type: "PLAY_CARD",
+    },
+    {
+      actor: seatIndex(1, 4),
+      cardId: "C_7",
+      faceDown: true,
+      fromIndicator: false,
+      type: "PLAY_CARD",
+    },
+    {
+      actor: seatIndex(2, 4),
+      cardId: "S_J",
+      faceDown: true,
+      fromIndicator: true,
+      type: "PLAY_CARD",
+    },
+  ] as const;
+  for (const command of commands) {
+    const result = applyGameplayCommand(current, command);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    current = result.hand;
+  }
+  const afterIndicator = current;
+  const completed = applyGameplayCommand(current, {
+    actor: seatIndex(3, 4),
+    cardId: "H_A",
+    faceDown: false,
+    fromIndicator: false,
+    type: "PLAY_CARD",
+  });
+  expect(completed.ok).toBe(true);
+  if (!completed.ok) throw new Error(completed.error.message);
+  return { afterIndicator, completed: completed.hand };
+}
+
 describe("classic first leader and closed-mode availability", () => {
   it.each([
     {
@@ -370,6 +426,22 @@ describe("automatic 250-plus first-trick reveal", () => {
     expect(hand.currentTrick?.openedTrump).toBe(false);
     expect(hand.trump.open).toBe(false);
     expect(hand.trump.indicator?.id).toBe("S_J");
+  });
+});
+
+describe("face-down indicator reveal", () => {
+  it("preserves the indicator when it is played before the trick completes", () => {
+    const { afterIndicator, completed } =
+      playFaceDownIndicatorBeforeTrickCompletion();
+
+    expect(afterIndicator.trump.open).toBe(false);
+    expect(afterIndicator.trump.indicator).toBeNull();
+    expect(afterIndicator.trump.revealedIndicator?.id).toBe("S_J");
+    expect(completed.trump.open).toBe(true);
+    expect(completed.trump.revealedIndicator?.id).toBe("S_J");
+    expect(completed.currentTrick?.trumpRevealReason).toBe(
+      "face-down-trump-cut",
+    );
   });
 });
 

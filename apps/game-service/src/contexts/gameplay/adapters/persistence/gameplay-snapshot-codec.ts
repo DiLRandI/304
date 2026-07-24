@@ -213,9 +213,18 @@ function assertAggregateConsistency(
     "revealedIndicator" in state.trump
       ? (state.trump.revealedIndicator ?? null)
       : null;
+  const pendingFaceDownIndicatorPlay =
+    revealedIndicator !== null &&
+    state.currentTrick?.status === "active" &&
+    state.currentTrick.plays.some(
+      (play) =>
+        play.faceDown &&
+        play.fromIndicator &&
+        cardsAreEqual(play.card, revealedIndicator),
+    );
   const revealedIndicatorIsConsistent =
     revealedIndicator === null ||
-    (state.trump.open &&
+    ((state.trump.open || pendingFaceDownIndicatorPlay) &&
       state.trump.suit === revealedIndicator.suit &&
       canonicalOwnershipCards.filter((card) =>
         cardsAreEqual(card, revealedIndicator),
@@ -265,6 +274,7 @@ function assertAggregateConsistency(
   const closedRevealHasEvidence =
     revealedIndicator === null ||
     state.trump.mode !== "closed" ||
+    pendingFaceDownIndicatorPlay ||
     completedTricks.some(
       (trick) =>
         "trumpRevealReason" in trick && trick.trumpRevealReason != null,
@@ -311,6 +321,39 @@ function hydrateLegacyDefaults(hand: GameplayHand): GameplayHand {
   };
 }
 
+function restoreOmittedRevealedIndicator(
+  state: z.infer<typeof stateSchemaV3>,
+): z.infer<typeof stateSchemaV3> {
+  if (
+    state.trump.revealedIndicator !== null &&
+    state.trump.revealedIndicator !== undefined
+  ) {
+    return state;
+  }
+  if (state.trump.mode !== "closed" || state.trump.indicator !== null) {
+    return state;
+  }
+  const indicatorPlay = [
+    ...state.completedTricks,
+    ...(state.currentTrick ? [state.currentTrick] : []),
+  ]
+    .flatMap((trick) => trick.plays)
+    .find(
+      (play) =>
+        play.faceDown &&
+        play.fromIndicator &&
+        play.card.suit === state.trump.suit,
+    );
+  if (!indicatorPlay) return state;
+  return {
+    ...state,
+    trump: {
+      ...state.trump,
+      revealedIndicator: indicatorPlay.card,
+    },
+  };
+}
+
 export function hydrateGameplaySnapshot(
   record: GameplaySnapshotRecord,
 ): GameplayHand {
@@ -328,7 +371,9 @@ export function hydrateGameplaySnapshot(
     const state =
       record.schemaVersion === 2
         ? stateSchemaV2.parse(structuredClone(record.state))
-        : stateSchemaV3.parse(structuredClone(record.state));
+        : restoreOmittedRevealedIndicator(
+            stateSchemaV3.parse(structuredClone(record.state)),
+          );
     assertAggregateConsistency(state, record.ruleProfileId);
     const hand = {
       ...state,
