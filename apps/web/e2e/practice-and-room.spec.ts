@@ -616,16 +616,25 @@ test("a changed second-round winner reselects trump and completes the hand", asy
     const openedTrump = await submitNamedVisibleAction(pages, "Open trump");
     expect(openedTrump.page).toBe(secondWinner.page);
 
-    const winningSeatIndex = secondWinner.projection.viewerSeatIndex;
-    expect(typeof winningSeatIndex).toBe("number");
-    await expect(secondWinner.page.locator(".turn-prompt")).toContainText(
-      "Your turn. You lead the trick.",
-    );
+    const publicState = openedTrump.projection.view.publicState as {
+      dealerSeat?: unknown;
+    };
+    expect(typeof publicState.dealerSeat).toBe("number");
+    if (typeof publicState.dealerSeat !== "number") {
+      throw new Error("Expected a projected dealer seat");
+    }
+    const firstLeaderSeat = (publicState.dealerSeat + 1) % pages.length;
     for (const page of pages) {
-      if (page === secondWinner.page) continue;
       const prompt = page.locator(".turn-prompt");
+      const viewerSeatLabel = await page
+        .locator('.seat-panel[data-me="true"]')
+        .getAttribute("aria-label");
+      if (viewerSeatLabel === `Seat ${firstLeaderSeat + 1}`) {
+        await expect(prompt).toContainText("Your turn. You lead the trick.");
+        continue;
+      }
       await expect(prompt).toContainText(
-        `Seat ${Number(winningSeatIndex) + 1} leads the trick.`,
+        `Seat ${firstLeaderSeat + 1} leads the trick.`,
       );
       await expect(prompt).not.toContainText("Your turn");
     }

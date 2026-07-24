@@ -745,7 +745,12 @@ describe("gameplay bot policy", () => {
       activeSeat: actor,
       bidding: { ...start().bidding, currentBid: bidAmount(250) },
       phase: "trump-choice",
-      trump: { ...start().trump, maker: actor },
+      trump: {
+        ...start().trump,
+        indicator: card("S_7"),
+        maker: actor,
+        suit: "spades",
+      },
     };
 
     expect(

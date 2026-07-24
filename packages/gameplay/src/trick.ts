@@ -25,6 +25,7 @@ export interface TrickContext {
   readonly forceOpenOnCompletion?: boolean;
   readonly indicator: Card | null;
   readonly maker: SeatIndex;
+  readonly mustLeadRemainingTrumps?: boolean;
   readonly profile: RuleProfile;
   readonly trumpOpen: boolean;
   readonly trumpSuit: Suit;
@@ -72,6 +73,23 @@ export function createTrick(leaderSeat: SeatIndex): TrickState {
   };
 }
 
+export function exhaustedTrumpLeadRequired(
+  completedTricks: readonly TrickState[],
+  maker: SeatIndex,
+  trumpSuit: Suit,
+): boolean {
+  const previous = completedTricks[completedTricks.length - 1];
+  const lead = previous?.plays[0];
+  return Boolean(
+    previous?.status === "complete" &&
+      previous.leaderSeat === maker &&
+      previous.winnerSeat === maker &&
+      lead?.actor === maker &&
+      lead.card.suit === trumpSuit &&
+      previous.plays.slice(1).every((play) => play.card.suit !== trumpSuit),
+  );
+}
+
 function play(
   card: Card,
   faceDown: boolean,
@@ -93,13 +111,27 @@ export function legalCardPlays(
   const cardsInLedSuit = ledSuit
     ? hand.filter((card) => card.suit === ledSuit)
     : [];
-  const playableHand =
+  let playableHand =
     !isLeader && cardsInLedSuit.length > 0 ? cardsInLedSuit : hand;
+  if (isLeader && actor === context.maker && context.mustLeadRemainingTrumps) {
+    const remainingTrumps = hand.filter(
+      (card) => card.suit === context.trumpSuit,
+    );
+    if (remainingTrumps.length > 0) playableHand = remainingTrumps;
+  } else if (
+    isLeader &&
+    actor === context.maker &&
+    context.completedTrickCount === 0 &&
+    !context.trumpOpen
+  ) {
+    playableHand = hand.filter((card) => card.suit !== context.trumpSuit);
+  }
   const legal = playableHand.flatMap((card) => {
     if (isLeader || cardsInLedSuit.length > 0 || context.trumpOpen) {
       return [play(card, false, false)];
     }
-    return [play(card, false, false), play(card, true, false)];
+    if (actor === context.maker && card.suit === context.trumpSuit) return [];
+    return [play(card, true, false)];
   });
 
   const finalIndicatorOnlyCard =

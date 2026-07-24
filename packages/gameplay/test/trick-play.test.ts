@@ -72,7 +72,34 @@ describe("trick play legality", () => {
     ).toEqual([{ cardId: "H_J", faceDown: false, fromIndicator: false }]);
   });
 
-  it("offers face-down cuts and the maker's closed indicator when void", () => {
+  it("requires every void follower's in-hand card to be face down while trump is closed", () => {
+    const trick: TrickState = {
+      ...createTrick(seatIndex(0, 4)),
+      activeSeat: seatIndex(1, 4),
+      plays: [
+        {
+          actor: seatIndex(0, 4),
+          card: card("H_7"),
+          faceDown: false,
+          fromIndicator: false,
+        },
+      ],
+    };
+
+    expect(
+      legalCardPlays(
+        context(),
+        trick,
+        [card("C_J"), card("S_7")],
+        seatIndex(1, 4),
+      ),
+    ).toEqual([
+      { cardId: "C_J", faceDown: true, fromIndicator: false },
+      { cardId: "S_7", faceDown: true, fromIndicator: false },
+    ]);
+  });
+
+  it("makes the closed maker cut with the indicator instead of an in-hand trump", () => {
     const trick: TrickState = {
       ...createTrick(seatIndex(3, 4)),
       activeSeat: seatIndex(0, 4),
@@ -86,24 +113,165 @@ describe("trick play legality", () => {
       ],
     };
     expect(
-      legalCardPlays(context(), trick, [card("C_J")], seatIndex(0, 4)),
+      legalCardPlays(
+        context(),
+        trick,
+        [card("C_J"), card("S_9")],
+        seatIndex(0, 4),
+      ),
     ).toEqual([
-      { cardId: "C_J", faceDown: false, fromIndicator: false },
       { cardId: "C_J", faceDown: true, fromIndicator: false },
       { cardId: "S_J", faceDown: true, fromIndicator: true },
     ]);
   });
 
-  it("allows the retained indicator as the maker's final card", () => {
+  it("prevents the closed maker from leading an in-hand trump on trick one", () => {
     const trick = createTrick(seatIndex(0, 4));
+
     expect(
       legalCardPlays(
-        context({ completedTrickCount: 7 }),
+        context(),
         trick,
-        [],
+        [card("S_9"), card("H_J")],
         seatIndex(0, 4),
       ),
-    ).toEqual([{ cardId: "S_J", faceDown: true, fromIndicator: true }]);
+    ).toEqual([{ cardId: "H_J", faceDown: false, fromIndicator: false }]);
+    expect(
+      legalCardPlays(
+        context({ completedTrickCount: 1 }),
+        trick,
+        [card("S_9"), card("H_J")],
+        seatIndex(0, 4),
+      ),
+    ).toEqual([
+      { cardId: "S_9", faceDown: false, fromIndicator: false },
+      { cardId: "H_J", faceDown: false, fromIndicator: false },
+    ]);
+    expect(
+      legalCardPlays(
+        context({ trumpOpen: true }),
+        trick,
+        [card("S_9"), card("H_J")],
+        seatIndex(0, 4),
+      ),
+    ).toEqual([
+      { cardId: "S_9", faceDown: false, fromIndicator: false },
+      { cardId: "H_J", faceDown: false, fromIndicator: false },
+    ]);
+  });
+
+  it.each([
+    ["classic_304_4p", 7, 4],
+    ["six_304_36", 5, 6],
+  ] as const)("restricts the retained indicator in %s to a legal cut or the final trick", (profileId, penultimateTrick, seatCount) => {
+    const variant = getRuleProfile(profileId);
+    const variantDeck = buildDeck(variant);
+    const indicator = variantDeck.find((candidate) => candidate.id === "S_J");
+    const ledTrump = variantDeck.find((candidate) => candidate.id === "S_7");
+    const ledNonTrump = variantDeck.find((candidate) => candidate.id === "H_7");
+    if (!indicator || !ledTrump || !ledNonTrump) {
+      throw new Error("Expected indicator restriction fixtures");
+    }
+    const maker = seatIndex(1, variant.seatCount);
+    const variantContext: TrickContext = {
+      completedTrickCount: 0,
+      indicator,
+      maker,
+      profile: variant,
+      trumpOpen: false,
+      trumpSuit: "spades",
+    };
+    const followingTrump: TrickState = {
+      ...createTrick(seatIndex(0, variant.seatCount)),
+      activeSeat: maker,
+      plays: [
+        {
+          actor: seatIndex(0, variant.seatCount),
+          card: ledTrump,
+          faceDown: false,
+          fromIndicator: false,
+        },
+      ],
+    };
+    expect(legalCardPlays(variantContext, followingTrump, [], maker)).toEqual(
+      [],
+    );
+
+    const cuttingNonTrump: TrickState = {
+      ...followingTrump,
+      plays: [
+        {
+          actor: seatIndex(0, variant.seatCount),
+          card: ledNonTrump,
+          faceDown: false,
+          fromIndicator: false,
+        },
+      ],
+    };
+    expect(legalCardPlays(variantContext, cuttingNonTrump, [], maker)).toEqual([
+      { cardId: "S_J", faceDown: true, fromIndicator: true },
+    ]);
+
+    const finalContext = {
+      ...variantContext,
+      completedTrickCount: penultimateTrick,
+    };
+    const finalTrick = createTrick(maker);
+    expect(legalCardPlays(finalContext, finalTrick, [], maker)).toEqual([
+      { cardId: "S_J", faceDown: true, fromIndicator: true },
+    ]);
+    expect(variant.seatCount).toBe(seatCount);
+  });
+
+  it.each([
+    "classic_304_4p",
+    "six_304_36",
+  ] as const)("forces the closed maker's exhausted-trump lead sequence in %s", (profileId) => {
+    const variant = getRuleProfile(profileId);
+    const variantDeck = buildDeck(variant);
+    const maker = seatIndex(0, variant.seatCount);
+    const trumpNine = variantDeck.find((candidate) => candidate.id === "S_9");
+    const trumpAce = variantDeck.find((candidate) => candidate.id === "S_A");
+    const heartJack = variantDeck.find((candidate) => candidate.id === "H_J");
+    if (!trumpNine || !trumpAce || !heartJack) {
+      throw new Error("Expected exhausted-trump fixtures");
+    }
+    const variantContext: TrickContext = {
+      completedTrickCount: 2,
+      indicator:
+        variantDeck.find((candidate) => candidate.id === "S_J") ?? null,
+      maker,
+      mustLeadRemainingTrumps: true,
+      profile: variant,
+      trumpOpen: false,
+      trumpSuit: "spades",
+    };
+
+    expect(
+      legalCardPlays(
+        variantContext,
+        createTrick(maker),
+        [trumpNine, trumpAce, heartJack],
+        maker,
+      ),
+    ).toEqual([
+      { cardId: "S_9", faceDown: false, fromIndicator: false },
+      { cardId: "S_A", faceDown: false, fromIndicator: false },
+    ]);
+  });
+
+  it("allows the maker to leave an exhausted-trump sequence after in-hand trumps run out", () => {
+    expect(
+      legalCardPlays(
+        context({
+          completedTrickCount: 2,
+          mustLeadRemainingTrumps: true,
+        }),
+        createTrick(seatIndex(0, 4)),
+        [card("H_J")],
+        seatIndex(0, 4),
+      ),
+    ).toEqual([{ cardId: "H_J", faceDown: false, fromIndicator: false }]);
   });
 });
 
@@ -134,6 +302,58 @@ describe("trick resolution", () => {
     expect(trick.winnerSeat).toBe(1);
     expect(trick.points).toBe(61);
     expect(trick.openedTrump).toBe(true);
+  });
+
+  it("keeps a below-250 closed first trick closed unless a face-down trump cuts", () => {
+    let trick = createTrick(seatIndex(0, 4));
+    const hands = [[card("H_J")], [card("C_7")], [card("H_9")], [card("H_A")]];
+    let trumpOpen = false;
+    for (const actor of [0, 1, 2, 3]) {
+      const played = playCard(
+        context({ forceOpenOnCompletion: false, trumpOpen }),
+        trick,
+        hands[actor] ?? [],
+        seatIndex(actor, 4),
+        {
+          cardId: hands[actor]?.[0]?.id,
+          faceDown: actor === 1,
+          fromIndicator: false,
+        },
+      );
+      expect(played.ok).toBe(true);
+      if (!played.ok) continue;
+      trick = played.trick;
+      trumpOpen = played.trumpOpen;
+    }
+
+    expect(trick.openedTrump).toBe(false);
+    expect(trumpOpen).toBe(false);
+  });
+
+  it("keeps the automatic 250-plus reveal after the closed first trick", () => {
+    let trick = createTrick(seatIndex(0, 4));
+    const hands = [[card("H_J")], [card("C_7")], [card("H_9")], [card("H_A")]];
+    let trumpOpen = false;
+    for (const actor of [0, 1, 2, 3]) {
+      const played = playCard(
+        context({ forceOpenOnCompletion: true, trumpOpen }),
+        trick,
+        hands[actor] ?? [],
+        seatIndex(actor, 4),
+        {
+          cardId: hands[actor]?.[0]?.id,
+          faceDown: actor === 1,
+          fromIndicator: false,
+        },
+      );
+      expect(played.ok).toBe(true);
+      if (!played.ok) continue;
+      trick = played.trick;
+      trumpOpen = played.trumpOpen;
+    }
+
+    expect(trick.openedTrump).toBe(true);
+    expect(trumpOpen).toBe(true);
   });
 
   it("keeps trump closed for a concealed non-trump card", () => {
