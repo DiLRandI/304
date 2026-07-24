@@ -50,10 +50,17 @@ describe("gameplay bot policy", () => {
       },
     };
 
-    expect(chooseGameplayBotCommand(weak, actor, random(0))).toEqual({
-      actor: 0,
-      type: "PASS_BID",
-    });
+    for (const difficulty of ["easy", "normal", "strong"] as const) {
+      expect(
+        chooseGameplayBotCommand(weak, actor, {
+          difficulty,
+          random: random(0),
+        }),
+      ).toEqual({
+        actor: 0,
+        type: "PASS_BID",
+      });
+    }
 
     const lastChance: GameplayHand = {
       ...weak,
@@ -62,7 +69,12 @@ describe("gameplay bot policy", () => {
         noBidPasses: 3,
       },
     };
-    expect(chooseGameplayBotCommand(lastChance, actor, random(0))).toEqual({
+    expect(
+      chooseGameplayBotCommand(lastChance, actor, {
+        difficulty: "normal",
+        random: random(0),
+      }),
+    ).toEqual({
       actor: 0,
       amount: 180,
       type: "BID",
@@ -83,7 +95,12 @@ describe("gameplay bot policy", () => {
       trump: { ...start().trump, maker: actor },
     };
 
-    expect(chooseGameplayBotCommand(hand, actor, random(0))).toEqual({
+    expect(
+      chooseGameplayBotCommand(hand, actor, {
+        difficulty: "normal",
+        random: random(0),
+      }),
+    ).toEqual({
       actor: 0,
       cardId: "C_J",
       type: "SELECT_TRUMP",
@@ -100,11 +117,21 @@ describe("gameplay bot policy", () => {
       trump: { ...start().trump, maker: actor },
     };
 
-    expect(chooseGameplayBotCommand(hand, actor, random(0.8))).toEqual({
+    expect(
+      chooseGameplayBotCommand(hand, actor, {
+        difficulty: "strong",
+        random: random(0.8),
+      }),
+    ).toEqual({
       actor: 0,
       type: "TRUMP_CLOSE",
     });
-    expect(chooseGameplayBotCommand(hand, actor, random(0.2))).toEqual({
+    expect(
+      chooseGameplayBotCommand(hand, actor, {
+        difficulty: "easy",
+        random: random(0.2),
+      }),
+    ).toEqual({
       actor: 0,
       type: "TRUMP_OPEN",
     });
@@ -150,8 +177,16 @@ describe("gameplay bot policy", () => {
     expect(legalGameplayCommands(diamonds, actor)).toEqual(
       legalGameplayCommands(hearts, actor),
     );
-    expect(chooseGameplayBotCommand(diamonds, actor, random(0.9))).toEqual(
-      chooseGameplayBotCommand(hearts, actor, random(0.9)),
+    expect(
+      chooseGameplayBotCommand(diamonds, actor, {
+        difficulty: "strong",
+        random: random(0.9),
+      }),
+    ).toEqual(
+      chooseGameplayBotCommand(hearts, actor, {
+        difficulty: "strong",
+        random: random(0.9),
+      }),
     );
   });
 
@@ -162,12 +197,18 @@ describe("gameplay bot policy", () => {
       activeSeat: null,
       phase: "hand-result",
     };
-    const choice = chooseGameplayBotCommand(resultHand, actor, random(0));
+    const choice = chooseGameplayBotCommand(resultHand, actor, {
+      difficulty: "normal",
+      random: random(0),
+    });
 
     expect(legalGameplayCommands(resultHand, actor)).toContainEqual(choice);
     expect(choice).toEqual({ actor: 2, type: "ACK_RESULT" });
     expect(
-      chooseGameplayBotCommand(start(), seatIndex(1, 4), random(0)),
+      chooseGameplayBotCommand(start(), seatIndex(1, 4), {
+        difficulty: "normal",
+        random: random(0),
+      }),
     ).toBeNull();
   });
 });

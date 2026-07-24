@@ -94,11 +94,10 @@ describe("full-hand automated rule-profile simulations", () => {
           ).not.toBeNull();
           if (actor === null) throw new Error("Expected an active seat");
           const legalCommands = legalGameplayCommands(hand, actor);
-          const selected = chooseGameplayBotCommand(
-            hand,
-            actor,
-            deterministicRandom,
-          );
+          const selected = chooseGameplayBotCommand(hand, actor, {
+            difficulty: "normal",
+            random: deterministicRandom,
+          });
           expect(
             selected,
             `missing bot command during ${hand.phase}`,

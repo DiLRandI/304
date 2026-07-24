@@ -21,6 +21,7 @@ export interface AutomationJobRoom {
 }
 
 export interface AutomationJobSeat {
+  readonly botDifficulty: string | null;
   readonly connectionStatus?: "autopilot" | "disconnected" | "online";
   readonly occupantType: "bot" | "empty" | "human";
   readonly playerId: string | null;

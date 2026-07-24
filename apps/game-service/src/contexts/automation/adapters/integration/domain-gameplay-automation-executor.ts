@@ -1,4 +1,8 @@
-import { chooseGameplayBotCommand, seatIndex } from "@three-zero-four/gameplay";
+import {
+  chooseGameplayBotCommand,
+  type GameplayBotDifficulty,
+  seatIndex,
+} from "@three-zero-four/gameplay";
 import {
   GameplaySnapshotCodecError,
   serializeGameplaySnapshot,
@@ -67,6 +71,25 @@ function withAutopilot(
     seat.seatIndex === targetSeatIndex
       ? { ...seat, connectionStatus: "autopilot" }
       : seat,
+  );
+}
+
+function isGameplayBotDifficulty(
+  value: string | null,
+): value is GameplayBotDifficulty {
+  return value === "easy" || value === "normal" || value === "strong";
+}
+
+export function gameplayBotOptionsForSeat(seat: AutomationJobSeat): {
+  readonly difficulty: GameplayBotDifficulty;
+} {
+  if (seat.occupantType === "human") return { difficulty: "normal" };
+  if (isGameplayBotDifficulty(seat.botDifficulty)) {
+    return { difficulty: seat.botDifficulty };
+  }
+  throw new AutomationExecutionError(
+    "INVALID_BOT_DIFFICULTY",
+    "Bot seat has an invalid difficulty",
   );
 }
 
@@ -183,11 +206,10 @@ export class DomainGameplayAutomationExecutor {
         storedSeat.connectionStatus === "autopilot";
       if (storedSeat.occupantType !== "bot" && !isAutopilot) return "stale";
       const actor = seatIndex(job.targetSeatIndex, hand.profile.seatCount);
-      const command = chooseGameplayBotCommand(
-        hand,
-        actor,
-        this.dependencies.random,
-      );
+      const command = chooseGameplayBotCommand(hand, actor, {
+        ...gameplayBotOptionsForSeat(storedSeat),
+        random: this.dependencies.random,
+      });
       if (!command || command.type === "ACK_RESULT") return "stale";
       const transition = transitionAutomatedGameplayCommand(hand, command);
       const status = activeStatus(transition.hand.phase);
