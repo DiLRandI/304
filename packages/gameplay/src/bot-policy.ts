@@ -1,7 +1,8 @@
 import type { GameplayHand } from "./aggregate.js";
-import { compareRank, type RandomSource } from "./card.js";
+import { type Card, compareRank, type RandomSource } from "./card.js";
 import { legalGameplayCommands } from "./legal-actions.js";
 import type { GameplayCommand } from "./messages.js";
+import { teamForSeat } from "./scoring.js";
 import type { SeatIndex, Suit } from "./values.js";
 import { InvalidGameplayValue } from "./values.js";
 
@@ -18,6 +19,61 @@ type TrumpCommand = Extract<GameplayCommand, { type: "SELECT_TRUMP" }>;
 
 const suits: readonly Suit[] = ["clubs", "diamonds", "hearts", "spades"];
 
+const fourCardCeilings: Readonly<
+  Record<
+    GameplayBotDifficulty,
+    readonly { readonly minimumScore: number; readonly ceiling: number }[]
+  >
+> = {
+  easy: [
+    { ceiling: 180, minimumScore: 95 },
+    { ceiling: 170, minimumScore: 75 },
+    { ceiling: 160, minimumScore: 55 },
+  ],
+  normal: [
+    { ceiling: 200, minimumScore: 105 },
+    { ceiling: 190, minimumScore: 90 },
+    { ceiling: 180, minimumScore: 75 },
+    { ceiling: 170, minimumScore: 60 },
+    { ceiling: 160, minimumScore: 45 },
+  ],
+  strong: [
+    { ceiling: 220, minimumScore: 125 },
+    { ceiling: 210, minimumScore: 115 },
+    { ceiling: 200, minimumScore: 100 },
+    { ceiling: 190, minimumScore: 85 },
+    { ceiling: 180, minimumScore: 70 },
+    { ceiling: 170, minimumScore: 55 },
+    { ceiling: 160, minimumScore: 40 },
+  ],
+};
+
+export function evaluateFourCardBidHand(cards: readonly Card[]): number {
+  const suitCounts = Object.fromEntries(
+    suits.map((suit) => [suit, 0]),
+  ) as Record<Suit, number>;
+  let score = 0;
+  for (const card of cards) {
+    suitCounts[card.suit] += 1;
+    score += card.points;
+    if (card.rank === "J") score += 15;
+    if (card.rank === "9") score += 8;
+    if (card.rank === "A") score += 3;
+  }
+  return score + Math.max(...Object.values(suitCounts)) * 8;
+}
+
+export function fourCardBidCeiling(
+  difficulty: GameplayBotDifficulty,
+  score: number,
+): number | null {
+  return (
+    fourCardCeilings[difficulty].find(
+      ({ minimumScore }) => score >= minimumScore,
+    )?.ceiling ?? null
+  );
+}
+
 function randomValue(random: RandomSource): number {
   const value = random.next();
   if (!Number.isFinite(value) || value < 0 || value >= 1) {
@@ -29,63 +85,126 @@ function randomValue(random: RandomSource): number {
   return value;
 }
 
+function scoreTrumpSuit(cards: readonly Card[], suit: Suit): number {
+  const candidates = cards.filter((card) => card.suit === suit);
+  return (
+    candidates.length * 9 +
+    candidates.reduce((total, card) => total + card.points, 0) +
+    candidates.reduce(
+      (total, card) =>
+        total + (card.rank === "J" ? 50 : card.rank === "9" ? 30 : 0),
+      0,
+    )
+  );
+}
+
+function bestTrumpSuit(cards: readonly Card[]): Suit | null {
+  if (cards.length === 0) return null;
+  return suits.reduce(
+    (best, suit) =>
+      best === null || scoreTrumpSuit(cards, suit) > scoreTrumpSuit(cards, best)
+        ? suit
+        : best,
+    null as Suit | null,
+  );
+}
+
+function actorVisibleCards(
+  hand: GameplayHand,
+  actor: SeatIndex,
+): readonly Card[] {
+  const cards = hand.deal.hands[actor] ?? [];
+  const indicator = hand.trump.maker === actor ? hand.trump.indicator : null;
+  if (!indicator || cards.some((card) => card.id === indicator.id))
+    return cards;
+  return [...cards, indicator];
+}
+
+function candidateTrumpSuit(
+  hand: GameplayHand,
+  actor: SeatIndex,
+  visibleCards: readonly Card[],
+): Suit | null {
+  if (hand.trump.maker === actor && hand.trump.indicator !== null) {
+    return hand.trump.indicator.suit;
+  }
+  return bestTrumpSuit(visibleCards);
+}
+
+function secondBidCeiling(
+  hand: GameplayHand,
+  actor: SeatIndex,
+  difficulty: GameplayBotDifficulty,
+): number | null {
+  if (difficulty === "easy") return null;
+
+  const visibleCards = actorVisibleCards(hand, actor);
+  const candidateSuit = candidateTrumpSuit(hand, actor, visibleCards);
+  if (candidateSuit === null) return null;
+  const candidateCards = visibleCards.filter(
+    (card) => card.suit === candidateSuit,
+  );
+  const hasJack = candidateCards.some((card) => card.rank === "J");
+  const hasNine = candidateCards.some((card) => card.rank === "9");
+  if (!hasJack || !hasNine) return null;
+
+  const handPoints = visibleCards.reduce(
+    (total, card) => total + card.points,
+    0,
+  );
+  const jackSuits = new Set(
+    visibleCards.filter((card) => card.rank === "J").map((card) => card.suit),
+  );
+  if (
+    difficulty === "strong" &&
+    jackSuits.size === suits.length &&
+    handPoints >= 140
+  ) {
+    return 300;
+  }
+  if (candidateCards.length < 4) return null;
+  if (difficulty === "normal") return handPoints >= 100 ? 250 : null;
+
+  return Math.min(290, 210 + candidateCards.length * 10);
+}
+
+function partnerIsHighest(hand: GameplayHand, actor: SeatIndex): boolean {
+  const bidder = hand.bidding.currentBidder;
+  return (
+    bidder !== null &&
+    bidder !== actor &&
+    teamForSeat(bidder) === teamForSeat(actor)
+  );
+}
+
 function chooseBid(
   hand: GameplayHand,
   actor: SeatIndex,
   legal: readonly GameplayCommand[],
+  difficulty: GameplayBotDifficulty,
 ): GameplayCommand | null {
-  const cards = hand.deal.hands[actor] ?? [];
-  const suitCounts = Object.fromEntries(
-    suits.map((suit) => [suit, 0]),
-  ) as Record<Suit, number>;
-  for (const card of cards) suitCounts[card.suit] += 1;
-  const handScore =
-    cards.reduce((total, card) => total + card.points, 0) +
-    Object.values(suitCounts).reduce(
-      (total, count) => total + Math.max(0, count - 2) * 4,
-      0,
-    );
   const bids = legal
     .filter((command): command is BidCommand => command.type === "BID")
     .sort((first, second) => first.amount - second.amount);
+  if (partnerIsHighest(hand, actor)) return null;
 
   if (hand.phase === "four-bidding") {
-    const lastChanceToOpen =
-      hand.bidding.currentBid === null &&
-      hand.bidding.noBidPasses >= hand.profile.seatCount - 1;
-    if (handScore < 40 && !lastChanceToOpen) return null;
-    if (hand.profile.id === "six_304_36") {
-      return (
-        bids
-          .toReversed()
-          .find(
-            (command) =>
-              command.amount >= 160 &&
-              command.amount <= 190 + Math.floor(handScore / 5),
-          ) ?? null
-      );
+    const score = evaluateFourCardBidHand(
+      hand.deal.firstHands[actor] ?? hand.deal.hands[actor] ?? [],
+    );
+    const ceiling = fourCardBidCeiling(difficulty, score);
+    if (ceiling === null || (hand.bidding.currentBid ?? 0) > ceiling) {
+      return null;
     }
-    return bids[Math.min(2, bids.length - 1)] ?? null;
+    return bids.find((command) => command.amount <= ceiling) ?? null;
   }
 
   if (hand.phase === "second-bidding") {
-    if (
-      bids.length === 0 ||
-      (hand.profile.id === "classic_304_4p" &&
-        cards.reduce((total, card) => total + card.points, 0) < 100)
-    ) {
+    const ceiling = secondBidCeiling(hand, actor, difficulty);
+    if (ceiling === null || (hand.bidding.currentBid ?? 0) > ceiling) {
       return null;
     }
-    const currentBid = hand.bidding.currentBid ?? 0;
-    return (
-      bids
-        .toReversed()
-        .find(
-          (command) =>
-            command.amount >= 250 &&
-            command.amount <= currentBid + 20 + Math.floor(handScore / 4),
-        ) ?? null
-    );
+    return bids.find((command) => command.amount <= ceiling) ?? null;
   }
 
   return null;
@@ -103,15 +222,7 @@ function chooseTrump(
   let bestSuit: Suit | null = null;
   let bestScore = -1;
   for (const suit of suits) {
-    const cards = candidates.filter((card) => card.suit === suit);
-    const score =
-      cards.length * 9 +
-      cards.reduce((total, card) => total + card.points, 0) +
-      cards.reduce(
-        (total, card) =>
-          total + (card.rank === "J" ? 50 : card.rank === "9" ? 30 : 0),
-        0,
-      );
+    const score = scoreTrumpSuit(candidates, suit);
     if (score > bestScore) {
       bestScore = score;
       bestSuit = suit;
@@ -170,13 +281,13 @@ export function chooseGameplayBotCommand(
   actor: SeatIndex,
   options: GameplayBotOptions,
 ): GameplayCommand | null {
-  const { random } = options;
+  const { difficulty, random } = options;
   const legal = legalGameplayCommands(hand, actor);
   if (legal.length === 0) return null;
 
   if (hand.phase === "four-bidding" || hand.phase === "second-bidding") {
     return (
-      chooseBid(hand, actor, legal) ??
+      chooseBid(hand, actor, legal, difficulty) ??
       legal.find((command) => command.type === "PASS_BID") ??
       legal[0] ??
       null
