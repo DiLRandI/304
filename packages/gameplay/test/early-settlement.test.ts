@@ -8,14 +8,12 @@ import {
   type GameplayHand,
   getRuleProfile,
   initialTokens,
-  type RuleProfileId,
   seatIndex,
   startGameplayHand,
 } from "../src/index.js";
 
-function cardsWorth(profileId: RuleProfileId, points: number): Card[] {
-  const profile = getRuleProfile(profileId);
-  const pointCards = buildDeck(profile)
+function cardsWorth(cards: readonly Card[], points: number): Card[] {
+  const pointCards = cards
     .filter((card) => card.points > 0)
     .toSorted((first, second) => second.points - first.points);
 
@@ -24,15 +22,17 @@ function cardsWorth(profileId: RuleProfileId, points: number): Card[] {
     for (let index = start; index < pointCards.length; index += 1) {
       const card = pointCards[index];
       if (!card || card.points > remaining) continue;
-      const rest = collect(remaining - card.points, index);
+      const rest = collect(remaining - card.points, index + 1);
       if (rest) return [card, ...rest];
     }
     return null;
   }
 
-  const cards = collect(points);
-  if (!cards) throw new Error(`Could not create ${points} captured points`);
-  return cards;
+  const selectedCards = collect(points);
+  if (!selectedCards) {
+    throw new Error(`Could not create ${points} captured points`);
+  }
+  return selectedCards;
 }
 
 function almostCompletedTrick(
@@ -51,6 +51,14 @@ function almostCompletedTrick(
   if (trickCards.length !== profile.seatCount) {
     throw new Error("Expected one same-suit card per seat");
   }
+  const trickCardIds = new Set(trickCards.map((card) => card.id));
+  const availableCards = deck.filter((card) => !trickCardIds.has(card.id));
+  const bidderCards = cardsWorth(availableCards, input.bidderPoints);
+  const bidderCardIds = new Set(bidderCards.map((card) => card.id));
+  const opponentCards = cardsWorth(
+    availableCards.filter((card) => !bidderCardIds.has(card.id)),
+    input.opponentPoints,
+  );
   const lastSeat = seatIndex(profile.seatCount - 1, profile.seatCount);
   const started = startGameplayHand({
     dealer: lastSeat,
@@ -72,11 +80,7 @@ function almostCompletedTrick(
       status: "complete",
     },
     capturedCards: Array.from({ length: profile.seatCount }, (_, seat) =>
-      seat === 0
-        ? cardsWorth(profileId, input.bidderPoints)
-        : seat === 1
-          ? cardsWorth(profileId, input.opponentPoints)
-          : [],
+      seat === 0 ? bidderCards : seat === 1 ? opponentCards : [],
     ),
     currentTrick: {
       activeSeat: lastSeat,
@@ -97,7 +101,7 @@ function almostCompletedTrick(
     deal: {
       ...started.deal,
       deck: [],
-      hands: trickCards.map((card) => [card]),
+      hands: trickCards.map((card, seat) => (seat === lastSeat ? [card] : [])),
     },
     phase: "trick-play",
     trump: {
@@ -127,6 +131,21 @@ function completeTrick(hand: GameplayHand): GameplayHand {
 }
 
 describe("early hand settlement", () => {
+  it("uses unique cards across captures, the current trick, and live hands", () => {
+    const hand = almostCompletedTrick("classic_304_4p", {
+      bidderPoints: 130,
+      endHandWhenOutcomeCertain: true,
+      opponentPoints: 0,
+    });
+    const cardIds = [
+      ...hand.capturedCards.flat().map((card) => card.id),
+      ...(hand.currentTrick?.plays.map((play) => play.card.id) ?? []),
+      ...hand.deal.hands.flat().map((card) => card.id),
+    ];
+
+    expect(new Set(cardIds).size).toBe(cardIds.length);
+  });
+
   it.each([
     ["classic_304_4p", 130],
     ["six_304_36", 98],

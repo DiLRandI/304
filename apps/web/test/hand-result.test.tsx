@@ -38,5 +38,42 @@ describe("HandResult", () => {
     ).toBeTruthy();
     expect(screen.queryByText("Bidder points")).toBeNull();
     expect(screen.queryByText("Other team points")).toBeNull();
+    expect(
+      screen.getByText(
+        "Team A reached the 160 bid with 160 points captured when play stopped.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("describes an unreachable bid using captured-at-stop totals without a final deficit", () => {
+    render(
+      <HandResult
+        bidderOwner="Asha"
+        bidderSeatTeam="A"
+        result={{
+          bidderTeam: "A",
+          bidderTeamPoints: 30,
+          bid: 160,
+          handNumber: 1,
+          matchComplete: false,
+          movement: 2,
+          otherTeamPoints: 145,
+          settlementReason: "bid-unreachable",
+          success: false,
+          tokens: [9, 13],
+          trickCount: 5,
+          winningTeam: "B",
+        }}
+        trumpLabel="Spades"
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "Play stopped after Team B captured 145 points, making Asha's 160 bid unreachable. Asha had captured 30 points.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/missed by/i)).toBeNull();
+    expect(screen.queryByText(/scored 30/i)).toBeNull();
   });
 });

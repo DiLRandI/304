@@ -3,6 +3,7 @@ import { DomainGameplayRecovery } from "../src/contexts/gameplay/adapters/persis
 import { serializeGameplaySnapshot } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import type { GameplayHandRecoveryStore } from "../src/contexts/gameplay/application/gameplay-hand-recovery.js";
 import { startedGameplayHand } from "./support/gameplay-hand-fixture.js";
+import { legacyStartedGameplaySnapshot } from "./support/legacy-gameplay-snapshot-fixture.js";
 
 describe("DomainGameplayRecovery", () => {
   it("hydrates a domain snapshot and replays newer domain events", async () => {
@@ -95,5 +96,55 @@ describe("DomainGameplayRecovery", () => {
         ruleProfileId: "six_304_36",
       }),
     ).rejects.toMatchObject({ roomId: "room-1" });
+  });
+
+  it("rejects an explicit unsupported ROOM_STARTED snapshot version", async () => {
+    const legacy = legacyStartedGameplaySnapshot();
+    const store: GameplayHandRecoveryStore = {
+      findSeatIndex: vi.fn(async () => null),
+      loadEventsAfter: vi.fn(async () => [
+        {
+          actorPlayerId: "player-1",
+          eventType: "ROOM_STARTED",
+          payload: { ...legacy, schemaVersion: 4 },
+        },
+      ]),
+      loadSnapshot: vi.fn(async () => null),
+    };
+
+    await expect(
+      new DomainGameplayRecovery(store).recover(Symbol("transaction"), {
+        eventVersion: 1,
+        id: "room-1",
+        ruleProfileId: "classic_304_4p",
+      }),
+    ).rejects.toMatchObject({ roomId: "room-1" });
+  });
+
+  it("keeps the missing-version ROOM_STARTED fallback for legacy events", async () => {
+    const { schemaVersion: _version, ...legacy } =
+      legacyStartedGameplaySnapshot();
+    const store: GameplayHandRecoveryStore = {
+      findSeatIndex: vi.fn(async () => null),
+      loadEventsAfter: vi.fn(async () => [
+        {
+          actorPlayerId: "player-1",
+          eventType: "ROOM_STARTED",
+          payload: legacy,
+        },
+      ]),
+      loadSnapshot: vi.fn(async () => null),
+    };
+
+    await expect(
+      new DomainGameplayRecovery(store).recover(Symbol("transaction"), {
+        eventVersion: 1,
+        id: "room-1",
+        ruleProfileId: "classic_304_4p",
+      }),
+    ).resolves.toMatchObject({
+      endHandWhenOutcomeCertain: false,
+      phase: "four-bidding",
+    });
   });
 });
