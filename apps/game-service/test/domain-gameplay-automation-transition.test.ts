@@ -11,7 +11,7 @@ describe("transitionAutomatedGameplayCommand", () => {
 
     const result = transitionAutomatedGameplayCommand(before, command);
 
-    expect(result.snapshot.schemaVersion).toBe(2);
+    expect(result.snapshot.schemaVersion).toBe(3);
     expect(hydrateGameplaySnapshot(result.snapshot)).toEqual(result.hand);
     expect(before.phase).toBe("trick-result");
   });

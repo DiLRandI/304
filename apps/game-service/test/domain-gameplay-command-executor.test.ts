@@ -91,13 +91,13 @@ describe("DomainGameplayCommandExecutor", () => {
       payload: { action: command.action, seatIndex: actorSeatIndex },
       roomId: room.id,
       ruleProfileId: room.ruleProfileId,
-      snapshotSchemaVersion: 2,
+      snapshotSchemaVersion: 3,
       status: "in_hand",
     });
     expect(
       hydrateGameplaySnapshot({
         ruleProfileId: room.ruleProfileId,
-        schemaVersion: 2,
+        schemaVersion: 3,
         state: persisted?.snapshot,
       }).bidding.actionsTaken,
     ).toBe(1);

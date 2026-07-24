@@ -18,6 +18,7 @@ describe("gameplay hand aggregate", () => {
     const hand = startGameplayHand({
       dealer,
       deck: buildDeck(profile),
+      endHandWhenOutcomeCertain: false,
       handNumber: 1,
       profile,
       secondBiddingEnabled: true,
@@ -49,6 +50,7 @@ describe("gameplay hand aggregate", () => {
     const hand = startGameplayHand({
       dealer: seatIndex(0, 4),
       deck: buildDeck(profile),
+      endHandWhenOutcomeCertain: false,
       handNumber: 3,
       profile,
       secondBiddingEnabled: false,

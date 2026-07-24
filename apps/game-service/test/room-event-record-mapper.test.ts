@@ -145,14 +145,14 @@ describe("room event persistence mapper", () => {
 
     expect(
       mapRoomEventForPersistence(result.event, result.room, {
-        schemaVersion: 2,
+        schemaVersion: 3,
         state: { phase: "four-bidding" },
       }),
     ).toEqual({
       eventType: "ROOM_STARTED",
       payload: {
         ruleProfileId: "classic_304_4p",
-        schemaVersion: 2,
+        schemaVersion: 3,
         state: { phase: "four-bidding" },
       },
     });

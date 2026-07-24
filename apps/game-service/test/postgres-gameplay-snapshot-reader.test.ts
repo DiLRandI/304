@@ -19,6 +19,7 @@ const profile = getRuleProfile("classic_304_4p");
 const hand = startGameplayHand({
   dealer: seatIndex(0, profile.seatCount),
   deck: buildDeck(profile),
+  endHandWhenOutcomeCertain: false,
   handNumber: 1,
   profile,
   secondBiddingEnabled: true,

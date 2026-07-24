@@ -22,6 +22,7 @@ function startSimulation(ruleProfileId: RuleProfileId): GameplayHand {
   return startGameplayHand({
     dealer: seatIndex(profile.seatCount - 1, profile.seatCount),
     deck: buildDeck(profile),
+    endHandWhenOutcomeCertain: false,
     handNumber: 1,
     profile,
     secondBiddingEnabled: true,

@@ -20,6 +20,15 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function startedSnapshotSchemaVersion(
+  value: unknown,
+  roomId: string,
+): 1 | 2 | 3 {
+  if (value === undefined) return 1;
+  if (value === 1 || value === 2 || value === 3) return value;
+  throw new RecoveryError(roomId);
+}
+
 function hydrateStartedHand(
   roomId: string,
   ruleProfileId: RuleProfileId,
@@ -35,10 +44,7 @@ function hydrateStartedHand(
   }
   return hydrateGameplaySnapshot({
     ruleProfileId,
-    schemaVersion:
-      payload.schemaVersion === 1 || payload.schemaVersion === 2
-        ? payload.schemaVersion
-        : 1,
+    schemaVersion: startedSnapshotSchemaVersion(payload.schemaVersion, roomId),
     state: payload.state,
   });
 }

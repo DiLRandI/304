@@ -17,7 +17,7 @@ export interface GameplaySnapshotRecord {
 
 export interface SerializedGameplaySnapshotRecord
   extends GameplaySnapshotRecord {
-  readonly schemaVersion: 2;
+  readonly schemaVersion: 3;
 }
 
 const seatSchema = z.number().int().min(0).max(5);
@@ -74,7 +74,7 @@ const cancelledResultSchema = z.strictObject({
   reason: z.literal("All players passed. No score movement this hand."),
   tokens: tokenBalanceSchema,
 });
-const scoredResultSchema = z.strictObject({
+const scoredResultSchemaV2 = z.strictObject({
   bid: bidSchema,
   bidderTeam: z.enum(["A", "B"]),
   bidderTeamPoints: z.number().int().nonnegative(),
@@ -85,7 +85,14 @@ const scoredResultSchema = z.strictObject({
   tokens: tokenBalanceSchema,
   winningTeam: z.enum(["A", "B"]),
 });
-const stateSchema = z.strictObject({
+const scoredResultSchemaV3 = scoredResultSchemaV2.extend({
+  settlementReason: z.enum([
+    "all-tricks-played",
+    "bid-reached",
+    "bid-unreachable",
+  ]),
+});
+const stateSchemaV2 = z.strictObject({
   activeSeat: seatSchema.nullable(),
   bidding: biddingSchema,
   capturedCards: z.array(z.array(cardSchema)),
@@ -104,7 +111,7 @@ const stateSchema = z.strictObject({
     "hand-result",
     "match-complete",
   ]),
-  result: z.union([cancelledResultSchema, scoredResultSchema]).nullable(),
+  result: z.union([cancelledResultSchema, scoredResultSchemaV2]).nullable(),
   tokens: tokenBalanceSchema,
   trump: z.strictObject({
     indicator: cardSchema.nullable(),
@@ -114,13 +121,17 @@ const stateSchema = z.strictObject({
     suit: z.enum(["clubs", "diamonds", "hearts", "spades"]).nullable(),
   }),
 });
+const stateSchemaV3 = stateSchemaV2.extend({
+  endHandWhenOutcomeCertain: z.boolean(),
+  result: z.union([cancelledResultSchema, scoredResultSchemaV3]).nullable(),
+});
 
 function validSeat(value: number | null, seatCount: number): boolean {
   return value === null || value < seatCount;
 }
 
 function assertAggregateConsistency(
-  state: z.infer<typeof stateSchema>,
+  state: z.infer<typeof stateSchemaV2> | z.infer<typeof stateSchemaV3>,
   profileId: RuleProfileId,
 ): void {
   const profile = getRuleProfile(profileId);
@@ -176,16 +187,32 @@ export function serializeGameplaySnapshot(
   const { profile, ...state } = cloned;
   return {
     ruleProfileId: profile.id,
-    schemaVersion: 2,
+    schemaVersion: 3,
     state,
+  };
+}
+
+function hydrateLegacyDefaults(hand: GameplayHand): GameplayHand {
+  return {
+    ...hand,
+    endHandWhenOutcomeCertain: false,
+    result:
+      hand.result && !("noScore" in hand.result)
+        ? {
+            ...hand.result,
+            settlementReason: "all-tricks-played",
+          }
+        : hand.result,
   };
 }
 
 export function hydrateGameplaySnapshot(
   record: GameplaySnapshotRecord,
 ): GameplayHand {
-  if (record.schemaVersion === 1) return decodeGameplayHand(record);
-  if (record.schemaVersion !== 2) {
+  if (record.schemaVersion === 1) {
+    return hydrateLegacyDefaults(decodeGameplayHand(record));
+  }
+  if (record.schemaVersion !== 2 && record.schemaVersion !== 3) {
     throw new GameplaySnapshotCodecError(
       "UNSUPPORTED_GAMEPLAY_SNAPSHOT",
       "Gameplay snapshot version is not supported",
@@ -193,9 +220,13 @@ export function hydrateGameplaySnapshot(
   }
   try {
     const profile = getRuleProfile(record.ruleProfileId);
-    const state = stateSchema.parse(structuredClone(record.state));
+    const state =
+      record.schemaVersion === 2
+        ? stateSchemaV2.parse(structuredClone(record.state))
+        : stateSchemaV3.parse(structuredClone(record.state));
     assertAggregateConsistency(state, record.ruleProfileId);
-    return { ...state, profile } as unknown as GameplayHand;
+    const hand = { ...state, profile } as unknown as GameplayHand;
+    return record.schemaVersion === 2 ? hydrateLegacyDefaults(hand) : hand;
   } catch {
     throw new GameplaySnapshotCodecError(
       "INVALID_GAMEPLAY_SNAPSHOT",

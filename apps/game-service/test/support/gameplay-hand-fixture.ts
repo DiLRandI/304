@@ -26,11 +26,13 @@ export function applyGameplayFixtureCommand(
 export function startedGameplayHand(
   profileId: RuleProfileId = "classic_304_4p",
   secondBiddingEnabled = true,
+  endHandWhenOutcomeCertain = false,
 ): GameplayHand {
   const profile = getRuleProfile(profileId);
   return startGameplayHand({
     dealer: seatIndex(profile.seatCount - 1, profile.seatCount),
     deck: buildDeck(profile),
+    endHandWhenOutcomeCertain,
     handNumber: 1,
     profile,
     secondBiddingEnabled,

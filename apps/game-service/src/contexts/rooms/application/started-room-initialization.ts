@@ -2,7 +2,7 @@ import type { Room } from "@three-zero-four/room-domain";
 import type { NewAutomationJob } from "./room-persistence-model.js";
 
 export interface StartedRoomSnapshot {
-  readonly schemaVersion: 1 | 2;
+  readonly schemaVersion: 1 | 2 | 3;
   readonly state: unknown;
 }
 

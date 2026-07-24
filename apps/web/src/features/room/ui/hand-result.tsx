@@ -17,6 +17,16 @@ export function HandResult({
   result: ProjectedHandResult;
   trumpLabel: string;
 }) {
+  const earlyResult =
+    !isNoScoreResult(result) && result.settlementReason !== "all-tricks-played";
+  const bidderLabel =
+    !isNoScoreResult(result) &&
+    bidderOwner &&
+    bidderSeatTeam === result.bidderTeam
+      ? bidderOwner
+      : !isNoScoreResult(result)
+        ? `Team ${result.bidderTeam}`
+        : "";
   return (
     <section
       aria-label="Hand result"
@@ -37,16 +47,16 @@ export function HandResult({
           <h2>Team {result.winningTeam} wins the hand</h2>
           <div className="hand-result-summary">
             <p>
-              {bidderOwner && bidderSeatTeam === result.bidderTeam
-                ? bidderOwner
-                : `Team ${result.bidderTeam}`}{" "}
-              bid {result.bid}
+              {bidderLabel} bid {result.bid}
             </p>
             <p>
-              Team {result.bidderTeam}{" "}
-              {result.success
-                ? `met the ${result.bid} bid by ${result.bidderTeamPoints - result.bid}`
-                : `scored ${result.bidderTeamPoints} and missed by ${result.bid - result.bidderTeamPoints}`}
+              {result.settlementReason === "bid-reached"
+                ? `${bidderLabel} reached the ${result.bid} bid with ${result.bidderTeamPoints} points captured when play stopped.`
+                : result.settlementReason === "bid-unreachable"
+                  ? `Play stopped after Team ${result.winningTeam} captured ${result.otherTeamPoints} points, making ${bidderLabel}'s ${result.bid} bid unreachable. ${bidderLabel} had captured ${result.bidderTeamPoints} points.`
+                  : result.success
+                    ? `Team ${result.bidderTeam} met the ${result.bid} bid by ${result.bidderTeamPoints - result.bid}`
+                    : `Team ${result.bidderTeam} scored ${result.bidderTeamPoints} and missed by ${result.bid - result.bidderTeamPoints}`}
             </p>
           </div>
           <dl>
@@ -55,7 +65,11 @@ export function HandResult({
               <dd>{result.bid}</dd>
             </div>
             <div>
-              <dt>Bidder points</dt>
+              <dt>
+                {earlyResult
+                  ? "Bidder points captured when play stopped"
+                  : "Bidder points"}
+              </dt>
               <dd>{result.bidderTeamPoints}</dd>
             </div>
             <div>
@@ -67,7 +81,11 @@ export function HandResult({
               <dd>{trumpLabel}</dd>
             </div>
             <div>
-              <dt>Other team points</dt>
+              <dt>
+                {earlyResult
+                  ? "Other team points captured when play stopped"
+                  : "Other team points"}
+              </dt>
               <dd>{result.otherTeamPoints}</dd>
             </div>
             <div>

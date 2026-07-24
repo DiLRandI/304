@@ -70,7 +70,7 @@ export interface AppendEventInput {
   eventType: string;
   payload: unknown;
   snapshot: unknown;
-  snapshotSchemaVersion?: 1 | 2;
+  snapshotSchemaVersion?: 1 | 2 | 3;
   status: Extract<RoomStatus, "lobby" | "in_hand" | "hand_result" | "closed">;
   ruleProfileId: RuleProfileId;
   deduplicationResponse?: unknown;

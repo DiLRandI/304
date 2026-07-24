@@ -10,11 +10,18 @@ async function dismissConsent(page: Page): Promise<void> {
   if (await essentialOnly.isVisible()) await essentialOnly.click();
 }
 
-async function openPractice(page: Page, displayName: string): Promise<void> {
+async function openPractice(
+  page: Page,
+  displayName: string,
+  endHandWhenOutcomeCertain = true,
+): Promise<void> {
   await page.goto("/play");
   await dismissConsent(page);
   await page.getByLabel("Display name").fill(displayName);
   await page.getByLabel("Rule profile").selectOption("classic_304_4p");
+  if (!endHandWhenOutcomeCertain) {
+    await page.getByLabel("End hand when outcome is certain").uncheck();
+  }
   await page.getByRole("button", { name: "Start practice" }).click();
   await expect(page).toHaveURL(/\/room\//);
   await expect(page.locator('[aria-label="304 game table"]')).toBeVisible();
@@ -383,7 +390,7 @@ for (const [profile, label] of [
     if (await bidSummary.isVisible()) {
       await expect(bidSummary).toContainText(/Team [AB].*bid \d+/);
       await expect(bidSummary).toContainText(
-        /met the \d+ bid by \d+|missed by \d+/,
+        /met the \d+ bid by \d+|missed by \d+|reached the \d+ bid with \d+ points captured when play stopped|Play stopped after Team [AB] captured \d+ points, making .+'s \d+ bid unreachable/,
       );
     }
     await expect(page.getByRole("button", { name: "Next hand" })).toBeVisible();
@@ -405,7 +412,7 @@ test("a completed trick stays visible before the next trick begins", async ({
   page,
 }) => {
   test.setTimeout(60_000);
-  await openPractice(page, uniqueName("Trick pause"));
+  await openPractice(page, uniqueName("Trick pause"), false);
 
   const trickCards = page.locator(".trick-card");
   const deadline = Date.now() + 40_000;

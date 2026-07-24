@@ -66,6 +66,12 @@ jobs:
       - run: pnpm --filter @three-zero-four/web exec playwright install --with-deps chromium
       - run: E2E_BASE_URL=http://127.0.0.1:3000 pnpm --filter @three-zero-four/web exec playwright test
       - run: G304_RESTORE_REHEARSAL=1 scripts/backup-restore-rehearsal.sh
+      - name: Reset disposable rate-limit windows before load smoke
+        run: >-
+          docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml
+          exec -T redis redis-cli EVAL
+          "local keys=redis.call('KEYS','g304:rate:*'); if #keys == 0 then return 0 end; return redis.call('DEL',unpack(keys))"
+          0
       - run: LOAD_BASE_URL=http://127.0.0.1:4100 LOAD_ORIGIN=http://127.0.0.1:3000 node infra/load/browser-api-smoke.js
       - run: docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml up --build --wait postgres redis
       - run: docker compose --env-file infra/compose/.env --project-name g304-integration -f infra/compose/compose.yaml run --rm --no-deps migrate

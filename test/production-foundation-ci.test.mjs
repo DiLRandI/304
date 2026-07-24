@@ -103,6 +103,10 @@ test("public-release CI includes browser, scanner, load, and restore gates", () 
     /G304_RESTORE_REHEARSAL=1 scripts\/backup-restore-rehearsal\.sh/,
   );
   assert.match(workflow, /browser-api-smoke\.js/);
+  assert.match(
+    workflow,
+    /Reset disposable rate-limit windows before load smoke[\s\S]*g304:rate:\*[\s\S]*browser-api-smoke\.js/,
+  );
   assert.match(workflow, /upload-artifact@[0-9a-f]{40}/);
   assert.match(restoreScript, /trap cleanup EXIT/);
   assert.match(restoreScript, /G304_RESTORE_REHEARSAL/);

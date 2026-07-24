@@ -138,6 +138,7 @@ export function resultProjection(matchComplete = false): RoomProjection {
         matchComplete,
         movement: 1,
         otherTeamPoints: 108,
+        settlementReason: "all-tricks-played",
         success: true,
         tokens: [12, 10],
         trickCount: 8,

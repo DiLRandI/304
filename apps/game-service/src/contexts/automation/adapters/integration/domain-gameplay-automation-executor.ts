@@ -110,7 +110,7 @@ export class DomainGameplayAutomationExecutor {
             roomId: room.id,
             ruleProfileId: room.ruleProfileId,
             snapshot: transition.snapshot.state,
-            snapshotSchemaVersion: 2,
+            snapshotSchemaVersion: 3,
             status,
           });
         await this.schedule(
@@ -165,7 +165,7 @@ export class DomainGameplayAutomationExecutor {
             roomId: room.id,
             ruleProfileId: room.ruleProfileId,
             snapshot: serializeGameplaySnapshot(hand).state,
-            snapshotSchemaVersion: 2,
+            snapshotSchemaVersion: 3,
             status,
           });
         await this.schedule(
@@ -205,7 +205,7 @@ export class DomainGameplayAutomationExecutor {
           roomId: room.id,
           ruleProfileId: room.ruleProfileId,
           snapshot: transition.snapshot.state,
-          snapshotSchemaVersion: 2,
+          snapshotSchemaVersion: 3,
           status,
         },
       );

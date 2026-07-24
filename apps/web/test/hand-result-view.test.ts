@@ -29,11 +29,35 @@ describe("projected hand result", () => {
         matchComplete: false,
         movement: 1,
         otherTeamPoints: 108,
+        settlementReason: "all-tricks-played",
         success: true,
         tokens: [12, 10],
         trickCount: 8,
         winningTeam: "A",
       }),
     ).toBeUndefined();
+  });
+
+  it("reads early captured-at-stop totals and their settlement reason", () => {
+    expect(
+      readProjectedHandResult({
+        bidderTeam: "A",
+        bidderTeamPoints: 160,
+        bid: 160,
+        handNumber: 1,
+        matchComplete: false,
+        movement: 1,
+        otherTeamPoints: 42,
+        settlementReason: "bid-reached",
+        success: true,
+        tokens: [12, 10],
+        trickCount: 5,
+        winningTeam: "A",
+      }),
+    ).toMatchObject({
+      bidderTeamPoints: 160,
+      otherTeamPoints: 42,
+      settlementReason: "bid-reached",
+    });
   });
 });

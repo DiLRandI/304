@@ -6,6 +6,10 @@ export type TokenBalance = readonly [number, number];
 export interface ScoreHandInput {
   readonly bid: BidAmount;
   readonly bidderTeam: Team;
+  readonly settlementReason?:
+    | "all-tricks-played"
+    | "bid-reached"
+    | "bid-unreachable";
   readonly teamPoints: Readonly<Record<Team, number>>;
   readonly tokens: TokenBalance;
 }
@@ -17,6 +21,10 @@ export interface HandScore {
   readonly matchComplete: boolean;
   readonly movement: number;
   readonly otherTeamPoints: number;
+  readonly settlementReason:
+    | "all-tricks-played"
+    | "bid-reached"
+    | "bid-unreachable";
   readonly success: boolean;
   readonly tokens: TokenBalance;
   readonly winningTeam: Team;
@@ -78,6 +86,7 @@ export function scoreHand(
     matchComplete: tokens.includes(0),
     movement,
     otherTeamPoints: input.teamPoints[otherTeam],
+    settlementReason: input.settlementReason ?? "all-tricks-played",
     success,
     tokens,
     winningTeam: success ? input.bidderTeam : otherTeam,

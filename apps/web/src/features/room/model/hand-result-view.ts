@@ -15,6 +15,7 @@ export type ProjectedHandResult =
       matchComplete: boolean;
       movement: number;
       otherTeamPoints: number;
+      settlementReason: "all-tricks-played" | "bid-reached" | "bid-unreachable";
       success: boolean;
       tokens: [number, number];
       trickCount: number;
@@ -79,6 +80,7 @@ export function readProjectedHandResult(
       "matchComplete",
       "movement",
       "otherTeamPoints",
+      "settlementReason",
       "success",
       "tokens",
       "trickCount",
@@ -94,6 +96,12 @@ export function readProjectedHandResult(
   const handNumber = nonNegativeInteger(value.handNumber);
   const movement = nonNegativeInteger(value.movement);
   const otherTeamPoints = nonNegativeInteger(value.otherTeamPoints);
+  const settlementReason =
+    value.settlementReason === "all-tricks-played" ||
+    value.settlementReason === "bid-reached" ||
+    value.settlementReason === "bid-unreachable"
+      ? value.settlementReason
+      : null;
   const tokens = tokenPair(value.tokens);
   const trickCount = nonNegativeInteger(value.trickCount);
   if (
@@ -104,6 +112,7 @@ export function readProjectedHandResult(
     handNumber === null ||
     movement === null ||
     otherTeamPoints === null ||
+    settlementReason === null ||
     tokens === null ||
     trickCount === null ||
     typeof value.matchComplete !== "boolean" ||
@@ -119,6 +128,7 @@ export function readProjectedHandResult(
     matchComplete: value.matchComplete,
     movement,
     otherTeamPoints,
+    settlementReason,
     success: value.success,
     tokens,
     trickCount,
