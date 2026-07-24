@@ -152,14 +152,20 @@ function secondBidCeiling(
     (total, card) => total + card.points,
     0,
   );
-  if (difficulty === "normal") return handPoints >= 100 ? 250 : null;
-
   const jackSuits = new Set(
     visibleCards.filter((card) => card.rank === "J").map((card) => card.suit),
   );
-  if (jackSuits.size === suits.length && handPoints >= 140) return 300;
+  if (
+    difficulty === "strong" &&
+    jackSuits.size === suits.length &&
+    handPoints >= 140
+  ) {
+    return 300;
+  }
+  if (candidateCards.length < 4) return null;
+  if (difficulty === "normal") return handPoints >= 100 ? 250 : null;
 
-  return Math.min(290, 230 + candidateCards.length * 10);
+  return Math.min(290, 210 + candidateCards.length * 10);
 }
 
 function partnerIsHighest(hand: GameplayHand, actor: SeatIndex): boolean {

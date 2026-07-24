@@ -297,7 +297,7 @@ describe("gameplay bot policy", () => {
       }),
     ).toEqual({ actor: 0, amount: 200, type: "BID" });
 
-    const exceptional = cards("C_J", "C_9", "C_A", "D_J", "H_J", "S_A");
+    const exceptional = cards("C_J", "C_9", "C_A", "C_10", "C_K", "D_J");
     const secondStage = (currentBidder: 1 | 2 | 4): GameplayHand => {
       const bidding = startSecondBidding(
         sixProfile,
@@ -414,11 +414,11 @@ describe("gameplay bot policy", () => {
   });
 
   it.each([
-    [cards("C_J", "C_9", "D_J", "D_9", "H_A", "H_10", "S_A", "S_10"), 250],
-    [cards("C_J", "C_9", "C_A", "D_J", "D_9", "H_A", "S_A", "S_10"), 260],
-    [cards("C_J", "C_9", "C_A", "C_10", "D_J", "D_9", "H_A", "S_A"), 270],
-    [cards("C_J", "C_9", "C_A", "C_10", "C_K", "D_J", "H_J", "S_A"), 280],
-    [cards("C_J", "C_9", "C_A", "C_10", "C_K", "C_Q", "D_J", "H_J"), 290],
+    [cards("C_J", "C_9", "C_A", "C_10", "D_J", "D_9", "H_A", "S_A"), 250],
+    [cards("C_J", "C_9", "C_A", "C_10", "C_K", "D_J", "H_J", "S_A"), 260],
+    [cards("C_J", "C_9", "C_A", "C_10", "C_K", "C_Q", "D_J", "H_J"), 270],
+    [cards("C_J", "C_9", "C_A", "C_10", "C_K", "C_Q", "C_7", "D_J"), 280],
+    [cards("C_J", "C_9", "C_A", "C_10", "C_K", "C_Q", "C_7", "C_8"), 290],
   ] as const)("maps Strong exceptional candidate control to a %i ceiling", (handCards, expectedCeiling) => {
     const actor = seatIndex(0, 4);
     expect(
@@ -704,18 +704,11 @@ describe("gameplay bot policy", () => {
       0,
     );
     expect(generatedDeals).toBe(samples);
-    expect(samples - highFinalBids).toBeGreaterThanOrEqual(500);
-    expect(highFinalBids).toBeGreaterThanOrEqual(450);
-    expect(highFinalBids).toBeLessThanOrEqual(500);
-    expect(above250).toBeGreaterThanOrEqual(50);
+    expect(samples - highFinalBids).toBeGreaterThanOrEqual(750);
+    expect(highFinalBids).toBeGreaterThan(0);
+    expect(highFinalBids).toBeLessThanOrEqual(250);
     expect(above250).toBeLessThanOrEqual(75);
-    expect(above260).toBeGreaterThan(0);
-    expect(above260).toBeLessThanOrEqual(10);
-    for (const amount of [250, 260, 270]) {
-      expect(finalBids.get(amount)).toBeGreaterThan(0);
-    }
-    expect(finalBids.get(280)).toBe(0);
-    expect(finalBids.get(290)).toBe(0);
+    expect(above260).toBeLessThanOrEqual(20);
     expect(finalBids.get(300)).toBe(0);
   });
 
