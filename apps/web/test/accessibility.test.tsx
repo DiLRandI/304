@@ -47,6 +47,43 @@ describe("browser accessibility", () => {
     });
   });
 
+  it("does not announce concealed card identities with a reveal reason", () => {
+    const projection = activeProjection();
+    const publicState = projection.view.publicState as Record<string, unknown>;
+    publicState.trick = {
+      plays: [
+        {
+          card: { cardId: "Card Back", hidden: true },
+          faceDown: true,
+          seatIndex: 1,
+        },
+      ],
+      trumpRevealReason: "high-bid-after-first-trick",
+    };
+    publicState.trump = {
+      indicator: jackOfSpades,
+      indicatorVisible: true,
+      isOpen: true,
+      maker: 0,
+      suit: "spades",
+    };
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={vi.fn()}
+      />,
+    );
+
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain(
+      "Trump opened after trick one because the bid was 250 or more.",
+    );
+    expect(status.textContent).not.toContain("Card Back");
+  });
+
   it("keeps card-value help available without hiding the table", async () => {
     const user = userEvent.setup();
 

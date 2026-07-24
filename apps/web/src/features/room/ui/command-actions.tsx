@@ -10,7 +10,9 @@ function actionLabel(
 ): string {
   switch (action.type) {
     case "BID":
-      return `Bid ${action.amount}`;
+      return action.amount >= 250
+        ? `Bid ${action.amount} — trump opens after trick one`
+        : `Bid ${action.amount}`;
     case "PASS_BID":
       return "Pass bid";
     case "TRUMP_OPEN":
@@ -46,19 +48,38 @@ function actionLabel(
 
 export function CommandActions({
   actions,
+  currentBid = 0,
   hand,
   handResult,
   onSelect,
 }: {
   actions: readonly GameAction[];
+  currentBid?: number;
   hand: readonly ProjectedCard[];
   handResult: ProjectedHandResult | null;
   onSelect(action: GameAction): void;
 }) {
   if (actions.length === 0) return null;
+  const offersHighBid = actions.some(
+    (action) => action.type === "BID" && action.amount >= 250,
+  );
+  const choosingTrumpMode = actions.some(
+    (action) => action.type === "TRUMP_CLOSE" || action.type === "TRUMP_OPEN",
+  );
 
   return (
     <section aria-label="Legal actions" className="command-actions">
+      {offersHighBid ? (
+        <p>
+          Bids of 250 or more open trump automatically after the first trick.
+        </p>
+      ) : null}
+      {choosingTrumpMode && currentBid >= 250 ? (
+        <p>
+          Your {currentBid} bid will open trump automatically after trick one,
+          even if you keep it closed now.
+        </p>
+      ) : null}
       {actions.map((action) => (
         <button
           key={JSON.stringify(action)}

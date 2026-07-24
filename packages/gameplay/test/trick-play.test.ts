@@ -302,6 +302,7 @@ describe("trick resolution", () => {
     expect(trick.winnerSeat).toBe(1);
     expect(trick.points).toBe(61);
     expect(trick.openedTrump).toBe(true);
+    expect(trick.trumpRevealReason).toBe("face-down-trump-cut");
   });
 
   it("keeps a below-250 closed first trick closed unless a face-down trump cuts", () => {
@@ -327,6 +328,7 @@ describe("trick resolution", () => {
     }
 
     expect(trick.openedTrump).toBe(false);
+    expect(trick.trumpRevealReason).toBeNull();
     expect(trumpOpen).toBe(false);
   });
 
@@ -353,6 +355,7 @@ describe("trick resolution", () => {
     }
 
     expect(trick.openedTrump).toBe(true);
+    expect(trick.trumpRevealReason).toBe("high-bid-after-first-trick");
     expect(trumpOpen).toBe(true);
   });
 

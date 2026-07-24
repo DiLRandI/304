@@ -4,6 +4,7 @@ import type { GameAction, RoomProjection } from "@three-zero-four/contracts";
 import { RulesDrawer } from "../../rules/ui/rules-drawer";
 import { partitionCardActions } from "../model/card-action";
 import { readActiveRoomView } from "../model/room-view";
+import { cardLabel } from "./card";
 import { CommandActions } from "./command-actions";
 import { CurrentTrick } from "./current-trick";
 import { HandResult } from "./hand-result";
@@ -57,6 +58,9 @@ export function GameTable({
   const trumpLabel = publicState.trump.suit
     ? `${suitSymbol(publicState.trump.suit)} ${publicState.trump.suit}`
     : "Hidden";
+  const trumpIndicatorLabel = publicState.trump.indicator
+    ? cardLabel(publicState.trump.indicator)
+    : null;
   return (
     <section
       aria-label="304 game table"
@@ -93,6 +97,7 @@ export function GameTable({
           <TableMetrics
             bidderOwner={bidderOwner}
             publicState={publicState}
+            trumpIndicatorLabel={trumpIndicatorLabel}
             trumpLabel={trumpLabel}
           />
         </div>
@@ -104,6 +109,7 @@ export function GameTable({
         prompt={view.prompt}
         trickCardCount={view.publicState.trick.length}
         trump={publicState.trump}
+        trumpRevealReason={publicState.trumpRevealReason}
       />
 
       {publicState.handResult ? (
@@ -117,6 +123,7 @@ export function GameTable({
 
       <CommandActions
         actions={commandActions}
+        currentBid={publicState.bid}
         hand={view.privateSeat.hand}
         handResult={publicState.handResult}
         onSelect={submit}

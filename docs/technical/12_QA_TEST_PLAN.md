@@ -62,6 +62,14 @@ Manual exploratory tests for UX and regional rule feel
 - Trump cannot be revealed to other players in closed mode.
 - Open trump reveals suit and returns card to hand.
 - 250+ bid reveals trump after first trick when profile enables it.
+- Below 250, a completed closed first trick remains closed unless a face-down
+  trump cuts.
+- A cut reveal projects `face-down-trump-cut`, exposes the other players'
+  required trick cards, and retains the maker's face-down non-trump privacy.
+- A 250+ reveal projects `high-bid-after-first-trick`, exposes the indicator
+  and suit, and retains unrelated face-down non-trump privacy.
+- Reveal reason announcements are available to assistive technology without
+  naming a concealed card.
 
 ### Trick-play tests
 
@@ -72,6 +80,10 @@ Manual exploratory tests for UX and regional rule feel
 - Face-down play is allowed only when trump closed and player cannot follow suit.
 - Illegal face-down play is rejected.
 - Trick winner leads next trick.
+- Dealer's right-hand player leads trick one in both four- and six-seat modes.
+- Closed void followers receive only face-down hand actions.
+- Closed maker restrictions cover hand trump, indicator cutting, and exhausted
+  trumps in both profiles.
 
 ### Scoring tests
 
@@ -82,6 +94,10 @@ Manual exploratory tests for UX and regional rule feel
 - Correct token tier for bid 250+.
 - All-pass hand has no token movement.
 - Match complete when target reached.
+- With early settlement enabled, settle only after a complete trick at exact
+  bid-reached and bid-unreachable boundaries.
+- With early settlement disabled, play continues until all tricks complete.
+- Early result copy labels both totals as points captured when play stopped.
 
 ## 5. Projection and hidden-information tests
 
@@ -96,6 +112,9 @@ Test every phase for each viewer seat:
 - Completed hidden cards not leaked in previous trick review.
 - Spectator view does not contain hand card IDs.
 - Bot context does not contain extra hidden state.
+- Reveal and settlement reasons contain no card identity.
+- Legacy v1/v2 snapshots and older v3 snapshots hydrate without public reveal
+  evidence; current v3 snapshots retain revealed indicator/reason on reconnect.
 
 Example assertion:
 
@@ -112,6 +131,9 @@ Run simulated hands:
 - Easy bots complete 1,000 hands with no illegal actions.
 - Normal bots complete 10,000 hands with no illegal actions.
 - Six-seat bots complete 1,000 hands with no illegal actions.
+- Seeded bidding calibration covers weak, average, and elite hands; partner
+  ownership; all-pass redeals; difficulty ceilings; and ordinary-game
+  distributions that do not cluster at 250-300.
 
 ### Decision quality tests
 
@@ -256,6 +278,8 @@ fixtures/
   closed_trump_cut_reveal.json
   closed_trump_no_reveal.json
   high_bid_250_reveal_after_first_trick.json
+  high_bid_250_non_trump_stays_hidden.json
+  cut_reveal_maker_discard_stays_hidden.json
   six_36_deal.json
   bot_legal_full_hand.json
 ```
@@ -273,6 +297,9 @@ QA is acceptable when:
 
 - All P0 unit tests pass.
 - Projection tests prove no hidden-card leaks.
+- Browser acceptance covers the default early-settlement setting, captured-at-
+  stop result copy, conservative bot bidding, closed trump below 250, both
+  reveal causes, and accessible reveal announcements.
 - Bot simulations complete without illegal actions.
 - E2E tests cover 1, 2, 5, and reconnect journeys.
 - Manual mobile test passes on at least two screen sizes.

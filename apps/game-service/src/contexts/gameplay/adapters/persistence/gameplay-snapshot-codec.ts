@@ -63,6 +63,10 @@ const trickSchema = z.strictObject({
   plays: z.array(playSchema),
   points: z.number().int().nonnegative(),
   status: z.enum(["active", "complete"]),
+  trumpRevealReason: z
+    .enum(["face-down-trump-cut", "high-bid-after-first-trick"])
+    .nullable()
+    .optional(),
   winnerSeat: seatSchema.nullable(),
 });
 const tokenBalanceSchema = z.tuple([
@@ -118,6 +122,7 @@ const stateSchemaV2 = z.strictObject({
     maker: seatSchema.nullable(),
     mode: z.enum(["closed", "open"]).nullable(),
     open: z.boolean(),
+    revealedIndicator: cardSchema.nullable().optional(),
     suit: z.enum(["clubs", "diamonds", "hearts", "spades"]).nullable(),
   }),
 });
@@ -203,6 +208,10 @@ function hydrateLegacyDefaults(hand: GameplayHand): GameplayHand {
             settlementReason: "all-tricks-played",
           }
         : hand.result,
+    trump: {
+      ...hand.trump,
+      revealedIndicator: hand.trump.revealedIndicator ?? null,
+    },
   };
 }
 
@@ -225,7 +234,14 @@ export function hydrateGameplaySnapshot(
         ? stateSchemaV2.parse(structuredClone(record.state))
         : stateSchemaV3.parse(structuredClone(record.state));
     assertAggregateConsistency(state, record.ruleProfileId);
-    const hand = { ...state, profile } as unknown as GameplayHand;
+    const hand = {
+      ...state,
+      profile,
+      trump: {
+        ...state.trump,
+        revealedIndicator: state.trump.revealedIndicator ?? null,
+      },
+    } as unknown as GameplayHand;
     return record.schemaVersion === 2 ? hydrateLegacyDefaults(hand) : hand;
   } catch {
     throw new GameplaySnapshotCodecError(

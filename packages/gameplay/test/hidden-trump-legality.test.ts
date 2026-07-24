@@ -354,8 +354,12 @@ describe("automatic 250-plus first-trick reveal", () => {
 
     expect(hand.completedTricks).toHaveLength(1);
     expect(hand.currentTrick?.openedTrump).toBe(true);
+    expect(hand.currentTrick?.trumpRevealReason).toBe(
+      "high-bid-after-first-trick",
+    );
     expect(hand.trump.open).toBe(true);
     expect(hand.trump.indicator).toBeNull();
+    expect(hand.trump.revealedIndicator?.id).toBe("S_J");
     expect(hand.deal.hands[2]?.map((card) => card.id)).toContain("S_J");
   });
 

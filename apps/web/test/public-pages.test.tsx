@@ -31,6 +31,12 @@ describe("public release pages", () => {
     expect(screen.getByText("Six-seat 304-36")).toBeTruthy();
     expect(screen.getByText("Jack · 30 points")).toBeTruthy();
     expect(screen.getByText("Nine · 20 points")).toBeTruthy();
+    expect(
+      screen.getByText(/A bid of 250 or more opens the indicator/i),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/The player to the dealer's right leads trick one/i),
+    ).toBeTruthy();
   });
 
   it("states the actual casual data and no-wagering boundaries", () => {

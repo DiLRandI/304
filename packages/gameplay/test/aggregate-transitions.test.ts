@@ -158,6 +158,7 @@ describe("gameplay aggregate transitions", () => {
 
     expect(hand.trump.open).toBe(true);
     expect(hand.trump.indicator).toBeNull();
+    expect(hand.trump.revealedIndicator?.id).toBe(indicatorId);
     expect(hand.deal.hands[0]?.map((card) => card.id)).toContain(indicatorId);
     expect(hand.deal.hands[0]).toHaveLength(8);
   });

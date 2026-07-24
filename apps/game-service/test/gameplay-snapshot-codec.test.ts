@@ -40,6 +40,46 @@ describe("gameplay snapshot codec", () => {
     expect(hydrateGameplaySnapshot(record).deal.hands[0]).toHaveLength(4);
   });
 
+  it("round-trips public trump reveal evidence for reconnect projections", () => {
+    const completed = completedGameplayHand();
+    const indicator = completed.capturedCards.flat()[0];
+    const latest = completed.completedTricks.at(-1);
+    if (!indicator || !latest) throw new Error("Expected completed-hand cards");
+    const revealed = {
+      ...completed,
+      completedTricks: completed.completedTricks.map((trick, index) =>
+        index === completed.completedTricks.length - 1
+          ? {
+              ...trick,
+              trumpRevealReason: "high-bid-after-first-trick" as const,
+            }
+          : trick,
+      ),
+      currentTrick: {
+        ...latest,
+        trumpRevealReason: "high-bid-after-first-trick" as const,
+      },
+      trump: { ...completed.trump, revealedIndicator: indicator },
+    };
+
+    expect(
+      hydrateGameplaySnapshot(serializeGameplaySnapshot(revealed)),
+    ).toEqual(revealed);
+  });
+
+  it("hydrates older v3 snapshots without reveal evidence as unrevealed", () => {
+    const current = serializeGameplaySnapshot(startedGameplayHand());
+    const state = structuredClone(current.state) as GameplayHandState;
+    const { revealedIndicator: _indicator, ...legacyTrump } = state.trump;
+
+    expect(
+      hydrateGameplaySnapshot({
+        ...current,
+        state: { ...state, trump: legacyTrump },
+      }).trump.revealedIndicator,
+    ).toBeNull();
+  });
+
   it("rejects unsupported snapshot versions", () => {
     expect(() =>
       hydrateGameplaySnapshot({

@@ -85,6 +85,7 @@ function projectedTrick(trick: ProjectedTrick | null, trickIndex: number) {
     })),
     points: trick.points,
     pointValue: trick.status === "complete" ? trick.points : null,
+    trumpRevealReason: trick.trumpRevealReason,
     trickIndex,
     winnerSeat: trick.winnerSeat,
   };
@@ -289,6 +290,9 @@ export function projectDomainRoomForPlayer(
           (trick) => trick.points === null,
         ),
         trump: {
+          indicator: projection.trump.indicator
+            ? projectedCard(projection.trump.indicator)
+            : null,
           indicatorVisible: projection.trump.open,
           isOpen: projection.trump.open,
           maker: projection.trump.maker,
