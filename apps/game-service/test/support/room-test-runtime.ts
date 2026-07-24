@@ -157,6 +157,7 @@ export class RoomTestRuntime {
         settings: {
           botDifficulty: request.botDifficulty ?? "easy",
           enableSecondBidding: true,
+          endHandWhenOutcomeCertain: request.endHandWhenOutcomeCertain,
         },
       }),
     );

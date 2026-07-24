@@ -18,6 +18,7 @@ export type AutomationJobKind =
 export interface RoomSettings {
   botDifficulty: "easy" | "normal" | "strong";
   enableSecondBidding: boolean;
+  endHandWhenOutcomeCertain: boolean;
 }
 
 export interface StoredRoom {

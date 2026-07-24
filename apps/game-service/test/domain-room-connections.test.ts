@@ -20,7 +20,11 @@ const room: StoredRoom = {
   inviteCode: "304-room",
   recoveryError: null,
   ruleProfileId: "classic_304_4p",
-  settings: { botDifficulty: "easy", enableSecondBidding: true },
+  settings: {
+    botDifficulty: "easy",
+    enableSecondBidding: true,
+    endHandWhenOutcomeCertain: true,
+  },
   status: "in_hand",
   updatedAt: new Date(0),
 };

@@ -15,7 +15,11 @@ const persistedRoom = {
   id: "12f8e3e8-6729-4c46-b78a-d1a0e804c55a",
   invite_code: "304-AbCdEfGhIjKl_123",
   rule_profile_id: "classic_304_4p",
-  settings: { botDifficulty: "normal", enableSecondBidding: true },
+  settings: {
+    botDifficulty: "normal",
+    enableSecondBidding: true,
+    endHandWhenOutcomeCertain: true,
+  },
   status: "lobby",
 };
 const persistedSeats = [

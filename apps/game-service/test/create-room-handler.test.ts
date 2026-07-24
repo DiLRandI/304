@@ -22,7 +22,11 @@ const input = {
   host: { displayName: "Asha", playerId: hostId },
   profileId: "classic_304_4p" as const,
   sessionId: "b8fc339d-ee47-45f9-826c-b3477bdb8d51",
-  settings: { botDifficulty: "easy" as const, enableSecondBidding: true },
+  settings: {
+    botDifficulty: "easy" as const,
+    enableSecondBidding: true,
+    endHandWhenOutcomeCertain: true,
+  },
 };
 const winningResponse = projectRoom(
   createLobby({

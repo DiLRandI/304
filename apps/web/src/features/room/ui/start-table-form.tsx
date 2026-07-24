@@ -9,10 +9,12 @@ export function StartTableForm({
   displayName,
   displayNameInvalid,
   displayNameInput,
+  endHandWhenOutcomeCertain,
   onBotDifficultyChange,
   onCreatePrivate,
   onDisplayNameChange,
   onDisplayNameInvalid,
+  onEndHandWhenOutcomeCertainChange,
   onRuleProfileChange,
   onStartPractice,
   ruleProfileId,
@@ -26,9 +28,11 @@ export function StartTableForm({
   onCreatePrivate(): void;
   onDisplayNameChange(value: string): void;
   onDisplayNameInvalid(): void;
+  onEndHandWhenOutcomeCertainChange(value: boolean): void;
   onRuleProfileChange(value: CreateRoomOptions["ruleProfileId"]): void;
   onStartPractice(): void;
   ruleProfileId: CreateRoomOptions["ruleProfileId"];
+  endHandWhenOutcomeCertain: boolean;
 }) {
   return (
     <form
@@ -79,6 +83,16 @@ export function StartTableForm({
           <option value="normal">Normal</option>
           <option value="strong">Strong</option>
         </select>
+      </label>
+      <label>
+        <input
+          checked={endHandWhenOutcomeCertain}
+          onChange={(event) =>
+            onEndHandWhenOutcomeCertainChange(event.target.checked)
+          }
+          type="checkbox"
+        />
+        End hand when outcome is certain
       </label>
       <div className="entry-actions">
         <button disabled={busy} type="submit">

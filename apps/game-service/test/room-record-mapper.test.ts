@@ -78,6 +78,25 @@ describe("room persistence record mapper", () => {
     ]);
   });
 
+  it("keeps persisted early settlement settings and disables it for legacy records", () => {
+    expect(
+      mapPersistedRoom(
+        {
+          ...room,
+          settings: {
+            botDifficulty: "normal",
+            enableSecondBidding: true,
+            endHandWhenOutcomeCertain: true,
+          },
+        },
+        seats,
+      ).settings,
+    ).toMatchObject({ endHandWhenOutcomeCertain: true });
+    expect(mapPersistedRoom(room, seats).settings).toMatchObject({
+      endHandWhenOutcomeCertain: false,
+    });
+  });
+
   it("rejects a human seat without complete identity data", () => {
     expect(() =>
       mapPersistedRoom(room, [

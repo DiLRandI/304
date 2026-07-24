@@ -140,6 +140,20 @@ describe("durable room request contracts", () => {
       }),
     ).toThrow();
   });
+
+  it("defaults early settlement on while allowing a host to turn it off", () => {
+    expect(
+      CreateRoomRequestSchema.parse({
+        commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+      }),
+    ).toMatchObject({ endHandWhenOutcomeCertain: true });
+    expect(
+      CreateRoomRequestSchema.parse({
+        commandId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+        endHandWhenOutcomeCertain: false,
+      }),
+    ).toMatchObject({ endHandWhenOutcomeCertain: false });
+  });
 });
 
 describe("realtime message contracts", () => {

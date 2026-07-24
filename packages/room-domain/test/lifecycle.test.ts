@@ -19,7 +19,11 @@ function lobby(): Room {
     id: roomId("12f8e3e8-6729-4c46-b78a-d1a0e804c55a"),
     inviteCode: inviteCode("304-AbCdEfGhIjKl_123"),
     profileId: "classic_304_4p",
-    settings: { botDifficulty: "strong", enableSecondBidding: true },
+    settings: {
+      botDifficulty: "strong",
+      enableSecondBidding: true,
+      endHandWhenOutcomeCertain: true,
+    },
   });
 }
 

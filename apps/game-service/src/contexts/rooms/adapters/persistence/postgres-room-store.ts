@@ -194,9 +194,12 @@ function parseSettings(value: unknown): RoomSettings {
   }
   const settings = value as Record<string, unknown>;
   const enableSecondBidding = settings.enableSecondBidding;
+  const endHandWhenOutcomeCertain = settings.endHandWhenOutcomeCertain;
   if (
     !["easy", "normal", "strong"].includes(settings.botDifficulty as string) ||
-    typeof enableSecondBidding !== "boolean"
+    typeof enableSecondBidding !== "boolean" ||
+    (endHandWhenOutcomeCertain !== undefined &&
+      typeof endHandWhenOutcomeCertain !== "boolean")
   ) {
     throw new RoomApplicationError(
       "ROOM_DATA_INVALID",
@@ -206,6 +209,7 @@ function parseSettings(value: unknown): RoomSettings {
   return {
     botDifficulty: settings.botDifficulty as RoomSettings["botDifficulty"],
     enableSecondBidding,
+    endHandWhenOutcomeCertain: endHandWhenOutcomeCertain ?? false,
   };
 }
 

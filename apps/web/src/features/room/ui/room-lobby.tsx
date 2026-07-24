@@ -81,6 +81,11 @@ export function RoomLobby({
           ? "Six-seat 304-36 variant"
           : "Classic four-seat 304"}
       </p>
+      <p className="lobby-profile">
+        {view.lobby.endHandWhenOutcomeCertain
+          ? "End hands early when the outcome is certain"
+          : "Play every hand to the final trick"}
+      </p>
       <div className="lobby-actions">
         {isHost ? (
           <button className="primary-action" onClick={start} type="button">

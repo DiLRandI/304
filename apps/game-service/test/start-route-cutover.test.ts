@@ -30,7 +30,11 @@ describe("start room route cutover", () => {
       id: aggregateId,
       inviteCode: inviteCode("304-AbCdEfGhIjKl_123"),
       profileId: "classic_304_4p",
-      settings: { botDifficulty: "normal", enableSecondBidding: true },
+      settings: {
+        botDifficulty: "normal",
+        enableSecondBidding: true,
+        endHandWhenOutcomeCertain: true,
+      },
     });
     const started = startRoom(lobby, hostId);
     if (!started.ok) throw new Error("Expected room start to succeed");

@@ -9,6 +9,7 @@ import type {
 type ProjectableStatus = "lobby" | "in_hand" | "hand_result";
 
 export interface LobbyRoomRecord {
+  readonly settings: Pick<StoredRoom["settings"], "endHandWhenOutcomeCertain">;
   readonly eventVersion: number;
   readonly hostPlayerId: string;
   readonly id: string;
@@ -56,6 +57,7 @@ export function projectLobbyForViewer(
     view: {
       isHost,
       lobby: {
+        endHandWhenOutcomeCertain: room.settings.endHandWhenOutcomeCertain,
         ruleProfileId: room.ruleProfileId,
         seats: seats.map((seat) => ({
           seatIndex: seat.seatIndex,
