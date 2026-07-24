@@ -1,6 +1,6 @@
 import type { Card } from "./card.js";
 import type { RuleProfile } from "./profile.js";
-import type { CardId, SeatIndex } from "./values.js";
+import { type CardId, type SeatIndex, type Suit, seatIndex } from "./values.js";
 
 export type TrumpMode = "closed" | "open";
 
@@ -22,6 +22,23 @@ export type TrumpSelection =
       readonly ok: true;
     }
   | TrumpError;
+
+export function canChooseClosedTrump(input: {
+  readonly dealer: SeatIndex;
+  readonly hand: readonly Card[];
+  readonly maker: SeatIndex;
+  readonly profile: RuleProfile;
+  readonly trumpSuit: Suit;
+}): boolean {
+  const firstLeader = seatIndex(
+    (input.dealer + 1) % input.profile.seatCount,
+    input.profile.seatCount,
+  );
+  return (
+    input.maker !== firstLeader ||
+    input.hand.some((card) => card.suit !== input.trumpSuit)
+  );
+}
 
 export function selectTrumpIndicator(
   hand: readonly Card[],

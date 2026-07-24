@@ -25,11 +25,12 @@ import {
 } from "./scoring.js";
 import {
   createTrick,
+  exhaustedTrumpLeadRequired,
   playCard,
   type TrickContext,
   type TrickState,
 } from "./trick.js";
-import { chooseTrumpMode } from "./trump.js";
+import { canChooseClosedTrump, chooseTrumpMode } from "./trump.js";
 import { type SeatIndex, type Suit, seatIndex } from "./values.js";
 
 export type GameplayPhase =
@@ -307,6 +308,23 @@ function applyTrumpChoice(
   const mode = command.type === "TRUMP_OPEN" ? "open" : "closed";
   const choice = chooseTrumpMode(hand.profile, maker, command.actor, mode);
   if (!choice.ok) return choice;
+  const suit = hand.trump.suit;
+  if (
+    mode === "closed" &&
+    suit !== null &&
+    !canChooseClosedTrump({
+      dealer: hand.dealer,
+      hand: hand.deal.hands[maker] ?? [],
+      maker,
+      profile: hand.profile,
+      trumpSuit: suit,
+    })
+  ) {
+    return rejected(
+      "TRUMP_MODE_NOT_ALLOWED",
+      "Closed trump is not allowed when the first leader has no non-trump card",
+    );
+  }
 
   let deal = hand.deal;
   let indicator = hand.trump.indicator;
@@ -314,11 +332,12 @@ function applyTrumpChoice(
     deal = returnIndicatorToMaker(hand);
     indicator = null;
   }
-  const currentTrick = createTrick(maker);
+  const firstLeader = nextDealer(hand.dealer, hand.profile.seatCount);
+  const currentTrick = createTrick(firstLeader);
   return {
     hand: {
       ...hand,
-      activeSeat: maker,
+      activeSeat: firstLeader,
       currentTrick,
       deal,
       phase: "trick-play",
@@ -345,6 +364,11 @@ function trickContext(hand: GameplayHand): TrickContext | null {
         hand.profile.revealTrumpAfterFirstTrickAtBidAtLeast,
     indicator: hand.trump.indicator,
     maker,
+    mustLeadRemainingTrumps: exhaustedTrumpLeadRequired(
+      hand.completedTricks,
+      maker,
+      suit,
+    ),
     profile: hand.profile,
     trumpOpen: hand.trump.open,
     trumpSuit: suit,

@@ -1,7 +1,12 @@
 import type { GameplayHand } from "./aggregate.js";
 import { legalBidAmounts } from "./bidding.js";
 import type { GameplayCommand } from "./messages.js";
-import { legalCardPlays, type TrickContext } from "./trick.js";
+import {
+  exhaustedTrumpLeadRequired,
+  legalCardPlays,
+  type TrickContext,
+} from "./trick.js";
+import { canChooseClosedTrump } from "./trump.js";
 import type { SeatIndex } from "./values.js";
 
 function trickContext(hand: GameplayHand): TrickContext | null {
@@ -16,6 +21,11 @@ function trickContext(hand: GameplayHand): TrickContext | null {
         hand.profile.revealTrumpAfterFirstTrickAtBidAtLeast,
     indicator: hand.trump.indicator,
     maker,
+    mustLeadRemainingTrumps: exhaustedTrumpLeadRequired(
+      hand.completedTricks,
+      maker,
+      suit,
+    ),
     profile: hand.profile,
     trumpOpen: hand.trump.open,
     trumpSuit: suit,
@@ -58,7 +68,17 @@ export function legalGameplayCommands(
     if (hand.profile.allowOpenTrump) {
       commands.push({ actor, type: "TRUMP_OPEN" });
     }
-    if (hand.profile.allowClosedTrump) {
+    if (
+      hand.profile.allowClosedTrump &&
+      hand.trump.suit !== null &&
+      canChooseClosedTrump({
+        dealer: hand.dealer,
+        hand: hand.deal.hands[actor] ?? [],
+        maker: actor,
+        profile: hand.profile,
+        trumpSuit: hand.trump.suit,
+      })
+    ) {
       commands.push({ actor, type: "TRUMP_CLOSE" });
     }
     return commands;
