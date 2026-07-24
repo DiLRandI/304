@@ -383,7 +383,7 @@ for (const [profile, label] of [
     if (await bidSummary.isVisible()) {
       await expect(bidSummary).toContainText(/Team [AB].*bid \d+/);
       await expect(bidSummary).toContainText(
-        /met the \d+ bid by \d+|missed by \d+/,
+        /met the \d+ bid by \d+|missed by \d+|reached the \d+ bid with \d+ points captured when play stopped|Play stopped after Team [AB] captured \d+ points, making .+'s \d+ bid unreachable/,
       );
     }
     await expect(page.getByRole("button", { name: "Next hand" })).toBeVisible();
