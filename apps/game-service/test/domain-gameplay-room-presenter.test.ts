@@ -1,4 +1,11 @@
-import type { GameplayHand, SeatIndex } from "@three-zero-four/gameplay";
+import {
+  bidAmount,
+  buildDeck,
+  type GameplayHand,
+  getRuleProfile,
+  type SeatIndex,
+  seatIndex,
+} from "@three-zero-four/gameplay";
 import { describe, expect, it } from "vitest";
 import { projectDomainRoomForPlayer } from "../src/contexts/gameplay/adapters/delivery/domain-gameplay-room-presenter.js";
 import type { StoredSeat } from "../src/contexts/rooms/application/room-persistence-model.js";
@@ -149,5 +156,153 @@ describe("projectDomainRoomForPlayer", () => {
       trump: { isOpen: true },
     });
     expect(hostProjection.view.publicState.completedTricks).toHaveLength(8);
+  });
+
+  it("projects cut reveal evidence without leaking the maker's concealed discard", () => {
+    const base = completedGameplayHand();
+    const deck = buildDeck(getRuleProfile("classic_304_4p"));
+    const card = (id: string) => {
+      const found = deck.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Expected ${id}`);
+      return found;
+    };
+    const trick = {
+      activeSeat: null,
+      leaderSeat: seatIndex(0, 4),
+      openedTrump: true,
+      plays: [
+        {
+          actor: seatIndex(0, 4),
+          card: card("H_J"),
+          faceDown: false,
+          fromIndicator: false,
+        },
+        {
+          actor: seatIndex(1, 4),
+          card: card("S_7"),
+          faceDown: true,
+          fromIndicator: false,
+        },
+        {
+          actor: seatIndex(2, 4),
+          card: card("C_9"),
+          faceDown: true,
+          fromIndicator: false,
+        },
+        {
+          actor: seatIndex(3, 4),
+          card: card("D_A"),
+          faceDown: true,
+          fromIndicator: false,
+        },
+      ],
+      points: 61,
+      status: "complete" as const,
+      trumpRevealReason: "face-down-trump-cut" as const,
+      winnerSeat: seatIndex(2, 4),
+    };
+    const hand: GameplayHand = {
+      ...base,
+      bidding: {
+        ...base.bidding,
+        currentBid: bidAmount(250),
+        currentBidder: seatIndex(3, 4),
+      },
+      completedTricks: [trick],
+      currentTrick: trick,
+      phase: "trick-result",
+      trump: {
+        indicator: null,
+        maker: seatIndex(3, 4),
+        mode: "closed",
+        open: true,
+        revealedIndicator: card("S_J"),
+        suit: "spades",
+      },
+    };
+
+    const projection = projectDomainRoomForPlayer(
+      roomFor(seatIndex(1, 4)),
+      hand,
+      seatsFor(hand),
+      seatIndex(1, 4),
+    );
+    const publicState = projection.view.publicState;
+    expect(publicState.trick.trumpRevealReason).toBe("face-down-trump-cut");
+    expect(publicState.trump.indicator).toMatchObject({ cardId: "S_J" });
+    const json = JSON.stringify(publicState.trick);
+    expect(json).toContain("S_7");
+    expect(json).toContain("C_9");
+    expect(json).not.toContain("D_A");
+  });
+
+  it("credits public trick points when an indicator cut reveals every play", () => {
+    const base = completedGameplayHand();
+    const deck = buildDeck(getRuleProfile("classic_304_4p"));
+    const card = (id: string) => {
+      const found = deck.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Expected ${id}`);
+      return found;
+    };
+    const winner = seatIndex(3, 4);
+    const trick = {
+      activeSeat: null,
+      leaderSeat: seatIndex(0, 4),
+      openedTrump: true,
+      plays: [
+        {
+          actor: seatIndex(0, 4),
+          card: card("H_J"),
+          faceDown: false,
+          fromIndicator: false,
+        },
+        {
+          actor: seatIndex(1, 4),
+          card: card("H_9"),
+          faceDown: false,
+          fromIndicator: false,
+        },
+        {
+          actor: seatIndex(2, 4),
+          card: card("C_9"),
+          faceDown: true,
+          fromIndicator: false,
+        },
+        {
+          actor: winner,
+          card: card("S_J"),
+          faceDown: true,
+          fromIndicator: true,
+        },
+      ],
+      points: 80,
+      status: "complete" as const,
+      trumpRevealReason: "face-down-trump-cut" as const,
+      winnerSeat: winner,
+    };
+    const hand: GameplayHand = {
+      ...base,
+      completedTricks: [trick],
+      currentTrick: trick,
+      phase: "trick-result",
+      trump: {
+        indicator: null,
+        maker: winner,
+        mode: "closed",
+        open: true,
+        revealedIndicator: card("S_J"),
+        suit: "spades",
+      },
+    };
+
+    const projection = projectDomainRoomForPlayer(
+      roomFor(seatIndex(0, 4)),
+      hand,
+      seatsFor(hand),
+      seatIndex(0, 4),
+    );
+
+    expect(projection.view.publicState.trickPointsPartial).toBe(false);
+    expect(projection.view.publicState.seats[winner]?.trickPoints).toBe(80);
   });
 });

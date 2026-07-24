@@ -56,7 +56,7 @@ const playSchema = z.strictObject({
   faceDown: z.boolean(),
   fromIndicator: z.boolean(),
 });
-const trickSchema = z.strictObject({
+const trickSchemaV2 = z.strictObject({
   activeSeat: seatSchema.nullable(),
   leaderSeat: seatSchema,
   openedTrump: z.boolean(),
@@ -64,6 +64,12 @@ const trickSchema = z.strictObject({
   points: z.number().int().nonnegative(),
   status: z.enum(["active", "complete"]),
   winnerSeat: seatSchema.nullable(),
+});
+const trickSchemaV3 = trickSchemaV2.extend({
+  trumpRevealReason: z
+    .enum(["face-down-trump-cut", "high-bid-after-first-trick"])
+    .nullable()
+    .optional(),
 });
 const tokenBalanceSchema = z.tuple([
   z.number().int().nonnegative(),
@@ -92,12 +98,22 @@ const scoredResultSchemaV3 = scoredResultSchemaV2.extend({
     "bid-unreachable",
   ]),
 });
+const trumpSchemaV2 = z.strictObject({
+  indicator: cardSchema.nullable(),
+  maker: seatSchema.nullable(),
+  mode: z.enum(["closed", "open"]).nullable(),
+  open: z.boolean(),
+  suit: z.enum(["clubs", "diamonds", "hearts", "spades"]).nullable(),
+});
+const trumpSchemaV3 = trumpSchemaV2.extend({
+  revealedIndicator: cardSchema.nullable().optional(),
+});
 const stateSchemaV2 = z.strictObject({
   activeSeat: seatSchema.nullable(),
   bidding: biddingSchema,
   capturedCards: z.array(z.array(cardSchema)),
-  completedTricks: z.array(trickSchema),
-  currentTrick: trickSchema.nullable(),
+  completedTricks: z.array(trickSchemaV2),
+  currentTrick: trickSchemaV2.nullable(),
   deal: dealSchema,
   dealer: seatSchema,
   handNumber: z.number().int().positive(),
@@ -113,21 +129,30 @@ const stateSchemaV2 = z.strictObject({
   ]),
   result: z.union([cancelledResultSchema, scoredResultSchemaV2]).nullable(),
   tokens: tokenBalanceSchema,
-  trump: z.strictObject({
-    indicator: cardSchema.nullable(),
-    maker: seatSchema.nullable(),
-    mode: z.enum(["closed", "open"]).nullable(),
-    open: z.boolean(),
-    suit: z.enum(["clubs", "diamonds", "hearts", "spades"]).nullable(),
-  }),
+  trump: trumpSchemaV2,
 });
 const stateSchemaV3 = stateSchemaV2.extend({
+  completedTricks: z.array(trickSchemaV3),
+  currentTrick: trickSchemaV3.nullable(),
   endHandWhenOutcomeCertain: z.boolean(),
   result: z.union([cancelledResultSchema, scoredResultSchemaV3]).nullable(),
+  trump: trumpSchemaV3,
 });
 
 function validSeat(value: number | null, seatCount: number): boolean {
   return value === null || value < seatCount;
+}
+
+function cardsAreEqual(
+  left: z.infer<typeof cardSchema>,
+  right: z.infer<typeof cardSchema>,
+): boolean {
+  return (
+    left.id === right.id &&
+    left.points === right.points &&
+    left.rank === right.rank &&
+    left.suit === right.suit
+  );
 }
 
 function assertAggregateConsistency(
@@ -175,7 +200,83 @@ function assertAggregateConsistency(
       profile.deckRanks.includes(card.rank) &&
       card.points === (profile.cardPoints[card.rank] ?? 0),
   );
-  if (!seatsAreValid || !arraysMatchProfile || !cardsMatchProfile) {
+  const canonicalOwnershipCards = [
+    ...state.deal.deck,
+    ...state.deal.hands.flat(),
+    ...state.capturedCards.flat(),
+    ...(state.trump.indicator ? [state.trump.indicator] : []),
+    ...(state.currentTrick?.status === "active"
+      ? state.currentTrick.plays.map((play) => play.card)
+      : []),
+  ];
+  const revealedIndicator =
+    "revealedIndicator" in state.trump
+      ? (state.trump.revealedIndicator ?? null)
+      : null;
+  const revealedIndicatorIsConsistent =
+    revealedIndicator === null ||
+    (state.trump.open &&
+      state.trump.suit === revealedIndicator.suit &&
+      canonicalOwnershipCards.filter((card) =>
+        cardsAreEqual(card, revealedIndicator),
+      ).length === 1);
+  const currentCompletedTrickIsRecorded =
+    state.currentTrick?.status === "complete" &&
+    state.completedTricks.some(
+      (trick) =>
+        trick.leaderSeat === state.currentTrick?.leaderSeat &&
+        trick.winnerSeat === state.currentTrick.winnerSeat &&
+        trick.plays.length === state.currentTrick.plays.length &&
+        trick.plays.every(
+          (play, index) =>
+            play.actor === state.currentTrick?.plays[index]?.actor &&
+            play.card.id === state.currentTrick.plays[index]?.card.id,
+        ),
+    );
+  const completedTricks =
+    state.currentTrick?.status === "complete" &&
+    !currentCompletedTrickIsRecorded
+      ? [...state.completedTricks, state.currentTrick]
+      : state.completedTricks;
+  const revealEvidenceIsConsistent = completedTricks.every((trick, index) => {
+    const reason =
+      "trumpRevealReason" in trick ? (trick.trumpRevealReason ?? null) : null;
+    if (reason === null) return true;
+    if (
+      !trick.openedTrump ||
+      !state.trump.open ||
+      state.trump.mode !== "closed" ||
+      state.trump.suit === null ||
+      revealedIndicator === null
+    ) {
+      return false;
+    }
+    const hasFaceDownTrump = trick.plays.some(
+      (play) => play.faceDown && play.card.suit === state.trump.suit,
+    );
+    if (reason === "face-down-trump-cut") return hasFaceDownTrump;
+    return (
+      index === 0 &&
+      !hasFaceDownTrump &&
+      (state.bidding.currentBid ?? 0) >=
+        profile.revealTrumpAfterFirstTrickAtBidAtLeast
+    );
+  });
+  const closedRevealHasEvidence =
+    revealedIndicator === null ||
+    state.trump.mode !== "closed" ||
+    completedTricks.some(
+      (trick) =>
+        "trumpRevealReason" in trick && trick.trumpRevealReason != null,
+    );
+  if (
+    !seatsAreValid ||
+    !arraysMatchProfile ||
+    !cardsMatchProfile ||
+    !revealedIndicatorIsConsistent ||
+    !revealEvidenceIsConsistent ||
+    !closedRevealHasEvidence
+  ) {
     throw new Error("Gameplay aggregate invariants are invalid");
   }
 }
@@ -203,6 +304,10 @@ function hydrateLegacyDefaults(hand: GameplayHand): GameplayHand {
             settlementReason: "all-tricks-played",
           }
         : hand.result,
+    trump: {
+      ...hand.trump,
+      revealedIndicator: hand.trump.revealedIndicator ?? null,
+    },
   };
 }
 
@@ -225,7 +330,17 @@ export function hydrateGameplaySnapshot(
         ? stateSchemaV2.parse(structuredClone(record.state))
         : stateSchemaV3.parse(structuredClone(record.state));
     assertAggregateConsistency(state, record.ruleProfileId);
-    const hand = { ...state, profile } as unknown as GameplayHand;
+    const hand = {
+      ...state,
+      profile,
+      trump: {
+        ...state.trump,
+        revealedIndicator:
+          "revealedIndicator" in state.trump
+            ? (state.trump.revealedIndicator ?? null)
+            : null,
+      },
+    } as unknown as GameplayHand;
     return record.schemaVersion === 2 ? hydrateLegacyDefaults(hand) : hand;
   } catch {
     throw new GameplaySnapshotCodecError(

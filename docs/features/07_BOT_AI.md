@@ -128,28 +128,28 @@ function evaluateFourCardBidHand(hand: Card[]): number {
 
 ### Easy bidding
 
-- Bid 160 if hand evaluation is decent.
-- Pass weak hands.
-- Rarely bid above 180.
+- Pass below score 55.
+- Ceiling 160 at 55, 170 at 75, and 180 at 95.
+- Always pass second bidding.
 
 ### Normal bidding
 
-Approximate rules:
-
-| Hand condition | Likely action |
-|---|---|
-| Very weak, no points | Pass |
-| One strong suit with J/9 | Bid 160-180 |
-| Strong suit and high point total | Bid 180-200 |
-| Very strong first 4 cards | Bid 200+ cautiously |
-| Partner already high bidder | Usually pass unless strong support and rule allows |
+Pass below score 45. Deterministic ceilings are 160/170/180/190/200 at
+scores 45/60/75/90/105. In second bidding, Normal can bid only 250 and only
+with trump Jack+Nine, at least 100 hand points, and exceptional suit control.
 
 ### Strong bidding
 
-- Uses suit control and expected trick count.
-- Considers current bidder team.
-- May bid 200+ with strong trump-making potential.
-- Rarely overbids beyond realistic success odds.
+- Pass below score 40. Deterministic ceilings are
+  160/170/180/190/200/210/220 at scores 40/55/70/85/100/115/125.
+- Exceptional second-round control maps to 250-290.
+- A 300 bid requires all four Jacks, the candidate-trump Nine, and at least
+  140 hand points.
+
+All difficulties bid only the smallest legal raise within their ceiling and
+pass if a partner already owns the high bid. Three opening passes do not force
+the final player to bid. The automation entry point receives the persisted
+Easy/Normal/Strong value explicitly; disconnected human autopilot uses Normal.
 
 ## 8. Trump choice heuristics
 
@@ -214,6 +214,8 @@ Possible priorities:
 - If partner is winning, avoid cutting partner unless necessary.
 - If no chance to win, discard low point cards.
 - In closed trump, follow legal face-down behavior.
+- Respect the same indicator, trick-one lead, 250+ reveal, and exhausted-trump
+  legality as a human seat.
 
 ## 11. Partner awareness
 

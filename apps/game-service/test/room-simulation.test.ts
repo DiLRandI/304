@@ -45,6 +45,9 @@ function assertNoPrivateCardLeaks(hand: GameplayHand): void {
     ) {
       if (privateSeatIndex === viewerSeatIndex) continue;
       for (const card of hand.deal.hands[privateSeatIndex] ?? []) {
+        if (hand.trump.open && hand.trump.revealedIndicator?.id === card.id) {
+          continue;
+        }
         expect(payload).not.toContain(card.id);
       }
     }

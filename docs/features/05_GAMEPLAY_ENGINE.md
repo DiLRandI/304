@@ -183,7 +183,11 @@ Examples:
 - Trump card must be held by trump maker.
 - Player must follow suit if able.
 - Player cannot lead the face-down trump indicator except in allowed cases.
-- Face-down play is only legal when trump is closed and player cannot follow suit.
+- In closed trump, a void follower must use the projected face-down action.
+- The maker cannot lead an in-hand trump on trick one or discard an in-hand
+  trump as a closed face-down cut while the indicator is available.
+- Trick one starts with the player to the dealer's right. Later tricks start
+  with the previous winner.
 
 ## 8. Legal move generation
 
@@ -214,13 +218,23 @@ Legal actions must be based only on the information available to that seat when 
 
 1. If no face-down cards require inspection, resolve normally.
 2. If trump is closed and face-down cards exist, let engine perform trump-maker inspection as a rule step.
-3. If one or more face-down cards are trump, reveal required cards and open trump.
-4. Determine winner:
+3. If one or more face-down cards are trump, record
+   `face-down-trump-cut`, reveal the other players' cards needed to resolve the
+   trick, and open trump. A maker's face-down non-trump discard stays
+   concealed.
+4. If the completed first trick has a final bid of 250 or more, record
+   `high-bid-after-first-trick`, reveal the indicator and trump suit, and keep
+   unrelated face-down non-trumps concealed.
+5. Determine winner:
    - Highest trump if any trump in trick is known/revealed.
    - Otherwise highest led-suit card.
-5. Move trick cards to winning team pile.
-6. Set next leader to trick winner.
-7. If all tricks complete, move to scoring.
+6. Move trick cards to winning team pile.
+7. Set next leader to trick winner.
+8. If all tricks complete, move to scoring.
+9. When the room's early-settlement setting is enabled, also settle after a
+   complete trick if the bidder has reached the bid or the opponent has made
+   it unreachable. Result totals are labeled as points captured when play
+   stopped; token tiers do not change.
 
 ## 10. Hidden-information handling
 
@@ -231,6 +245,7 @@ Legal actions must be based only on the information available to that seat when 
 | Own hand | Own player only |
 | Other hands | Server/bot owner only |
 | Trump indicator face down | Card back only to non-server |
+| Revealed trump indicator | Public card identity and suit |
 | Face-down non-revealed trick cards | Card back only |
 | Completed trick pile | Usually hidden except latest trick review |
 | Bid history | Public |
@@ -244,6 +259,10 @@ function projectStateForSpectator(state: GameState): ClientGameView;
 ```
 
 Do not send full `GameState` to clients.
+
+Projected tricks carry only the public reveal reason
+(`face-down-trump-cut` or `high-bid-after-first-trick`). They never carry a
+hidden card identity as an explanation.
 
 ## 11. Event log
 

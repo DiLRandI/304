@@ -17,6 +17,10 @@ export interface TrickState {
   readonly plays: readonly TrickPlay[];
   readonly points: number;
   readonly status: "active" | "complete";
+  readonly trumpRevealReason?:
+    | "face-down-trump-cut"
+    | "high-bid-after-first-trick"
+    | null;
   readonly winnerSeat: SeatIndex | null;
 }
 
@@ -69,6 +73,7 @@ export function createTrick(leaderSeat: SeatIndex): TrickState {
     plays: [],
     points: 0,
     status: "active",
+    trumpRevealReason: null,
     winnerSeat: null,
   };
 }
@@ -244,6 +249,11 @@ export function playCard(
     );
     const openedTrump =
       resolution.openedTrump || Boolean(context.forceOpenOnCompletion);
+    const trumpRevealReason = resolution.openedTrump
+      ? "face-down-trump-cut"
+      : context.forceOpenOnCompletion
+        ? "high-bid-after-first-trick"
+        : null;
     return {
       hand: handAfterPlay,
       indicator,
@@ -255,6 +265,7 @@ export function playCard(
         plays,
         points: resolution.points,
         status: "complete",
+        trumpRevealReason,
         winnerSeat: resolution.winnerSeat,
       },
       trumpOpen: context.trumpOpen || openedTrump,

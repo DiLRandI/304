@@ -39,15 +39,18 @@ export function RulesDrawer({ profileId }: { profileId: string }) {
             <p>
               Your bid is the card-point total your team promises to win. Use
               the legal bid buttons or pass; the table tracks the current
-              highest bid.
+              highest bid. At 250 or more, the indicator and trump suit open
+              automatically after trick one.
             </p>
           </section>
           <section>
             <h3>Trump and cutting</h3>
             <p>
-              The trump maker chooses a suit when prompted. Follow the lead suit
-              whenever you can; if you cannot, the table offers only the legal
-              cut or discard choices.
+              The player to the dealer&apos;s right leads trick one. Follow the
+              lead suit whenever you can. With closed trump, a void player plays
+              face down; a face-down trump cut opens trump and reveals the other
+              players&apos; cards from that trick, while the maker&apos;s
+              face-down non-trump discard stays concealed.
             </p>
           </section>
           <section>

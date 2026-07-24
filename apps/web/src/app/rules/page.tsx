@@ -14,9 +14,15 @@ export default function RulesPage() {
       <section>
         <h2>Classic four-seat 304</h2>
         <p>
-          Two teams alternate seats. Bid from the options offered by the table,
-          choose or reveal trump when prompted, and follow the lead suit when a
-          legal card requires it.
+          Two teams alternate seats. The player to the dealer&apos;s right leads
+          trick one. Bid from the options offered by the table, choose or reveal
+          trump when prompted, and follow the lead suit when a legal card
+          requires it.
+        </p>
+        <p>
+          A bid of 250 or more opens the indicator and trump suit after trick
+          one. Below 250, closed trump stays hidden until a face-down trump cut
+          opens it. Unrelated face-down non-trumps stay concealed.
         </p>
       </section>
 

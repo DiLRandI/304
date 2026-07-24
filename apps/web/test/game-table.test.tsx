@@ -426,11 +426,56 @@ describe("GameTable", () => {
       screen.getByRole("heading", { name: "Trump and cutting" }),
     ).toBeTruthy();
     expect(
+      screen.getByText(/At 250 or more, the indicator and trump suit open/i),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/The player to the dealer's right leads trick one/i),
+    ).toBeTruthy();
+    expect(
       screen.getByRole("heading", { name: "Scoring tokens" }),
     ).toBeTruthy();
     expect(
       screen.getByRole("heading", { name: "Six-seat 304-36" }),
     ).toBeTruthy();
     expect(submit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "high-bid-after-first-trick",
+      "Trump opened after trick one because the bid was 250 or more.",
+    ],
+    [
+      "face-down-trump-cut",
+      "Trump opened because a face-down trump cut the trick.",
+    ],
+  ] as const)("announces the %s reveal reason accessibly", (reason, message) => {
+    const projection = activeProjection();
+    const publicState = projection.view.publicState as Record<string, unknown>;
+    publicState.trick = {
+      plays: [],
+      trumpRevealReason: reason,
+    };
+    publicState.trump = {
+      indicator: jackOfSpades,
+      indicatorVisible: true,
+      isOpen: true,
+      maker: 0,
+      suit: "spades",
+    };
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("status").textContent).toContain(message);
+    expect(
+      screen.getByText("Indicator: Jack of Spades, 30 points"),
+    ).toBeTruthy();
   });
 });

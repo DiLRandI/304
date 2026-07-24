@@ -32,6 +32,10 @@ export interface ProjectedTrick {
   readonly plays: readonly ProjectedPlay[];
   readonly points: number | null;
   readonly status: "active" | "complete";
+  readonly trumpRevealReason:
+    | "face-down-trump-cut"
+    | "high-bid-after-first-trick"
+    | null;
   readonly winnerSeat: SeatIndex | null;
 }
 
@@ -48,6 +52,7 @@ export interface GameplayProjection {
   readonly seats: readonly ProjectedSeat[];
   readonly tokens: TokenBalance;
   readonly trump: {
+    readonly indicator: ProjectedCard | null;
     readonly maker: SeatIndex | null;
     readonly open: boolean;
     readonly suit: Suit | null;
@@ -57,8 +62,17 @@ export interface GameplayProjection {
 const hiddenCard = (): ProjectedCard => ({ hidden: true });
 const visibleCard = (card: Card): ProjectedCard => ({ ...card, hidden: false });
 
-function isPlayVisible(hand: GameplayHand, play: TrickPlay): boolean {
+function isPlayVisible(
+  hand: GameplayHand,
+  trick: TrickState,
+  play: TrickPlay,
+): boolean {
   if (!play.faceDown) return true;
+  if (trick.trumpRevealReason === "face-down-trump-cut") {
+    return (
+      play.actor !== hand.trump.maker || play.card.suit === hand.trump.suit
+    );
+  }
   return Boolean(
     hand.trump.open &&
       hand.trump.suit !== null &&
@@ -71,7 +85,9 @@ function projectTrick(
   trick: TrickState | null,
 ): ProjectedTrick | null {
   if (!trick) return null;
-  const visibility = trick.plays.map((play) => isPlayVisible(hand, play));
+  const visibility = trick.plays.map((play) =>
+    isPlayVisible(hand, trick, play),
+  );
   return {
     activeSeat: trick.activeSeat,
     leaderSeat: trick.leaderSeat,
@@ -84,6 +100,7 @@ function projectTrick(
     })),
     points: visibility.every(Boolean) ? trick.points : null,
     status: trick.status,
+    trumpRevealReason: trick.trumpRevealReason ?? null,
     winnerSeat: trick.winnerSeat,
   };
 }
@@ -124,6 +141,10 @@ export function projectGameplayHand(
     }),
     tokens: hand.tokens,
     trump: {
+      indicator:
+        viewerCanSeeTrump && hand.trump.revealedIndicator
+          ? visibleCard(hand.trump.revealedIndicator)
+          : null,
       maker: hand.trump.maker,
       open: viewerCanSeeTrump ? hand.trump.open : false,
       suit: viewerCanSeeTrump ? hand.trump.suit : null,

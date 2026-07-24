@@ -40,4 +40,45 @@ describe("CommandActions", () => {
 
     expect(container.childElementCount).toBe(0);
   });
+
+  it("warns that a 250-plus bid opens trump after trick one", () => {
+    render(
+      <CommandActions
+        actions={[{ amount: 250, type: "BID" }]}
+        currentBid={200}
+        hand={[jackOfSpades]}
+        handResult={null}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Bid 250 — trump opens after trick one",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Bids of 250 or more open trump automatically after the first trick.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("explains the high-bid reveal while the maker chooses trump mode", () => {
+    render(
+      <CommandActions
+        actions={[{ type: "TRUMP_CLOSE" }, { type: "TRUMP_OPEN" }]}
+        currentBid={250}
+        hand={[jackOfSpades]}
+        handResult={null}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "Your 250 bid will open trump automatically after trick one, even if you keep it closed now.",
+      ),
+    ).toBeTruthy();
+  });
 });

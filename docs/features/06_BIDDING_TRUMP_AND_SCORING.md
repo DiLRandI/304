@@ -127,6 +127,9 @@ Trump is selected. Choose how to play this hand:
 [Open Trump] Reveal trump now and return the card to your hand.
 ```
 
+For a final bid of 250 or more, the prompt also explains that closed trump is
+temporary: the indicator and suit open automatically after trick one.
+
 ### Defaults
 
 - Default: Closed Trump.
@@ -143,6 +146,12 @@ A player can play face down only when:
 - The player cannot follow the led suit.
 - The selected card is allowed by the rule profile.
 
+In the implemented Classic profiles, a void follower must play their hand card
+face down while trump is closed. The maker cuts with the indicator rather than
+discarding another in-hand trump face down. The maker also cannot lead an
+in-hand trump on trick one; if no non-trump lead exists, closed mode is not
+offered.
+
 ### UI behavior
 
 When a player cannot follow suit and trump is closed:
@@ -157,7 +166,11 @@ When a player cannot follow suit and trump is closed:
 At trick end:
 
 - If no face-down card is trump: “No trump was revealed. Trick goes to highest led-suit card.”
-- If trump opens: “Trump revealed: Clubs. Highest trump wins the trick.”
+- If a face-down trump cuts: announce that the cut opened trump, expose the
+  other players' cards from that trick as required, and keep the maker's
+  face-down non-trump discard concealed.
+- If the 250+ rule opens trump: announce the high-bid reason, expose the
+  indicator and suit, and keep unrelated face-down non-trumps concealed.
 
 ## 9. Trump indicator behavior
 
@@ -196,12 +209,17 @@ Show warning:
 A bid of 250 or higher is very ambitious. Trump will open after the first trick by rule.
 ```
 
+The warning is part of every projected 250+ bid action and is repeated during
+trump-mode choice. A second-round player must pass when their partner owns the
+current high bid.
+
 ## 11. Scoring flow
 
-At hand end:
+At hand end, or after a complete trick when the room's early-settlement setting
+makes the outcome certain:
 
-1. Reveal all remaining hidden information.
-2. Sum team trick points.
+1. Preserve unrelated concealed face-down identities.
+2. Sum captured team trick points.
 3. Compare trump maker team points against final bid.
 4. Determine success or failure.
 5. Apply token movement.
@@ -219,6 +237,11 @@ Display:
 - Token movement
 - Updated match score
 - Notable events: Caps, wrong Caps, spoilt trump, redeal
+- Settlement reason: all tricks played, bid reached, or bid unreachable
+
+Early results call the totals “points captured when play stopped” rather than
+presenting them as final 304-point totals. The existing token tier is applied
+unchanged.
 
 ## 12. Token scoring implementation
 

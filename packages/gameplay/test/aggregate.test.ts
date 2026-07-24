@@ -39,6 +39,7 @@ describe("gameplay hand aggregate", () => {
       maker: null,
       mode: null,
       open: false,
+      revealedIndicator: null,
       suit: null,
     });
     expect(hand.completedTricks).toEqual([]);

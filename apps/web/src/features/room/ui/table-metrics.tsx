@@ -12,10 +12,12 @@ function teamTrickPoints(
 export function TableMetrics({
   bidderOwner,
   publicState,
+  trumpIndicatorLabel,
   trumpLabel,
 }: {
   bidderOwner: string | null;
   publicState: GameRoomView["publicState"];
+  trumpIndicatorLabel: string | null;
   trumpLabel: string;
 }) {
   return (
@@ -35,7 +37,14 @@ export function TableMetrics({
       </div>
       <div>
         <dt>Trump</dt>
-        <dd>{trumpLabel}</dd>
+        <dd>
+          {trumpLabel}
+          {trumpIndicatorLabel ? (
+            <span className="metric-detail">
+              Indicator: {trumpIndicatorLabel}
+            </span>
+          ) : null}
+        </dd>
       </div>
       <div>
         <dt>Tokens</dt>

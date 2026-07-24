@@ -48,6 +48,7 @@ export interface TrumpState {
   readonly maker: SeatIndex | null;
   readonly mode: "closed" | "open" | null;
   readonly open: boolean;
+  readonly revealedIndicator?: Card | null | undefined;
   readonly suit: Suit | null;
 }
 
@@ -123,6 +124,7 @@ export function startGameplayHand(input: StartGameplayHandInput): GameplayHand {
       maker: null,
       mode: null,
       open: false,
+      revealedIndicator: null,
       suit: null,
     },
   };
@@ -196,6 +198,7 @@ function applyBiddingCommand(
           maker,
           mode: null,
           open: false,
+          revealedIndicator: null,
           suit: null,
         },
       },
@@ -240,6 +243,7 @@ function applyTrumpSelection(
     maker,
     mode: null,
     open: false,
+    revealedIndicator: null,
     suit: selected.suit,
   };
   if (hand.bidding.round === "second") {
@@ -346,6 +350,8 @@ function applyTrumpChoice(
         indicator,
         mode,
         open: mode === "open",
+        revealedIndicator:
+          mode === "open" ? hand.trump.indicator : hand.trump.revealedIndicator,
       },
     },
     ok: true,
@@ -397,6 +403,10 @@ function applyCardPlay(
   );
   let deal: DealState = { ...hand.deal, hands };
   let indicator = played.indicator;
+  const revealedIndicator =
+    !hand.trump.open && played.trumpOpen
+      ? hand.trump.indicator
+      : hand.trump.revealedIndicator;
   if (!hand.trump.open && played.trumpOpen && indicator) {
     deal = returnIndicatorToMaker({
       ...hand,
@@ -410,6 +420,7 @@ function applyCardPlay(
     ...hand.trump,
     indicator,
     open: played.trumpOpen,
+    revealedIndicator,
   };
   if (played.trick.status === "active") {
     return {

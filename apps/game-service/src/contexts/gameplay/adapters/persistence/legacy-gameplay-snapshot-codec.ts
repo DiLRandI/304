@@ -56,6 +56,10 @@ const legacyTrickSchema = z.object({
   openedTrumpThisTrick: z.boolean().optional(),
   plays: z.array(legacyPlaySchema),
   points: z.number().int().nonnegative(),
+  trumpRevealReason: z
+    .enum(["face-down-trump-cut", "high-bid-after-first-trick"])
+    .nullable()
+    .optional(),
   winnerSeat: z.number().int().nonnegative().nullable().optional(),
 });
 const legacyTokenSchema = z.tuple([
@@ -129,6 +133,7 @@ const openingGameplaySchema = z.object({
     card: legacyCardSchema.nullable(),
     isOpen: z.boolean(),
     maker: z.number().int().nonnegative().nullable(),
+    revealedIndicator: legacyCardSchema.nullable().optional(),
     suit: z.enum(["clubs", "diamonds", "hearts", "spades"]).nullable(),
   }),
 });
@@ -180,6 +185,9 @@ function trickToLegacy(
       seatIndex: play.actor,
     })),
     points: trick.points,
+    ...(trick.trumpRevealReason !== undefined
+      ? { trumpRevealReason: trick.trumpRevealReason }
+      : {}),
     winnerSeat: trick.winnerSeat,
   };
 }
@@ -370,6 +378,9 @@ export function decodeGameplayHand(
       points: trick.points,
       status:
         trick.winnerSeat == null ? ("active" as const) : ("complete" as const),
+      ...(trick.trumpRevealReason !== undefined
+        ? { trumpRevealReason: trick.trumpRevealReason }
+        : {}),
       winnerSeat: trick.winnerSeat == null ? null : actor(trick.winnerSeat),
     });
 
@@ -489,6 +500,13 @@ export function decodeGameplayHand(
                 : null
             : null,
         open: state.trump.isOpen,
+        ...(state.trump.revealedIndicator !== undefined
+          ? {
+              revealedIndicator: state.trump.revealedIndicator
+                ? cardFromLegacy(state.trump.revealedIndicator, profile)
+                : null,
+            }
+          : {}),
         suit: state.trump.suit,
       },
     };
@@ -674,6 +692,13 @@ export function encodeGameplayHand(
     : null;
   state.trump.isOpen = hand.trump.open;
   state.trump.maker = hand.trump.maker;
+  if (hand.trump.revealedIndicator !== undefined) {
+    state.trump.revealedIndicator = hand.trump.revealedIndicator
+      ? cardToLegacy(hand.trump.revealedIndicator)
+      : null;
+  } else {
+    delete state.trump.revealedIndicator;
+  }
   state.trump.suit = hand.trump.suit;
   if (hand.trump.mode !== null) {
     state.trumpClosed = hand.trump.mode === "closed";

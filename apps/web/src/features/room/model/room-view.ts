@@ -38,7 +38,12 @@ export interface GameRoomView {
     tokens: [number, number];
     trick: ProjectedTrickPlay[];
     trickPointsPartial: boolean;
+    trumpRevealReason:
+      | "face-down-trump-cut"
+      | "high-bid-after-first-trick"
+      | null;
     trump: {
+      indicator: ProjectedCard | null;
       indicatorVisible: boolean;
       isOpen: boolean;
       maker: number | null;
@@ -81,12 +86,22 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
   const handResult = readProjectedHandResult(publicState.handResult);
   const trump = publicState.trump;
   const trick = readProjectedTrick(publicState.trick);
+  const trickRecord = isRecord(publicState.trick) ? publicState.trick : null;
+  const rawRevealReason = trickRecord?.trumpRevealReason;
+  const trumpRevealReason =
+    rawRevealReason === "face-down-trump-cut" ||
+    rawRevealReason === "high-bid-after-first-trick"
+      ? rawRevealReason
+      : rawRevealReason == null
+        ? null
+        : undefined;
   const trickPointsPartial = publicState.trickPointsPartial === true;
   if (
     (seatCount !== 4 && seatCount !== 6) ||
     handNumber === null ||
     activeSeat === undefined ||
     handResult === undefined ||
+    trumpRevealReason === undefined ||
     privateSeatIndex === null ||
     !isRecord(bidding) ||
     typeof bidding.currentBid !== "number" ||
@@ -103,12 +118,15 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
   const bidderSeatIndex = nullableInteger(bidding.currentBidSeat);
   const maker = nullableInteger(trump.maker);
   const suit = nullableString(trump.suit);
+  const indicator =
+    trump.indicator == null ? null : readProjectedCard(trump.indicator);
   const tokens = publicState.tokens.map((value) => nonNegativeInteger(value));
   const [teamATokens, teamBTokens] = tokens;
   if (
     bidderSeatIndex === undefined ||
     maker === undefined ||
     suit === undefined ||
+    (trump.indicator != null && indicator === null) ||
     typeof trump.isOpen !== "boolean" ||
     typeof trump.indicatorVisible !== "boolean" ||
     teamATokens == null ||
@@ -158,7 +176,9 @@ function readGameRoomView(projection: RoomProjection): GameRoomView | null {
       tokens: [teamATokens, teamBTokens],
       trick,
       trickPointsPartial,
+      trumpRevealReason,
       trump: {
+        indicator,
         indicatorVisible: trump.indicatorVisible,
         isOpen: trump.isOpen,
         maker,
