@@ -404,9 +404,12 @@ function applyCardPlay(
   let deal: DealState = { ...hand.deal, hands };
   let indicator = played.indicator;
   const revealedIndicator =
-    !hand.trump.open && played.trumpOpen
+    hand.trump.revealedIndicator ??
+    (!hand.trump.open &&
+    (played.trumpOpen ||
+      (hand.trump.indicator !== null && played.indicator === null))
       ? hand.trump.indicator
-      : hand.trump.revealedIndicator;
+      : null);
   if (!hand.trump.open && played.trumpOpen && indicator) {
     deal = returnIndicatorToMaker({
       ...hand,
