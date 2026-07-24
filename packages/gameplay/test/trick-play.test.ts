@@ -359,6 +359,42 @@ describe("trick resolution", () => {
     expect(trumpOpen).toBe(true);
   });
 
+  it("prioritizes a face-down trump cut when the 250-plus rule also applies", () => {
+    let trick = createTrick(seatIndex(0, 4));
+    const hands = [[card("H_J")], [card("S_7")], [card("C_9")], [card("D_A")]];
+    let trumpOpen = false;
+    for (const actor of [0, 1, 2, 3]) {
+      const played = playCard(
+        context({
+          forceOpenOnCompletion: true,
+          maker: seatIndex(3, 4),
+          trumpOpen,
+        }),
+        trick,
+        hands[actor] ?? [],
+        seatIndex(actor, 4),
+        {
+          cardId: hands[actor]?.[0]?.id,
+          faceDown: actor > 0,
+          fromIndicator: false,
+        },
+      );
+      expect(played.ok).toBe(true);
+      if (!played.ok) continue;
+      trick = played.trick;
+      trumpOpen = played.trumpOpen;
+    }
+
+    expect(trick.openedTrump).toBe(true);
+    expect(trick.trumpRevealReason).toBe("face-down-trump-cut");
+    expect(trick.plays[1]).toMatchObject({ actor: 1, card: { id: "S_7" } });
+    expect(trick.plays[3]).toMatchObject({
+      actor: 3,
+      card: { id: "D_A" },
+      faceDown: true,
+    });
+  });
+
   it("keeps trump closed for a concealed non-trump card", () => {
     const plays = [
       {

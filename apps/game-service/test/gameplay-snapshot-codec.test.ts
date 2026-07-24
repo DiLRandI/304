@@ -42,29 +42,116 @@ describe("gameplay snapshot codec", () => {
 
   it("round-trips public trump reveal evidence for reconnect projections", () => {
     const completed = completedGameplayHand();
-    const indicator = completed.capturedCards.flat()[0];
-    const latest = completed.completedTricks.at(-1);
-    if (!indicator || !latest) throw new Error("Expected completed-hand cards");
-    const revealed = {
-      ...completed,
-      completedTricks: completed.completedTricks.map((trick, index) =>
-        index === completed.completedTricks.length - 1
-          ? {
-              ...trick,
-              trumpRevealReason: "high-bid-after-first-trick" as const,
-            }
-          : trick,
-      ),
-      currentTrick: {
-        ...latest,
-        trumpRevealReason: "high-bid-after-first-trick" as const,
-      },
-      trump: { ...completed.trump, revealedIndicator: indicator },
-    };
+    expect(completed.trump.revealedIndicator).not.toBeNull();
 
     expect(
-      hydrateGameplaySnapshot(serializeGameplaySnapshot(revealed)),
-    ).toEqual(revealed);
+      hydrateGameplaySnapshot(serializeGameplaySnapshot(completed)),
+    ).toEqual(completed);
+  });
+
+  it.each([
+    {
+      name: "closed trump",
+      mutate(state: MutableGameplayHandState) {
+        state.trump.open = false;
+      },
+    },
+    {
+      name: "a mismatched trump suit",
+      mutate(state: MutableGameplayHandState) {
+        state.trump.suit =
+          state.trump.revealedIndicator?.suit === "spades"
+            ? "hearts"
+            : "spades";
+      },
+    },
+    {
+      name: "an indicator missing from aggregate ownership",
+      mutate(state: MutableGameplayHandState) {
+        const id = state.trump.revealedIndicator?.id;
+        if (!id) throw new Error("Expected a revealed indicator");
+        state.deal.deck = state.deal.deck.filter((card) => card.id !== id);
+        state.deal.hands = state.deal.hands.map((cards) =>
+          cards.filter((card) => card.id !== id),
+        );
+        state.capturedCards = state.capturedCards.map((cards) =>
+          cards.filter((card) => card.id !== id),
+        );
+        state.currentTrick =
+          state.currentTrick === null
+            ? null
+            : {
+                ...state.currentTrick,
+                plays: state.currentTrick.plays.filter(
+                  (play) => play.card.id !== id,
+                ),
+              };
+      },
+    },
+    {
+      name: "duplicate indicator ownership",
+      mutate(state: MutableGameplayHandState) {
+        const indicator = state.trump.revealedIndicator;
+        if (!indicator) throw new Error("Expected a revealed indicator");
+        state.deal.hands[0] = [
+          ...(state.deal.hands[0] ?? []),
+          structuredClone(indicator),
+        ];
+      },
+    },
+  ])("rejects revealed indicator evidence with $name", ({ mutate }) => {
+    const record = serializeGameplaySnapshot(completedGameplayHand());
+    const state = structuredClone(record.state) as MutableGameplayHandState;
+    mutate(state);
+
+    expect(() => hydrateGameplaySnapshot({ ...record, state })).toThrowError(
+      new GameplaySnapshotCodecError(
+        "INVALID_GAMEPLAY_SNAPSHOT",
+        "Gameplay snapshot state is invalid",
+      ),
+    );
+  });
+
+  it.each([
+    {
+      name: "a high-bid reason below 250",
+      reason: "high-bid-after-first-trick" as const,
+      bid: 200,
+      faceDownTrump: false,
+    },
+    {
+      name: "a high-bid reason when a face-down trump cut",
+      reason: "high-bid-after-first-trick" as const,
+      bid: 250,
+      faceDownTrump: true,
+    },
+    {
+      name: "a cut reason without a face-down trump",
+      reason: "face-down-trump-cut" as const,
+      bid: 250,
+      faceDownTrump: false,
+    },
+  ])("rejects $name", ({ bid, faceDownTrump, reason }) => {
+    const record = serializeGameplaySnapshot(completedGameplayHand());
+    const state = structuredClone(record.state) as MutableGameplayHandState;
+    const firstTrick = state.completedTricks[0];
+    if (!firstTrick) throw new Error("Expected a first trick");
+    const trumpPlay = firstTrick.plays.find(
+      (play) => play.card.suit === state.trump.suit,
+    );
+    if (!trumpPlay) throw new Error("Expected a trump play");
+    state.bidding.currentBid = bid;
+    state.trump.mode = "closed";
+    firstTrick.openedTrump = true;
+    firstTrick.trumpRevealReason = reason;
+    trumpPlay.faceDown = faceDownTrump;
+
+    expect(() => hydrateGameplaySnapshot({ ...record, state })).toThrowError(
+      new GameplaySnapshotCodecError(
+        "INVALID_GAMEPLAY_SNAPSHOT",
+        "Gameplay snapshot state is invalid",
+      ),
+    );
   });
 
   it("hydrates older v3 snapshots without reveal evidence as unrevealed", () => {
@@ -157,3 +244,13 @@ type GameplayHandState = Omit<
   ReturnType<typeof completedGameplayHand>,
   "profile"
 >;
+
+type MutableGameplayHandState = {
+  -readonly [Key in keyof GameplayHandState]: Mutable<GameplayHandState[Key]>;
+};
+
+type Mutable<Value> = Value extends readonly (infer Item)[]
+  ? Mutable<Item>[]
+  : Value extends object
+    ? { -readonly [Key in keyof Value]: Mutable<Value[Key]> }
+    : Value;

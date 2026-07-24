@@ -53,6 +53,39 @@ function projectedPrompt(projection: RoomProjection): string {
   return typeof prompt === "string" ? prompt : "";
 }
 
+function botBidFromProjection(
+  projection: RoomProjection,
+): { amount: number; difficulty: string; seat: number } | null {
+  const publicState = (
+    projection.view as
+      | {
+          publicState?: {
+            bidding?: {
+              currentBid?: unknown;
+              currentBidSeat?: unknown;
+            };
+            seats?: Array<{
+              difficulty?: unknown;
+              index?: unknown;
+              type?: unknown;
+            }>;
+          };
+        }
+      | undefined
+  )?.publicState;
+  const amount = publicState?.bidding?.currentBid;
+  const seat = publicState?.bidding?.currentBidSeat;
+  if (typeof amount !== "number" || amount <= 0 || typeof seat !== "number") {
+    return null;
+  }
+  const bidder = publicState?.seats?.find(
+    (candidate) => candidate.index === seat,
+  );
+  return bidder?.type === "bot" && typeof bidder.difficulty === "string"
+    ? { amount, difficulty: bidder.difficulty, seat }
+    : null;
+}
+
 async function nextVisibleAction(page: Page) {
   const controls = page.locator(
     '[aria-label="Legal actions"] button:not([disabled]), [aria-label="Your hand"] button:not([disabled])',
@@ -224,6 +257,84 @@ test("a guest starts Classic practice and submits its first legal action", async
   await expect(page.getByRole("button", { name: "Leave table" })).toHaveCount(
     0,
   );
+});
+
+test("Compose-backed Easy bot automation persists its difficulty and bids within its ceiling", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.goto("/play");
+  await dismissConsent(page);
+  await page.getByLabel("Display name").fill(uniqueName("Easy bot observer"));
+  await page.getByLabel("Bot difficulty").selectOption("easy");
+
+  const startResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      /\/v1\/rooms\/[^/]+\/start$/.test(new URL(response.url()).pathname),
+  );
+  await page.getByRole("button", { name: "Start practice" }).click();
+  const startResponse = await startResponsePromise;
+  expect(startResponse.status()).toBe(200);
+  const started = (await startResponse.json()) as RoomProjection;
+  const startedSeats = (
+    started.view as {
+      publicState?: {
+        seats?: Array<{ difficulty?: unknown; type?: unknown }>;
+      };
+    }
+  ).publicState?.seats;
+  const botSeats = startedSeats?.filter((seat) => seat.type === "bot") ?? [];
+  expect(botSeats).toHaveLength(3);
+  expect(botSeats.every((seat) => seat.difficulty === "easy")).toBe(true);
+
+  const apiOrigin = new URL(startResponse.url()).origin;
+  const snapshotUrl = `${apiOrigin}/v1/rooms/${started.roomId}/snapshot`;
+  const deadline = Date.now() + 100_000;
+  let observedBid: ReturnType<typeof botBidFromProjection> = null;
+  while (Date.now() < deadline && observedBid === null) {
+    const pass = page.getByRole("button", { name: "Pass bid" }).first();
+    if (await pass.isVisible()) {
+      const responsePromise = page.waitForResponse(
+        (response) =>
+          isCommandResponse(response.url(), response.request().method()),
+        { timeout: 15_000 },
+      );
+      await pass.click();
+      expect((await responsePromise).status()).toBe(200);
+    }
+
+    const snapshot = await page.evaluate(async (url) => {
+      const response = await fetch(url, { credentials: "include" });
+      return {
+        body: (await response.json()) as RoomProjection,
+        status: response.status,
+      };
+    }, snapshotUrl);
+    expect(snapshot.status).toBe(200);
+    observedBid = botBidFromProjection(snapshot.body);
+    if (observedBid !== null) break;
+
+    const nextHand = page.getByRole("button", { name: "Next hand" }).first();
+    if (await nextHand.isVisible()) {
+      const responsePromise = page.waitForResponse(
+        (response) =>
+          isCommandResponse(response.url(), response.request().method()),
+        { timeout: 15_000 },
+      );
+      await nextHand.click();
+      expect((await responsePromise).status()).toBe(200);
+    }
+    await page.waitForTimeout(250);
+  }
+
+  expect(
+    observedBid,
+    "Expected the real worker to submit an Easy bot bid",
+  ).not.toBeNull();
+  expect(observedBid?.difficulty).toBe("easy");
+  expect(observedBid?.amount).toBeGreaterThanOrEqual(160);
+  expect(observedBid?.amount).toBeLessThanOrEqual(180);
 });
 
 test("a guest retries a transient initial room-load failure without reloading", async ({

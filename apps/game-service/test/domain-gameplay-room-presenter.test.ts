@@ -1,4 +1,5 @@
 import {
+  bidAmount,
   buildDeck,
   type GameplayHand,
   getRuleProfile,
@@ -167,29 +168,29 @@ describe("projectDomainRoomForPlayer", () => {
     };
     const trick = {
       activeSeat: null,
-      leaderSeat: seatIndex(1, 4),
+      leaderSeat: seatIndex(0, 4),
       openedTrump: true,
       plays: [
         {
-          actor: seatIndex(1, 4),
+          actor: seatIndex(0, 4),
           card: card("H_J"),
           faceDown: false,
           fromIndicator: false,
         },
         {
-          actor: seatIndex(2, 4),
+          actor: seatIndex(1, 4),
           card: card("S_7"),
           faceDown: true,
           fromIndicator: false,
         },
         {
-          actor: seatIndex(3, 4),
+          actor: seatIndex(2, 4),
           card: card("C_9"),
           faceDown: true,
           fromIndicator: false,
         },
         {
-          actor: seatIndex(0, 4),
+          actor: seatIndex(3, 4),
           card: card("D_A"),
           faceDown: true,
           fromIndicator: false,
@@ -202,12 +203,17 @@ describe("projectDomainRoomForPlayer", () => {
     };
     const hand: GameplayHand = {
       ...base,
+      bidding: {
+        ...base.bidding,
+        currentBid: bidAmount(250),
+        currentBidder: seatIndex(3, 4),
+      },
       completedTricks: [trick],
       currentTrick: trick,
       phase: "trick-result",
       trump: {
         indicator: null,
-        maker: seatIndex(0, 4),
+        maker: seatIndex(3, 4),
         mode: "closed",
         open: true,
         revealedIndicator: card("S_J"),

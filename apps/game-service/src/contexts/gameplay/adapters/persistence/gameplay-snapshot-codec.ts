@@ -135,6 +135,18 @@ function validSeat(value: number | null, seatCount: number): boolean {
   return value === null || value < seatCount;
 }
 
+function cardsAreEqual(
+  left: z.infer<typeof cardSchema>,
+  right: z.infer<typeof cardSchema>,
+): boolean {
+  return (
+    left.id === right.id &&
+    left.points === right.points &&
+    left.rank === right.rank &&
+    left.suit === right.suit
+  );
+}
+
 function assertAggregateConsistency(
   state: z.infer<typeof stateSchemaV2> | z.infer<typeof stateSchemaV3>,
   profileId: RuleProfileId,
@@ -180,7 +192,76 @@ function assertAggregateConsistency(
       profile.deckRanks.includes(card.rank) &&
       card.points === (profile.cardPoints[card.rank] ?? 0),
   );
-  if (!seatsAreValid || !arraysMatchProfile || !cardsMatchProfile) {
+  const canonicalOwnershipCards = [
+    ...state.deal.deck,
+    ...state.deal.hands.flat(),
+    ...state.capturedCards.flat(),
+    ...(state.trump.indicator ? [state.trump.indicator] : []),
+    ...(state.currentTrick?.status === "active"
+      ? state.currentTrick.plays.map((play) => play.card)
+      : []),
+  ];
+  const revealedIndicator = state.trump.revealedIndicator ?? null;
+  const revealedIndicatorIsConsistent =
+    revealedIndicator === null ||
+    (state.trump.open &&
+      state.trump.suit === revealedIndicator.suit &&
+      canonicalOwnershipCards.filter((card) =>
+        cardsAreEqual(card, revealedIndicator),
+      ).length === 1);
+  const currentCompletedTrickIsRecorded =
+    state.currentTrick?.status === "complete" &&
+    state.completedTricks.some(
+      (trick) =>
+        trick.leaderSeat === state.currentTrick?.leaderSeat &&
+        trick.winnerSeat === state.currentTrick.winnerSeat &&
+        trick.plays.length === state.currentTrick.plays.length &&
+        trick.plays.every(
+          (play, index) =>
+            play.actor === state.currentTrick?.plays[index]?.actor &&
+            play.card.id === state.currentTrick.plays[index]?.card.id,
+        ),
+    );
+  const completedTricks =
+    state.currentTrick?.status === "complete" &&
+    !currentCompletedTrickIsRecorded
+      ? [...state.completedTricks, state.currentTrick]
+      : state.completedTricks;
+  const revealEvidenceIsConsistent = completedTricks.every((trick, index) => {
+    const reason = trick.trumpRevealReason ?? null;
+    if (reason === null) return true;
+    if (
+      !trick.openedTrump ||
+      !state.trump.open ||
+      state.trump.mode !== "closed" ||
+      state.trump.suit === null ||
+      revealedIndicator === null
+    ) {
+      return false;
+    }
+    const hasFaceDownTrump = trick.plays.some(
+      (play) => play.faceDown && play.card.suit === state.trump.suit,
+    );
+    if (reason === "face-down-trump-cut") return hasFaceDownTrump;
+    return (
+      index === 0 &&
+      !hasFaceDownTrump &&
+      (state.bidding.currentBid ?? 0) >=
+        profile.revealTrumpAfterFirstTrickAtBidAtLeast
+    );
+  });
+  const closedRevealHasEvidence =
+    revealedIndicator === null ||
+    state.trump.mode !== "closed" ||
+    completedTricks.some((trick) => trick.trumpRevealReason != null);
+  if (
+    !seatsAreValid ||
+    !arraysMatchProfile ||
+    !cardsMatchProfile ||
+    !revealedIndicatorIsConsistent ||
+    !revealEvidenceIsConsistent ||
+    !closedRevealHasEvidence
+  ) {
     throw new Error("Gameplay aggregate invariants are invalid");
   }
 }

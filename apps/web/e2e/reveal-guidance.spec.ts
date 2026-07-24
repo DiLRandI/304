@@ -28,13 +28,12 @@ test("room setup defaults early settlement on", async ({ page }) => {
   ).toBeChecked();
 });
 
-test("deterministic projections cover bid, settlement, and reveal guidance", async ({
+test("deterministic UI projections cover bid warnings, settlement, and reveal guidance", async ({
   page,
 }) => {
-  let projection = activeProjection(10);
+  let projection = activeProjection(11);
   projection.view.legalActions = [
-    { amount: 160, type: "BID" },
-    { amount: 170, type: "BID" },
+    { amount: 250, type: "BID" },
     { type: "PASS_BID" },
   ];
 
@@ -57,15 +56,6 @@ test("deterministic projections cover bid, settlement, and reveal guidance", asy
 
   await page.goto("/room/guidance");
   await expect(page.locator('[aria-label="304 game table"]')).toBeVisible();
-  await expect(page.getByRole("button", { name: "Bid 160" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Bid 250/ })).toHaveCount(0);
-
-  projection = activeProjection(11);
-  projection.view.legalActions = [
-    { amount: 250, type: "BID" },
-    { type: "PASS_BID" },
-  ];
-  await page.reload();
   await expect(
     page.getByRole("button", {
       name: "Bid 250 — trump opens after trick one",
