@@ -22,6 +22,8 @@ import {
 
 const profile = getRuleProfile("classic_304_4p");
 const deck = buildDeck(profile);
+const sixProfile = getRuleProfile("six_304_36");
+const sixDeck = buildDeck(sixProfile);
 
 function start(): GameplayHand {
   return startGameplayHand({
@@ -248,6 +250,99 @@ describe("gameplay bot policy", () => {
         { difficulty: "strong", random: random(0) },
       ),
     ).toEqual({ actor: 0, type: "PASS_BID" });
+  });
+
+  it.each([
+    2, 4,
+  ] as const)("treats six-seat teammate %i as partner and odd seats as opponents in both bidding stages", (teammate) => {
+    const actor = seatIndex(0, 6);
+    const strongFirstHand = cards("C_J", "C_9", "D_A", "S_A");
+    const started = startGameplayHand({
+      dealer: seatIndex(5, 6),
+      deck: sixDeck,
+      endHandWhenOutcomeCertain: false,
+      handNumber: 1,
+      profile: sixProfile,
+      secondBiddingEnabled: true,
+      tokens: initialTokens(sixProfile),
+    });
+    const firstStage = (currentBidder: 1 | 2 | 4): GameplayHand => ({
+      ...started,
+      activeSeat: actor,
+      bidding: {
+        ...started.bidding,
+        activeSeat: actor,
+        currentBid: bidAmount(190),
+        currentBidder: seatIndex(currentBidder, 6),
+      },
+      deal: {
+        ...started.deal,
+        firstHands: [strongFirstHand, [], [], [], [], []],
+        hands: [strongFirstHand, [], [], [], [], []],
+      },
+    });
+
+    expect
+      .soft(
+        chooseGameplayBotCommand(firstStage(teammate), actor, {
+          difficulty: "strong",
+          random: random(0),
+        }),
+      )
+      .toEqual({ actor: 0, type: "PASS_BID" });
+    expect(
+      chooseGameplayBotCommand(firstStage(1), actor, {
+        difficulty: "strong",
+        random: random(0),
+      }),
+    ).toEqual({ actor: 0, amount: 200, type: "BID" });
+
+    const exceptional = cards("C_J", "C_9", "C_A", "D_J", "H_J", "S_A");
+    const secondStage = (currentBidder: 1 | 2 | 4): GameplayHand => {
+      const bidding = startSecondBidding(
+        sixProfile,
+        actor,
+        bidAmount(160),
+        actor,
+      );
+      return {
+        ...started,
+        activeSeat: actor,
+        bidding: {
+          ...bidding,
+          currentBid: bidAmount(250),
+          currentBidder: seatIndex(currentBidder, 6),
+        },
+        deal: {
+          ...started.deal,
+          firstHands: [exceptional.slice(0, 4), [], [], [], [], []],
+          hands: [exceptional, [], [], [], [], []],
+        },
+        phase: "second-bidding",
+        trump: {
+          indicator: card("S_7"),
+          maker: seatIndex(1, 6),
+          mode: null,
+          open: false,
+          suit: "spades",
+        },
+      };
+    };
+
+    expect
+      .soft(
+        chooseGameplayBotCommand(secondStage(teammate), actor, {
+          difficulty: "strong",
+          random: random(0),
+        }),
+      )
+      .toEqual({ actor: 0, type: "PASS_BID" });
+    expect(
+      chooseGameplayBotCommand(secondStage(1), actor, {
+        difficulty: "strong",
+        random: random(0),
+      }),
+    ).toEqual({ actor: 0, amount: 260, type: "BID" });
   });
 
   it("keeps Easy out of second bidding and gates Normal at exactly 250", () => {
@@ -479,7 +574,7 @@ describe("gameplay bot policy", () => {
     );
   });
 
-  it("keeps seeded ordinary second-round high bids below a stable calibration bound", () => {
+  it("keeps valid seeded ordinary second-round final bids below stable calibration bounds", () => {
     let state = 0x304_2026;
     const seeded = {
       next: () => {
@@ -487,22 +582,141 @@ describe("gameplay bot policy", () => {
         return state / 0x1_0000_0000;
       },
     };
-    let highBids = 0;
+    const finalBids = new Map<number, number>([
+      [160, 0],
+      [170, 0],
+      [180, 0],
+      [190, 0],
+      [200, 0],
+      [210, 0],
+      [220, 0],
+      [250, 0],
+      [260, 0],
+      [270, 0],
+      [280, 0],
+      [290, 0],
+      [300, 0],
+    ]);
     const samples = 1_000;
-    for (let index = 0; index < samples; index += 1) {
-      const handCards = shuffleDeck(deck, seeded).slice(0, 8);
-      const command = chooseGameplayBotCommand(
-        secondBiddingHand(handCards),
-        seatIndex(0, 4),
-        { difficulty: "strong", random: seeded },
+    let generatedDeals = 0;
+    let completedSamples = 0;
+    while (completedSamples < samples) {
+      generatedDeals += 1;
+      expect(generatedDeals).toBeLessThanOrEqual(5_000);
+      let hand = startGameplayHand({
+        dealer: seatIndex(3, 4),
+        deck: shuffleDeck(deck, seeded),
+        endHandWhenOutcomeCertain: false,
+        handNumber: generatedDeals,
+        profile,
+        secondBiddingEnabled: true,
+        tokens: initialTokens(profile),
+      });
+      while (hand.phase === "four-bidding") {
+        const actor = hand.activeSeat;
+        expect(actor).not.toBeNull();
+        if (actor === null) return;
+        const command = chooseGameplayBotCommand(hand, actor, {
+          difficulty: "strong",
+          random: seeded,
+        });
+        expect(command).not.toBeNull();
+        if (command === null) return;
+        const result = applyGameplayCommand(hand, command);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        hand = result.hand;
+      }
+
+      if (hand.phase === "hand-result") continue;
+      expect(hand.phase).toBe("trump-selection");
+      const maker = hand.trump.maker;
+      expect(maker).not.toBeNull();
+      if (maker === null) return;
+      expect(hand.trump.maker).toBe(maker);
+      expect(hand.bidding.currentBidder).toBe(maker);
+      const indicatorCommand = chooseGameplayBotCommand(hand, maker, {
+        difficulty: "strong",
+        random: seeded,
+      });
+      expect(indicatorCommand?.type).toBe("SELECT_TRUMP");
+      if (indicatorCommand?.type !== "SELECT_TRUMP") return;
+      const selected = applyGameplayCommand(hand, indicatorCommand);
+      expect(selected.ok).toBe(true);
+      if (!selected.ok) return;
+      hand = selected.hand;
+
+      expect(hand.phase).toBe("second-bidding");
+      expect(hand.trump.maker).toBe(maker);
+      expect(hand.bidding.currentBidder).toBe(maker);
+      expect(hand.bidding.currentBid).toBe(hand.bidding.previousBid);
+      expect(hand.bidding.currentBid).toBeGreaterThanOrEqual(160);
+      expect(hand.bidding.currentBid).toBeLessThanOrEqual(220);
+      expect(hand.bidding.activeSeat).toBe(maker);
+      expect(hand.trump.indicator).not.toBeNull();
+      const indicator = hand.trump.indicator;
+      if (indicator === null) return;
+      expect(hand.deal.firstHands[maker]).toContainEqual(indicator);
+      expect(hand.deal.hands[maker]).not.toContainEqual(indicator);
+      expect(hand.trump.suit).toBe(indicator.suit);
+      expect(hand.deal.deck).toHaveLength(0);
+
+      const ownedCards = [...hand.deal.hands.flat(), indicator];
+      expect(ownedCards).toHaveLength(deck.length);
+      expect(new Set(ownedCards.map((owned) => owned.id)).size).toBe(
+        deck.length,
       );
-      if (command?.type === "BID" && command.amount >= 250) highBids += 1;
+      while (hand.phase === "second-bidding") {
+        const actor = hand.activeSeat;
+        expect(actor).not.toBeNull();
+        if (actor === null) return;
+        const command = chooseGameplayBotCommand(hand, actor, {
+          difficulty: "strong",
+          random: seeded,
+        });
+        expect(command).not.toBeNull();
+        if (command === null) return;
+        const result = applyGameplayCommand(hand, command);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        hand = result.hand;
+      }
+
+      expect(hand.bidding.status).toBe("complete");
+      expect(hand.bidding.actionsTaken).toBe(profile.seatCount);
+      const finalBid = hand.bidding.currentBid;
+      expect(finalBid).not.toBeNull();
+      if (finalBid === null) return;
+      finalBids.set(finalBid, (finalBids.get(finalBid) ?? 0) + 1);
+      completedSamples += 1;
     }
 
-    // Seed 0x3042026 currently produces 212/1,000 exceptional bids. The fixed
-    // 25% bound leaves stable headroom while proving 250-300 does not cluster.
-    expect(highBids).toBeGreaterThan(0);
-    expect(highBids).toBeLessThanOrEqual(250);
+    const highFinalBids = [250, 260, 270, 280, 290, 300].reduce(
+      (total, amount) => total + (finalBids.get(amount) ?? 0),
+      0,
+    );
+    const above250 = [260, 270, 280, 290, 300].reduce(
+      (total, amount) => total + (finalBids.get(amount) ?? 0),
+      0,
+    );
+    const above260 = [270, 280, 290, 300].reduce(
+      (total, amount) => total + (finalBids.get(amount) ?? 0),
+      0,
+    );
+    expect(generatedDeals).toBe(samples);
+    expect(samples - highFinalBids).toBeGreaterThanOrEqual(500);
+    expect(highFinalBids).toBeGreaterThanOrEqual(450);
+    expect(highFinalBids).toBeLessThanOrEqual(500);
+    expect(above250).toBeGreaterThanOrEqual(50);
+    expect(above250).toBeLessThanOrEqual(75);
+    expect(above260).toBeGreaterThan(0);
+    expect(above260).toBeLessThanOrEqual(10);
+    for (const amount of [250, 260, 270]) {
+      expect(finalBids.get(amount)).toBeGreaterThan(0);
+    }
+    expect(finalBids.get(280)).toBe(0);
+    expect(finalBids.get(290)).toBe(0);
+    expect(finalBids.get(300)).toBe(0);
   });
 
   it("chooses the strongest trump suit from legal indicator cards", () => {
