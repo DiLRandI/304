@@ -6,6 +6,7 @@ import {
 } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import {
   completedGameplayHand,
+  selectedTrumpGameplayHand,
   startedGameplayHand,
 } from "./support/gameplay-hand-fixture.js";
 import { legacyStartedGameplaySnapshot } from "./support/legacy-gameplay-snapshot-fixture.js";
@@ -47,6 +48,22 @@ describe("gameplay snapshot codec", () => {
     expect(
       hydrateGameplaySnapshot(serializeGameplaySnapshot(completed)),
     ).toEqual(completed);
+  });
+
+  it("hydrates a face-down indicator while the trick is still active", () => {
+    const { indicator, record, state } = pendingIndicatorSnapshot(true);
+
+    expect(
+      hydrateGameplaySnapshot({ ...record, state }).trump.revealedIndicator,
+    ).toEqual(indicator);
+  });
+
+  it("recovers a face-down indicator omitted by an older v3 writer", () => {
+    const { indicator, record, state } = pendingIndicatorSnapshot(false);
+
+    expect(
+      hydrateGameplaySnapshot({ ...record, state }).trump.revealedIndicator,
+    ).toEqual(indicator);
   });
 
   it.each([
@@ -291,6 +308,44 @@ type Mutable<Value> = Value extends readonly (infer Item)[]
   : Value extends object
     ? { -readonly [Key in keyof Value]: Mutable<Value[Key]> }
     : Value;
+
+function pendingIndicatorSnapshot(includeEvidence: boolean) {
+  const selected = selectedTrumpGameplayHand(180);
+  const record = serializeGameplaySnapshot(selected);
+  const state = structuredClone(record.state) as MutableGameplayHandState;
+  const indicator = state.trump.indicator;
+  const maker = state.trump.maker;
+  if (!indicator || maker === null) {
+    throw new Error("Expected a selected trump indicator");
+  }
+  state.activeSeat = 1;
+  state.currentTrick = {
+    activeSeat: 1,
+    leaderSeat: maker,
+    openedTrump: false,
+    plays: [
+      {
+        actor: maker,
+        card: indicator,
+        faceDown: true,
+        fromIndicator: true,
+      },
+    ],
+    points: indicator.points,
+    status: "active",
+    trumpRevealReason: null,
+    winnerSeat: null,
+  };
+  state.phase = "trick-play";
+  state.trump = {
+    ...state.trump,
+    indicator: null,
+    mode: "closed",
+    open: false,
+    revealedIndicator: includeEvidence ? indicator : null,
+  };
+  return { indicator, record, state };
+}
 
 function legacyV2State(state: GameplayHandState): unknown {
   const legacy = structuredClone(state) as MutableGameplayHandState;
