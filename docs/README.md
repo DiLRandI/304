@@ -34,6 +34,8 @@ Use this folder as the first page before development starts.
 
 ## Deployment guides
 
+- `docs/deployment/railway.md` — Railway web, API, worker, PostgreSQL, and Redis
+  deployment, verification, and troubleshooting
 - `docs/deployment/vercel-supabase-development.md` — local workflow, Supabase
   development database, Vercel preview and promotion release process
 - `docs/deployment/aws-mumbai-production-cost-first.md` — initial AWS Mumbai
