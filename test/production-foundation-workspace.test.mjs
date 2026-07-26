@@ -93,3 +93,46 @@ test("uses PostgreSQL 18's supported persistent volume target", () => {
   assert.match(compose, /postgres-data:\/var\/lib\/postgresql\n/);
   assert.doesNotMatch(compose, /postgres-data:\/var\/lib\/postgresql\/data/);
 });
+
+test("Railway configs deploy the web, API, and worker production processes", () => {
+  const web = JSON.parse(read("railway/web.json"));
+  const api = JSON.parse(read("railway/api.json"));
+  const worker = JSON.parse(read("railway/worker.json"));
+
+  assert.deepEqual(web, {
+    $schema: "https://railway.com/railway.schema.json",
+    build: {
+      builder: "DOCKERFILE",
+      dockerfilePath: "/apps/web/Dockerfile",
+    },
+    deploy: {
+      healthcheckPath: "/",
+      healthcheckTimeout: 300,
+      restartPolicyType: "ALWAYS",
+    },
+  });
+  assert.deepEqual(api, {
+    $schema: "https://railway.com/railway.schema.json",
+    build: {
+      builder: "DOCKERFILE",
+      dockerfilePath: "/apps/game-service/Dockerfile",
+    },
+    deploy: {
+      preDeployCommand: ["node dist/scripts/migrate.js"],
+      healthcheckPath: "/readyz",
+      healthcheckTimeout: 300,
+      restartPolicyType: "ALWAYS",
+    },
+  });
+  assert.deepEqual(worker, {
+    $schema: "https://railway.com/railway.schema.json",
+    build: {
+      builder: "DOCKERFILE",
+      dockerfilePath: "/apps/game-service/Dockerfile",
+    },
+    deploy: {
+      startCommand: "node dist/src/worker.js",
+      restartPolicyType: "ALWAYS",
+    },
+  });
+});
