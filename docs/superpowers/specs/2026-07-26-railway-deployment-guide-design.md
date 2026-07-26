@@ -13,14 +13,21 @@ existing AWS and Vercel/Supabase guides unchanged because they describe
 different provider topologies. Link the new guide from both documentation
 indexes so it is discoverable from the repository root and `docs/`.
 
+Keep per-service build and deployment settings in `railway/web.json`,
+`railway/api.json`, and `railway/worker.json`. Each service selects its own
+absolute config path in Railway, while variables, service references, secrets,
+and generated domains remain environment-owned settings.
+
 ## Required content
 
 The guide must:
 
 - describe the web, game API, automation worker, PostgreSQL, and Redis services;
 - use Railway-generated HTTPS domains, without requiring a custom domain;
-- set `RAILWAY_DOCKERFILE_PATH` to `/apps/web/Dockerfile` for the web image and
+- use `/apps/web/Dockerfile` for the web image and
   `/apps/game-service/Dockerfile` for the API, migration, and worker processes;
+- supply service-specific Railway config-as-code files with exact build,
+  process, pre-deploy, restart, and healthcheck settings;
 - identify `node dist/scripts/migrate.js` as the pre-deploy migration command
   and `node dist/src/worker.js` as the worker start-command override;
 - show which variables are build-time web configuration and which variables
@@ -41,5 +48,6 @@ The guide must:
 
 Review every command and variable against the checked-in Dockerfiles, runtime
 configuration schema, Compose topology, and migration entry point. Run the
-repository's Markdown/style checks through `pnpm check`, then inspect the final
-diff for provider-specific secrets or unrelated changes.
+config contract test through a red-green cycle and the repository's full
+checks through `pnpm check`, then inspect the final diff for provider-specific
+secrets or unrelated changes.

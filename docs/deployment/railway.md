@@ -15,6 +15,21 @@ The API and worker are separate processes built from the same game-service
 image. Deploying only the web and API can render a room, but bot-controlled
 gameplay will not advance.
 
+The repository provides a Railway config-as-code file for each application
+service:
+
+| Service | Config path |
+| --- | --- |
+| Game API | `/railway/api.json` |
+| Worker | `/railway/worker.json` |
+| Web | `/railway/web.json` |
+
+When creating each GitHub service, open its settings and set the absolute
+config-file path shown above. Railway then reads the Dockerfile, start command,
+pre-deploy command, restart policy, and HTTP healthcheck settings from the
+repository. Variables, public domains, and cross-service references remain
+environment-specific and are configured in the Railway project.
+
 ## 1. Provision PostgreSQL and Redis
 
 Add Railway PostgreSQL and Redis services to the project. Keep them private.
@@ -39,23 +54,16 @@ Create a service from this GitHub repository. Keep the service root at the
 repository root because the Docker build needs the workspace packages and lock
 file.
 
-Set this service variable so Railway builds the repository's game-service
-Dockerfile:
-
-```env
-RAILWAY_DOCKERFILE_PATH=/apps/game-service/Dockerfile
-```
-
-In the service deployment settings, set:
+Set the service's config-as-code path:
 
 ```text
-Pre-deploy command: node dist/scripts/migrate.js
-Healthcheck path: /readyz
+/railway/api.json
 ```
 
-The Dockerfile already starts the API with `dist/src/server.js`; do not replace
-its start command. Generate a Railway HTTPS domain for this service and record
-its origin, for example:
+This config builds `apps/game-service/Dockerfile`, runs
+`node dist/scripts/migrate.js` before deployment, checks `/readyz`, and uses
+the Dockerfile's `dist/src/server.js` start command. Generate a Railway HTTPS
+domain for this service and record its origin, for example:
 
 ```text
 https://<game-api-service>.up.railway.app
@@ -94,20 +102,17 @@ instead.
 
 ## 3. Deploy the automation worker
 
-Create another service from the same repository and revision. Set:
-
-```env
-RAILWAY_DOCKERFILE_PATH=/apps/game-service/Dockerfile
-```
-
-Override the start command in its deployment settings:
+Create another service from the same repository and revision. Set its
+config-as-code path:
 
 ```text
-Start command: node dist/src/worker.js
+/railway/worker.json
 ```
 
-Do not configure an HTTP healthcheck or generate a domain for the worker. It is
-a long-running background process and does not listen for HTTP traffic.
+This config builds the game-service Dockerfile and overrides its process with
+`node dist/src/worker.js`. It deliberately defines no HTTP healthcheck. Do not
+generate a domain for the worker; it is a long-running background process and
+does not listen for HTTP traffic.
 
 Give it the same runtime values as the API:
 
@@ -132,12 +137,14 @@ the project, then start the worker after the migration succeeds.
 
 ## 4. Deploy the web client
 
-Create a third GitHub service from the same repository and revision. Set:
+Create a third GitHub service from the same repository and revision. Set its
+config-as-code path:
 
-```env
-RAILWAY_DOCKERFILE_PATH=/apps/web/Dockerfile
+```text
+/railway/web.json
 ```
 
+This config builds `apps/web/Dockerfile` and checks the deployed root page.
 Set the public API origin before building:
 
 ```env
@@ -210,8 +217,9 @@ required workspace contracts package first.
 Use `apps/game-service/Dockerfile` for the API and worker. It builds gameplay,
 room-domain, contracts, and game-service packages in dependency order.
 
-Confirm the affected service has the correct `RAILWAY_DOCKERFILE_PATH`; Railway
-otherwise looks for `Dockerfile` at the source root.
+Confirm the affected service selects `/railway/web.json`,
+`/railway/api.json`, or `/railway/worker.json` as appropriate. Railway
+otherwise looks for its default config and Dockerfile at the source root.
 
 ### `Invalid service configuration`
 

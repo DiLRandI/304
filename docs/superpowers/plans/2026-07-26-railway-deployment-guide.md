@@ -22,25 +22,42 @@
 
 **Files:**
 - Create: `docs/deployment/railway.md`
+- Create: `railway/web.json`
+- Create: `railway/api.json`
+- Create: `railway/worker.json`
+- Modify: `test/production-foundation-workspace.test.mjs`
 
 **Interfaces:**
 - Consumes: `apps/web/Dockerfile`, `apps/game-service/Dockerfile`, `apps/game-service/src/platform/config/service-config.ts`, `apps/game-service/scripts/migrate.ts`, and `infra/compose/compose.yaml`
 - Produces: the operator-facing Railway setup, verification, and troubleshooting procedure
 
-- [ ] **Step 1: Write the topology and deployment-order sections**
+- [ ] **Step 1: Write and run the failing config contract test**
+
+Parse the three service configs and assert their exact Dockerfile, migration,
+start-command, healthcheck, timeout, and restart-policy contracts. Run
+`node --test test/production-foundation-workspace.test.mjs` and verify it fails
+because the configs do not exist.
+
+- [ ] **Step 2: Add the service configs**
+
+Create `/railway/web.json`, `/railway/api.json`, and `/railway/worker.json`
+against `https://railway.com/railway.schema.json`, then rerun the focused test
+and verify it passes.
+
+- [ ] **Step 3: Write the topology and deployment-order sections**
 
 Document PostgreSQL and Redis provisioning followed by the game API, worker,
 and web services. State that the worker has no public domain.
 
-- [ ] **Step 2: Write exact build, start, migration, and variable settings**
+- [ ] **Step 4: Write exact build, start, migration, and variable settings**
 
-Use `RAILWAY_DOCKERFILE_PATH=/apps/web/Dockerfile`,
-`RAILWAY_DOCKERFILE_PATH=/apps/game-service/Dockerfile`,
-`node dist/scripts/migrate.js`, and `node dist/src/worker.js`. Separate
-build-time web variables from API/worker runtime variables and use placeholders
-for generated Railway domains and the session secret.
+Document the three checked-in config paths, `/apps/web/Dockerfile`,
+`/apps/game-service/Dockerfile`, `node dist/scripts/migrate.js`, and
+`node dist/src/worker.js`. Separate build-time web variables from API/worker
+runtime variables and use placeholders for generated Railway domains and the
+session secret.
 
-- [ ] **Step 3: Write verification and troubleshooting**
+- [ ] **Step 5: Write verification and troubleshooting**
 
 Cover `/livez`, `/readyz`, worker startup/polling, the application-owned
 session-bound CSRF contract, missing internal package builds, invalid runtime
@@ -79,6 +96,8 @@ no real credentials or project/service identifiers.
 
 ```bash
 git add README.md docs/README.md docs/deployment/railway.md \
+  railway/web.json railway/api.json railway/worker.json \
+  test/production-foundation-workspace.test.mjs \
   docs/superpowers/specs/2026-07-26-railway-deployment-guide-design.md \
   docs/superpowers/plans/2026-07-26-railway-deployment-guide.md
 git commit -m "docs: add Railway deployment guide"
