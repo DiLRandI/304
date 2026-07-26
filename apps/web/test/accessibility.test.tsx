@@ -4,6 +4,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccessibilityPreferences } from "../src/features/preferences/ui/accessibility-preferences.js";
+import { CardFace } from "../src/features/room/ui/card.js";
 import { GameTable } from "../src/features/room/ui/game-table.js";
 import { activeProjection, jackOfSpades } from "./browser-fixtures.js";
 
@@ -82,6 +83,36 @@ describe("browser accessibility", () => {
       "Trump opened after trick one because the bid was 250 or more.",
     );
     expect(status.textContent).not.toContain("Card Back");
+  });
+
+  it("renders Ceylon artwork for visible and hidden cards without leaking hidden identity", () => {
+    const { rerender } = render(<CardFace card={jackOfSpades} />);
+
+    const visibleArtwork = document.querySelector("img.card-artwork");
+    expect(visibleArtwork).not.toBeNull();
+    expect(visibleArtwork.getAttribute("src")).toBe(
+      "/generated/card-art/cards/standard_304/svg/S_J_spades_jack.svg",
+    );
+
+    rerender(
+      <CardFace
+        card={{
+          cardId: "secret-S_J",
+          hidden: true,
+          points: null,
+          rank: null,
+          suit: null,
+        }}
+      />,
+    );
+
+    const hiddenArtwork = document.querySelector("img.card-artwork");
+    expect(hiddenArtwork).not.toBeNull();
+    expect(hiddenArtwork.getAttribute("src")).toBe(
+      "/generated/card-art/backs/svg/card_back_304_ceylon.svg",
+    );
+    expect(hiddenArtwork.outerHTML).not.toContain("secret-S_J");
+    expect(hiddenArtwork.outerHTML).not.toContain("spades");
   });
 
   it("keeps card-value help available without hiding the table", async () => {
