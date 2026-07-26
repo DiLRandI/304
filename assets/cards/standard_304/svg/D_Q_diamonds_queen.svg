@@ -19,7 +19,7 @@
 <path d="M297 198q27 32 13 88l-34-31 8-58Z" fill="#6a352a" stroke="#171717" stroke-width="5"/>
   <ellipse cx="257" cy="230" rx="55" ry="49" fill="#f1c9a5" stroke="#171717" stroke-width="5"/>
   <circle cx="238" cy="232" r="4.5" fill="#171717"/><circle cx="278" cy="232" r="4.5" fill="#171717"/>
-<path d="M246 253q12 9 25 0" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>
+  <path d="M246 253q12 9 25 0" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>
   <path d="M170 336q20-82 87-82t87 82Z" fill="#b3262d" stroke="#171717" stroke-width="6"/>
   <path d="M213 278 257 328 301 278" fill="#f7f2e7" stroke="#171717" stroke-width="5"/>
   <path d="M180 327 220 292M334 327 294 292" stroke="#d3a72f" stroke-width="9"/>
@@ -34,7 +34,7 @@
 <path d="M297 198q27 32 13 88l-34-31 8-58Z" fill="#6a352a" stroke="#171717" stroke-width="5"/>
   <ellipse cx="257" cy="230" rx="55" ry="49" fill="#f1c9a5" stroke="#171717" stroke-width="5"/>
   <circle cx="238" cy="232" r="4.5" fill="#171717"/><circle cx="278" cy="232" r="4.5" fill="#171717"/>
-<path d="M246 253q12 9 25 0" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>
+  <path d="M246 253q12 9 25 0" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>
   <path d="M170 336q20-82 87-82t87 82Z" fill="#b3262d" stroke="#171717" stroke-width="6"/>
   <path d="M213 278 257 328 301 278" fill="#f7f2e7" stroke="#171717" stroke-width="5"/>
   <path d="M180 327 220 292M334 327 294 292" stroke="#d3a72f" stroke-width="9"/>
