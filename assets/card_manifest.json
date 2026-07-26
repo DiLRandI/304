@@ -1,9 +1,9 @@
 {
-  "pack_name": "Classic Playing Card Asset Pack",
-  "version": "2.0.0",
+  "pack_name": "Ceylon 304 Card Asset Pack",
+  "version": "1.0.0",
   "image_size_px": {
-    "width": 500,
-    "height": 700
+    "width": 750,
+    "height": 1050
   },
   "standard_304_rank_order_high_to_low": [
     "J",
@@ -16,31 +16,31 @@
     "7"
   ],
   "standard_304_point_values": {
-    "7": 0,
-    "8": 0,
-    "9": 20,
-    "10": 10,
     "J": 30,
+    "9": 20,
     "A": 11,
+    "10": 10,
     "K": 3,
-    "Q": 2
+    "Q": 2,
+    "8": 0,
+    "7": 0
   },
   "suits": {
     "S": {
       "name": "spades",
-      "symbol": "♠"
+      "symbol": "\u2660"
     },
     "C": {
       "name": "clubs",
-      "symbol": "♣"
+      "symbol": "\u2663"
     },
     "D": {
       "name": "diamonds",
-      "symbol": "♦"
+      "symbol": "\u2666"
     },
     "H": {
       "name": "hearts",
-      "symbol": "♥"
+      "symbol": "\u2665"
     }
   },
   "standard_cards": [
@@ -53,7 +53,8 @@
       "points": 30,
       "rank_order_high_to_low": 1,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/S_J_spades_jack.svg"
+      "svg": "cards/standard_304/svg/S_J_spades_jack.svg",
+      "png": "cards/standard_304/png/S_J_spades_jack.png"
     },
     {
       "id": "C_J",
@@ -64,7 +65,8 @@
       "points": 30,
       "rank_order_high_to_low": 1,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/C_J_clubs_jack.svg"
+      "svg": "cards/standard_304/svg/C_J_clubs_jack.svg",
+      "png": "cards/standard_304/png/C_J_clubs_jack.png"
     },
     {
       "id": "D_J",
@@ -75,7 +77,8 @@
       "points": 30,
       "rank_order_high_to_low": 1,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/D_J_diamonds_jack.svg"
+      "svg": "cards/standard_304/svg/D_J_diamonds_jack.svg",
+      "png": "cards/standard_304/png/D_J_diamonds_jack.png"
     },
     {
       "id": "H_J",
@@ -86,7 +89,8 @@
       "points": 30,
       "rank_order_high_to_low": 1,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/H_J_hearts_jack.svg"
+      "svg": "cards/standard_304/svg/H_J_hearts_jack.svg",
+      "png": "cards/standard_304/png/H_J_hearts_jack.png"
     },
     {
       "id": "S_9",
@@ -97,7 +101,8 @@
       "points": 20,
       "rank_order_high_to_low": 2,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/S_9_spades_nine.svg"
+      "svg": "cards/standard_304/svg/S_9_spades_nine.svg",
+      "png": "cards/standard_304/png/S_9_spades_nine.png"
     },
     {
       "id": "C_9",
@@ -108,7 +113,8 @@
       "points": 20,
       "rank_order_high_to_low": 2,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/C_9_clubs_nine.svg"
+      "svg": "cards/standard_304/svg/C_9_clubs_nine.svg",
+      "png": "cards/standard_304/png/C_9_clubs_nine.png"
     },
     {
       "id": "D_9",
@@ -119,7 +125,8 @@
       "points": 20,
       "rank_order_high_to_low": 2,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/D_9_diamonds_nine.svg"
+      "svg": "cards/standard_304/svg/D_9_diamonds_nine.svg",
+      "png": "cards/standard_304/png/D_9_diamonds_nine.png"
     },
     {
       "id": "H_9",
@@ -130,7 +137,8 @@
       "points": 20,
       "rank_order_high_to_low": 2,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/H_9_hearts_nine.svg"
+      "svg": "cards/standard_304/svg/H_9_hearts_nine.svg",
+      "png": "cards/standard_304/png/H_9_hearts_nine.png"
     },
     {
       "id": "S_A",
@@ -141,7 +149,8 @@
       "points": 11,
       "rank_order_high_to_low": 3,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/S_A_spades_ace.svg"
+      "svg": "cards/standard_304/svg/S_A_spades_ace.svg",
+      "png": "cards/standard_304/png/S_A_spades_ace.png"
     },
     {
       "id": "C_A",
@@ -152,7 +161,8 @@
       "points": 11,
       "rank_order_high_to_low": 3,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/C_A_clubs_ace.svg"
+      "svg": "cards/standard_304/svg/C_A_clubs_ace.svg",
+      "png": "cards/standard_304/png/C_A_clubs_ace.png"
     },
     {
       "id": "D_A",
@@ -163,7 +173,8 @@
       "points": 11,
       "rank_order_high_to_low": 3,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/D_A_diamonds_ace.svg"
+      "svg": "cards/standard_304/svg/D_A_diamonds_ace.svg",
+      "png": "cards/standard_304/png/D_A_diamonds_ace.png"
     },
     {
       "id": "H_A",
@@ -174,7 +185,8 @@
       "points": 11,
       "rank_order_high_to_low": 3,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/H_A_hearts_ace.svg"
+      "svg": "cards/standard_304/svg/H_A_hearts_ace.svg",
+      "png": "cards/standard_304/png/H_A_hearts_ace.png"
     },
     {
       "id": "S_10",
@@ -185,7 +197,8 @@
       "points": 10,
       "rank_order_high_to_low": 4,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/S_10_spades_ten.svg"
+      "svg": "cards/standard_304/svg/S_10_spades_ten.svg",
+      "png": "cards/standard_304/png/S_10_spades_ten.png"
     },
     {
       "id": "C_10",
@@ -196,7 +209,8 @@
       "points": 10,
       "rank_order_high_to_low": 4,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/C_10_clubs_ten.svg"
+      "svg": "cards/standard_304/svg/C_10_clubs_ten.svg",
+      "png": "cards/standard_304/png/C_10_clubs_ten.png"
     },
     {
       "id": "D_10",
@@ -207,7 +221,8 @@
       "points": 10,
       "rank_order_high_to_low": 4,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/D_10_diamonds_ten.svg"
+      "svg": "cards/standard_304/svg/D_10_diamonds_ten.svg",
+      "png": "cards/standard_304/png/D_10_diamonds_ten.png"
     },
     {
       "id": "H_10",
@@ -218,7 +233,8 @@
       "points": 10,
       "rank_order_high_to_low": 4,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/H_10_hearts_ten.svg"
+      "svg": "cards/standard_304/svg/H_10_hearts_ten.svg",
+      "png": "cards/standard_304/png/H_10_hearts_ten.png"
     },
     {
       "id": "S_K",
@@ -229,7 +245,8 @@
       "points": 3,
       "rank_order_high_to_low": 5,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/S_K_spades_king.svg"
+      "svg": "cards/standard_304/svg/S_K_spades_king.svg",
+      "png": "cards/standard_304/png/S_K_spades_king.png"
     },
     {
       "id": "C_K",
@@ -240,7 +257,8 @@
       "points": 3,
       "rank_order_high_to_low": 5,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/C_K_clubs_king.svg"
+      "svg": "cards/standard_304/svg/C_K_clubs_king.svg",
+      "png": "cards/standard_304/png/C_K_clubs_king.png"
     },
     {
       "id": "D_K",
@@ -251,7 +269,8 @@
       "points": 3,
       "rank_order_high_to_low": 5,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/D_K_diamonds_king.svg"
+      "svg": "cards/standard_304/svg/D_K_diamonds_king.svg",
+      "png": "cards/standard_304/png/D_K_diamonds_king.png"
     },
     {
       "id": "H_K",
@@ -262,7 +281,8 @@
       "points": 3,
       "rank_order_high_to_low": 5,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/H_K_hearts_king.svg"
+      "svg": "cards/standard_304/svg/H_K_hearts_king.svg",
+      "png": "cards/standard_304/png/H_K_hearts_king.png"
     },
     {
       "id": "S_Q",
@@ -273,7 +293,8 @@
       "points": 2,
       "rank_order_high_to_low": 6,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/S_Q_spades_queen.svg"
+      "svg": "cards/standard_304/svg/S_Q_spades_queen.svg",
+      "png": "cards/standard_304/png/S_Q_spades_queen.png"
     },
     {
       "id": "C_Q",
@@ -284,7 +305,8 @@
       "points": 2,
       "rank_order_high_to_low": 6,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/C_Q_clubs_queen.svg"
+      "svg": "cards/standard_304/svg/C_Q_clubs_queen.svg",
+      "png": "cards/standard_304/png/C_Q_clubs_queen.png"
     },
     {
       "id": "D_Q",
@@ -295,7 +317,8 @@
       "points": 2,
       "rank_order_high_to_low": 6,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/D_Q_diamonds_queen.svg"
+      "svg": "cards/standard_304/svg/D_Q_diamonds_queen.svg",
+      "png": "cards/standard_304/png/D_Q_diamonds_queen.png"
     },
     {
       "id": "H_Q",
@@ -306,7 +329,8 @@
       "points": 2,
       "rank_order_high_to_low": 6,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/H_Q_hearts_queen.svg"
+      "svg": "cards/standard_304/svg/H_Q_hearts_queen.svg",
+      "png": "cards/standard_304/png/H_Q_hearts_queen.png"
     },
     {
       "id": "S_8",
@@ -317,7 +341,8 @@
       "points": 0,
       "rank_order_high_to_low": 7,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/S_8_spades_eight.svg"
+      "svg": "cards/standard_304/svg/S_8_spades_eight.svg",
+      "png": "cards/standard_304/png/S_8_spades_eight.png"
     },
     {
       "id": "C_8",
@@ -328,7 +353,8 @@
       "points": 0,
       "rank_order_high_to_low": 7,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/C_8_clubs_eight.svg"
+      "svg": "cards/standard_304/svg/C_8_clubs_eight.svg",
+      "png": "cards/standard_304/png/C_8_clubs_eight.png"
     },
     {
       "id": "D_8",
@@ -339,7 +365,8 @@
       "points": 0,
       "rank_order_high_to_low": 7,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/D_8_diamonds_eight.svg"
+      "svg": "cards/standard_304/svg/D_8_diamonds_eight.svg",
+      "png": "cards/standard_304/png/D_8_diamonds_eight.png"
     },
     {
       "id": "H_8",
@@ -350,7 +377,8 @@
       "points": 0,
       "rank_order_high_to_low": 7,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/H_8_hearts_eight.svg"
+      "svg": "cards/standard_304/svg/H_8_hearts_eight.svg",
+      "png": "cards/standard_304/png/H_8_hearts_eight.png"
     },
     {
       "id": "S_7",
@@ -361,7 +389,8 @@
       "points": 0,
       "rank_order_high_to_low": 8,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/S_7_spades_seven.svg"
+      "svg": "cards/standard_304/svg/S_7_spades_seven.svg",
+      "png": "cards/standard_304/png/S_7_spades_seven.png"
     },
     {
       "id": "C_7",
@@ -372,7 +401,8 @@
       "points": 0,
       "rank_order_high_to_low": 8,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/C_7_clubs_seven.svg"
+      "svg": "cards/standard_304/svg/C_7_clubs_seven.svg",
+      "png": "cards/standard_304/png/C_7_clubs_seven.png"
     },
     {
       "id": "D_7",
@@ -383,7 +413,8 @@
       "points": 0,
       "rank_order_high_to_low": 8,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/D_7_diamonds_seven.svg"
+      "svg": "cards/standard_304/svg/D_7_diamonds_seven.svg",
+      "png": "cards/standard_304/png/D_7_diamonds_seven.png"
     },
     {
       "id": "H_7",
@@ -394,7 +425,8 @@
       "points": 0,
       "rank_order_high_to_low": 8,
       "standard_304": true,
-      "svg": "cards/standard_304/svg/H_7_hearts_seven.svg"
+      "svg": "cards/standard_304/svg/H_7_hearts_seven.svg",
+      "png": "cards/standard_304/png/H_7_hearts_seven.png"
     }
   ],
   "variant_extra_cards": [
@@ -405,8 +437,10 @@
       "suit": "S",
       "suit_name": "spades",
       "points": 50,
+      "rank_order_high_to_low": 0,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/S_3_spades_three.svg"
+      "svg": "cards/variant_extras/svg/S_3_spades_three.svg",
+      "png": "cards/variant_extras/png/S_3_spades_three.png"
     },
     {
       "id": "C_3",
@@ -415,8 +449,10 @@
       "suit": "C",
       "suit_name": "clubs",
       "points": 50,
+      "rank_order_high_to_low": 0,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/C_3_clubs_three.svg"
+      "svg": "cards/variant_extras/svg/C_3_clubs_three.svg",
+      "png": "cards/variant_extras/png/C_3_clubs_three.png"
     },
     {
       "id": "D_3",
@@ -425,8 +461,10 @@
       "suit": "D",
       "suit_name": "diamonds",
       "points": 50,
+      "rank_order_high_to_low": 0,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/D_3_diamonds_three.svg"
+      "svg": "cards/variant_extras/svg/D_3_diamonds_three.svg",
+      "png": "cards/variant_extras/png/D_3_diamonds_three.png"
     },
     {
       "id": "H_3",
@@ -435,8 +473,10 @@
       "suit": "H",
       "suit_name": "hearts",
       "points": 50,
+      "rank_order_high_to_low": 0,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/H_3_hearts_three.svg"
+      "svg": "cards/variant_extras/svg/H_3_hearts_three.svg",
+      "png": "cards/variant_extras/png/H_3_hearts_three.png"
     },
     {
       "id": "S_2",
@@ -445,8 +485,10 @@
       "suit": "S",
       "suit_name": "spades",
       "points": 100,
+      "rank_order_high_to_low": -1,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/S_2_spades_two.svg"
+      "svg": "cards/variant_extras/svg/S_2_spades_two.svg",
+      "png": "cards/variant_extras/png/S_2_spades_two.png"
     },
     {
       "id": "C_2",
@@ -455,8 +497,10 @@
       "suit": "C",
       "suit_name": "clubs",
       "points": 100,
+      "rank_order_high_to_low": -1,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/C_2_clubs_two.svg"
+      "svg": "cards/variant_extras/svg/C_2_clubs_two.svg",
+      "png": "cards/variant_extras/png/C_2_clubs_two.png"
     },
     {
       "id": "D_2",
@@ -465,8 +509,10 @@
       "suit": "D",
       "suit_name": "diamonds",
       "points": 100,
+      "rank_order_high_to_low": -1,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/D_2_diamonds_two.svg"
+      "svg": "cards/variant_extras/svg/D_2_diamonds_two.svg",
+      "png": "cards/variant_extras/png/D_2_diamonds_two.png"
     },
     {
       "id": "H_2",
@@ -475,8 +521,10 @@
       "suit": "H",
       "suit_name": "hearts",
       "points": 100,
+      "rank_order_high_to_low": -1,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/H_2_hearts_two.svg"
+      "svg": "cards/variant_extras/svg/H_2_hearts_two.svg",
+      "png": "cards/variant_extras/png/H_2_hearts_two.png"
     },
     {
       "id": "S_6",
@@ -485,8 +533,10 @@
       "suit": "S",
       "suit_name": "spades",
       "points": 0,
+      "rank_order_high_to_low": 9,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/S_6_spades_six.svg"
+      "svg": "cards/variant_extras/svg/S_6_spades_six.svg",
+      "png": "cards/variant_extras/png/S_6_spades_six.png"
     },
     {
       "id": "C_6",
@@ -495,8 +545,10 @@
       "suit": "C",
       "suit_name": "clubs",
       "points": 0,
+      "rank_order_high_to_low": 9,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/C_6_clubs_six.svg"
+      "svg": "cards/variant_extras/svg/C_6_clubs_six.svg",
+      "png": "cards/variant_extras/png/C_6_clubs_six.png"
     },
     {
       "id": "D_6",
@@ -505,8 +557,10 @@
       "suit": "D",
       "suit_name": "diamonds",
       "points": 0,
+      "rank_order_high_to_low": 9,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/D_6_diamonds_six.svg"
+      "svg": "cards/variant_extras/svg/D_6_diamonds_six.svg",
+      "png": "cards/variant_extras/png/D_6_diamonds_six.png"
     },
     {
       "id": "H_6",
@@ -515,11 +569,15 @@
       "suit": "H",
       "suit_name": "hearts",
       "points": 0,
+      "rank_order_high_to_low": 9,
       "standard_304": false,
-      "svg": "cards/variant_extras/svg/H_6_hearts_six.svg"
+      "svg": "cards/variant_extras/svg/H_6_hearts_six.svg",
+      "png": "cards/variant_extras/png/H_6_hearts_six.png"
     }
   ],
   "card_back": {
-    "svg": "backs/svg/card_back_304_ceylon.svg"
+    "id": "BACK_304",
+    "svg": "backs/svg/card_back_304_ceylon.svg",
+    "png": "backs/png/card_back_304_ceylon.png"
   }
 }
