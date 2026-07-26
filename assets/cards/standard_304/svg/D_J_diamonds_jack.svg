@@ -17,12 +17,15 @@
 <path d="M311 171q42-42 59-5-31 4-47 29Z" fill="#b3262d" stroke="#171717" stroke-width="5"/>
   <path d="M216 218q13-45 91-9-30-7-48-25-18 22-43 34Z" fill="#51372b"/>
   <ellipse cx="257" cy="230" rx="55" ry="49" fill="#f1c9a5" stroke="#171717" stroke-width="5"/>
-  <circle cx="238" cy="232" r="4.5" fill="#171717"/><circle cx="278" cy="232" r="4.5" fill="#171717"/>
-  <path d="M246 253q12 9 25 0" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>
-  <path d="M170 336q20-82 87-82t87 82Z" fill="#b3262d" stroke="#171717" stroke-width="6"/>
+  <circle cx="271" cy="232" r="5" fill="#171717"/>
+<path d="M282 232 300 242 282 249" fill="#f1c9a5" stroke="#171717" stroke-width="4" stroke-linejoin="round"/>
+<path d="M263 258q13 6 24-2" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>
+  <path d="M170 336q20-82 87-82t87 82Z" fill="#315f9d" stroke="#171717" stroke-width="6"/>
   <path d="M213 278 257 328 301 278" fill="#f7f2e7" stroke="#171717" stroke-width="5"/>
   <path d="M180 327 220 292M334 327 294 292" stroke="#d3a72f" stroke-width="9"/>
-  <path d="M316 224 346 270 333 280 303 234Z" fill="#b9b9b2" stroke="#171717" stroke-width="5"/>
+  <path d="M306 305 355 176" stroke="#171717" stroke-width="14" stroke-linecap="round"/>
+<path d="M306 305 355 176" stroke="#c7ced7" stroke-width="7" stroke-linecap="round"/>
+<path d="M344 187 375 157 363 201Z" fill="#c7ced7" stroke="#171717" stroke-width="5"/>
   <text x="257" y="327" fill="#f7f2e7" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="48">♦</text>
 </g>
   <g transform="rotate(180 250 350)"><g>
@@ -30,12 +33,15 @@
 <path d="M311 171q42-42 59-5-31 4-47 29Z" fill="#b3262d" stroke="#171717" stroke-width="5"/>
   <path d="M216 218q13-45 91-9-30-7-48-25-18 22-43 34Z" fill="#51372b"/>
   <ellipse cx="257" cy="230" rx="55" ry="49" fill="#f1c9a5" stroke="#171717" stroke-width="5"/>
-  <circle cx="238" cy="232" r="4.5" fill="#171717"/><circle cx="278" cy="232" r="4.5" fill="#171717"/>
-  <path d="M246 253q12 9 25 0" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>
-  <path d="M170 336q20-82 87-82t87 82Z" fill="#b3262d" stroke="#171717" stroke-width="6"/>
+  <circle cx="271" cy="232" r="5" fill="#171717"/>
+<path d="M282 232 300 242 282 249" fill="#f1c9a5" stroke="#171717" stroke-width="4" stroke-linejoin="round"/>
+<path d="M263 258q13 6 24-2" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>
+  <path d="M170 336q20-82 87-82t87 82Z" fill="#315f9d" stroke="#171717" stroke-width="6"/>
   <path d="M213 278 257 328 301 278" fill="#f7f2e7" stroke="#171717" stroke-width="5"/>
   <path d="M180 327 220 292M334 327 294 292" stroke="#d3a72f" stroke-width="9"/>
-  <path d="M316 224 346 270 333 280 303 234Z" fill="#b9b9b2" stroke="#171717" stroke-width="5"/>
+  <path d="M306 305 355 176" stroke="#171717" stroke-width="14" stroke-linecap="round"/>
+<path d="M306 305 355 176" stroke="#c7ced7" stroke-width="7" stroke-linecap="round"/>
+<path d="M344 187 375 157 363 201Z" fill="#c7ced7" stroke="#171717" stroke-width="5"/>
   <text x="257" y="327" fill="#f7f2e7" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="48">♦</text>
 </g></g>
 </g>

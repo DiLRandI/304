@@ -138,6 +138,7 @@ function renderAceBody(suit) {
 }
 
 function courtHalf(rank, suit) {
+  const jacketColor = rank === "J" ? "#315f9d" : suit.color;
   const crown =
     rank === "K"
       ? `<path d="M177 202 196 143 230 184 264 132 299 184 331 143 342 202Z" fill="#d3a72f" stroke="#171717" stroke-width="6"/>
@@ -154,7 +155,9 @@ function courtHalf(rank, suit) {
       : rank === "Q"
         ? `<circle cx="343" cy="263" r="22" fill="#f7f2e7" stroke="#171717" stroke-width="5"/>
 <path d="M343 240v46M320 263h46M327 247l32 32M359 247l-32 32" stroke="${suit.color}" stroke-width="7"/>`
-        : `<path d="M316 224 346 270 333 280 303 234Z" fill="#b9b9b2" stroke="#171717" stroke-width="5"/>`;
+        : `<path d="M306 305 355 176" stroke="#171717" stroke-width="14" stroke-linecap="round"/>
+<path d="M306 305 355 176" stroke="#c7ced7" stroke-width="7" stroke-linecap="round"/>
+<path d="M344 187 375 157 363 201Z" fill="#c7ced7" stroke="#171717" stroke-width="5"/>`;
 
   const hair =
     rank === "Q"
@@ -170,14 +173,21 @@ function courtHalf(rank, suit) {
 <path d="M235 254q22 15 45 0" fill="none" stroke="#171717" stroke-width="7" stroke-linecap="round"/>`
       : "";
 
+  const faceDetails =
+    rank === "J"
+      ? `<circle cx="271" cy="232" r="5" fill="#171717"/>
+<path d="M282 232 300 242 282 249" fill="#f1c9a5" stroke="#171717" stroke-width="4" stroke-linejoin="round"/>
+<path d="M263 258q13 6 24-2" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>`
+      : `<circle cx="238" cy="232" r="4.5" fill="#171717"/><circle cx="278" cy="232" r="4.5" fill="#171717"/>
+<path d="M246 253q12 9 25 0" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>`;
+
   return `<g>
   ${crown}
 ${hair ? `  ${hair}\n` : ""}\
   <ellipse cx="257" cy="230" rx="55" ry="49" fill="#f1c9a5" stroke="#171717" stroke-width="5"/>
 ${facialHair ? `  ${facialHair}\n` : ""}\
-  <circle cx="238" cy="232" r="4.5" fill="#171717"/><circle cx="278" cy="232" r="4.5" fill="#171717"/>
-  <path d="M246 253q12 9 25 0" fill="none" stroke="#8b4b3c" stroke-width="4" stroke-linecap="round"/>
-  <path d="M170 336q20-82 87-82t87 82Z" fill="${suit.color}" stroke="#171717" stroke-width="6"/>
+  ${faceDetails}
+  <path d="M170 336q20-82 87-82t87 82Z" fill="${jacketColor}" stroke="#171717" stroke-width="6"/>
   <path d="M213 278 257 328 301 278" fill="#f7f2e7" stroke="#171717" stroke-width="5"/>
   <path d="M180 327 220 292M334 327 294 292" stroke="#d3a72f" stroke-width="9"/>
   ${accessory}
