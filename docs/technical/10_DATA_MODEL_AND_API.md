@@ -6,6 +6,30 @@ This document defines the core database entities, REST endpoints, and WebSocket 
 
 ## 2. Core entities
 
+Tournament persistence is introduced by append-only migration
+`0007_tournaments.sql`. Current-state tables cover tournaments, teams,
+memberships, groups, rounds, fixtures, fixture games, and fixture-room history.
+Append-only tournament events, command deduplication, invite HMAC digests, and
+outbox rows provide audit, retry safety, and realtime delivery. Fixture results
+remain authoritative after room cleanup.
+
+Tournament endpoints:
+
+| Method | Path | Access |
+|---|---|---|
+| `POST` | `/v1/tournaments` | authenticated organizer |
+| `GET` | `/v1/tournaments/:id` | authenticated participant/organizer |
+| `POST` | `/v1/tournaments/:id/invites/join` | authenticated guest plus raw token body |
+| `POST` | `/v1/tournaments/:id/commands` | authenticated, versioned and idempotent |
+| `GET` | `/v1/tournaments/:id/fixtures/:fixtureId/navigation` | locked participant |
+| `GET` | `/v1/tournament-boards/:slug` | public, read only |
+| `GET` | `/v1/tournaments/:id/stream` | authenticated realtime |
+| `GET` | `/v1/tournament-boards/:slug/stream` | public sanitized realtime |
+
+Strict command and projection schemas live in `packages/contracts`; clients
+cannot supply actor IDs, persisted invite digests, room snapshots, standings,
+or fixture results.
+
 ### User
 
 ```ts

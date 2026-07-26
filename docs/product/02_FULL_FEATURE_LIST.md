@@ -47,6 +47,22 @@ Priority labels:
 | P2 | Spectator mode | Watch table with hidden information protected |
 | P2 | Room chat | Limited text/chat reactions with moderation controls |
 
+## 2A. Private live tournaments
+
+| Priority | Feature | Description |
+|---|---|---|
+| P1 | Private tournament creation | Configure one Classic or six-seat profile for 6–32 teams |
+| P1 | Team-slot invites | Secret rotatable links; first joiner becomes captain and names the team |
+| P1 | Locked rosters | Exactly 2 or 3 positions, one tournament team per guest |
+| P1 | Transparent group draw | Seeded balanced groups of 3–5 with pre-lock redraw audit |
+| P1 | Round-robin rounds | Collision-free rounds with concurrent authoritative fixtures |
+| P1 | Live standings | Match wins, mini-table, match and token differential tie-breaks |
+| P1 | Knockout bracket | Top two per group, normalized seeding, byes, rematch avoidance |
+| P1 | BO1 and BO3 series | One reserved room, clinch enforcement, optional third place |
+| P1 | Human or bot lineups | Complete humans or captain-locked fixture bots |
+| P1 | Organizer controls | Lock, open round, postpone, forfeit, recover room, cancel |
+| P1 | Public board | Read-only draw, results, standings, bracket, champion, sanitized activity |
+
 ## 3. Rule profiles
 
 | Priority | Feature | Description |

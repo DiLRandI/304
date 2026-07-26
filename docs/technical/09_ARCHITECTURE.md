@@ -13,6 +13,7 @@ state and automated actions.
 | Worker | `apps/game-service/src/worker.ts` | Bot turns, timeouts, disconnected-player autopilot, maintenance |
 | Gameplay domain | `packages/gameplay` | Aggregate commands/events, deterministic rules, scoring, projections, bot policy |
 | Rooms domain | `packages/room-domain` | Room lifecycle, seats, joins, starts, leaves, and ownership |
+| Tournament domain | `packages/tournament-domain` | Registration, grouping, scheduling, standings, series, permissions, forfeits, brackets |
 | Wire contracts | `packages/contracts` | Versioned schemas for commands, responses, projections, and errors |
 | Durable state | PostgreSQL | Sessions, rooms, seats, events, snapshots, outbox, automation jobs |
 | Coordination | Redis | Leases, presence, rate limits, Pub/Sub, bounded telemetry |
@@ -25,6 +26,7 @@ flowchart LR
   Worker[Automation and maintenance worker] --> UseCases
   UseCases --> Gameplay[Gameplay aggregate]
   UseCases --> Rooms[Rooms domain]
+  UseCases --> Tournaments[Tournament domain]
   UseCases --> DB[(PostgreSQL)]
   UseCases --> Redis[(Redis)]
   API --> Contracts[Versioned contracts]
@@ -68,6 +70,16 @@ commands, state, and randomness. It owns Classic four-seat and six-seat 304
 rules, legal commands, bidding, trump, tricks, scoring, match progression,
 bot policy, and viewer-specific projections. The service composes persistence
 and transport adapters around this domain instead of exposing its state.
+
+### Tournament context
+
+Tournaments coordinate rooms but do not own or duplicate gameplay rules. A
+fixture reserves its room for two locked rosters and maps teams to alternating
+seats. Tournament state, events, command deduplication, and outbox notices use
+the same optimistic transactional pattern as rooms. The terminal gameplay
+snapshot and fixture result are recorded atomically through one completion
+recorder used by human and automated transitions. See the
+[approved tournament design](../superpowers/specs/2026-07-26-private-live-tournaments-design.md).
 
 ### Worker
 

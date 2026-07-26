@@ -45,6 +45,18 @@ If a request returns `ROOM_RECOVERY_FAILED`, treat it as an availability inciden
 
 ## Metrics and monitoring
 
+Tournament maintenance retains completed and cancelled boards for 90 days by
+default, purges only terminal tournaments in bounded batches, and never selects
+registration, group-stage, or knockout state. Tournament metrics are aggregate
+only: active counts by status, fixture completion outcomes, command conflicts,
+outbox backlog, and cleanup totals. Do not label metrics with tournament,
+team, player, invite, room, or session identifiers.
+
+For a disputed fixture, preserve tournament events, fixture games,
+fixture-room history, the linked terminal room event, and service/worker logs.
+Do not hand-edit standings or bracket rows. Recover a room only through the
+versioned recovery command; already committed match wins must remain unchanged.
+
 The game service exposes Prometheus-compatible metrics at `/metrics`. The
 metrics surface contains service request and WebSocket counts, durable outbox and
 automation queue counts, automation outcomes, and
