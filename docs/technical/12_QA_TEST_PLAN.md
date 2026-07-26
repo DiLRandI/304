@@ -25,6 +25,24 @@ Manual exploratory tests for UX and regional rule feel
 
 ## 4. Unit tests
 
+### Tournament tests
+
+- For every even team count from 6–32, groups contain 3–5 teams and differ by
+  at most one.
+- A published seed reproduces the same draw and schedule.
+- Every group pairing occurs once; no team appears twice in a round.
+- Multi-team mini-table, match differential, token differential, and seeded
+  fallback rank deterministically.
+- BO1/BO3 clinching, single/double forfeits, byes, third place, and first-round
+  same-group avoidance are covered.
+- Unicode team-name normalization, one-team membership, roster lock, captain
+  transfer, and role permissions reject invalid transitions.
+
+Tournament integration and browser acceptance follow the
+[approved design](../superpowers/specs/2026-07-26-private-live-tournaments-design.md),
+including atomic human/bot completion, invite rotation, public privacy,
+retention, a 32-team load shape, and champion presentation.
+
 ### Card and deck tests
 
 - Classic deck has 32 cards.

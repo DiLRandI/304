@@ -27,7 +27,8 @@ A web app can solve this by giving players:
 2. Preserve the feel of Sri Lankan 304, especially bidding, hidden trump, cutting, and team play.
 3. Prevent illegal moves through server-side validation.
 4. Make the game understandable to beginners without slowing experienced players.
-5. Support casual private play first, then public matchmaking and ranked play later.
+5. Support casual private play and private live tournaments before public
+   matchmaking and ranked play.
 6. Build a flexible game engine that can support 4-seat and 6-seat table configurations.
 
 ### Business and engagement goals
@@ -44,7 +45,8 @@ The first version should not include:
 - Real-money gambling or betting
 - Crypto, tokens, wagering, or cash rewards
 - Native mobile apps
-- Complex tournaments
+- Public directories, persistent leagues, cross-tournament rankings, or
+  wagering tournaments
 - Voice chat
 - Full social network features
 - Every regional rule variation at launch
@@ -77,6 +79,21 @@ The first version should not include:
 - Has 2, 3, or 5 available humans
 - Wants bots to fill gaps
 - Needs teams to be balanced automatically
+
+### Persona E: Private tournament organizer
+
+- Runs a 6–32-team live event for known participants
+- Needs transparent groups, collision-free rounds, standings, and a knockout bracket
+- Controls registration, check-in, forfeits, and room recovery
+- Shares a read-only board without exposing participant or room access
+
+## Private live tournament release
+
+The approved tournament scope is defined by the
+[dated design](../superpowers/specs/2026-07-26-private-live-tournaments-design.md).
+It coordinates existing authoritative Classic or six-seat rooms, requires
+custom team names, supports BO1/BO3 group and knockout play, and retains public
+boards for 90 days. Existing gameplay rules remain authoritative and unchanged.
 
 ## 6. Core user journeys
 
