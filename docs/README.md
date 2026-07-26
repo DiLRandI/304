@@ -46,5 +46,10 @@ Use this folder as the first page before development starts.
 
 ## Resources
 
-- `docs/resources/card_list.csv` — CSV view of deck IDs, suits, ranks, and points
-- `assets/card_manifest.json` — JSON manifest with image paths and metadata
+- `docs/resources/card_list.csv` — SVG-only CSV view of deck IDs, suits, ranks, points, and artwork paths
+- `assets/card_manifest.json` — JSON inventory for the generated classic SVG playing-card pack
+
+Run `pnpm generate:card-assets` to reproducibly update the 44 classic card
+faces, shared card back, manifest, and CSV inventory. The application ships
+SVG artwork only; PNG previews and spritesheets are not part of the runtime
+asset contract.

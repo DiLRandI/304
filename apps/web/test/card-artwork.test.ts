@@ -10,11 +10,16 @@ const SUITS = [
 const STANDARD_RANKS = ["J", "9", "A", "10", "K", "Q", "8", "7"] as const;
 const EXTRA_RANKS = ["2", "3", "6"] as const;
 
-describe("Ceylon card artwork", () => {
-  it("resolves every Classic and six-seat card ID to generated SVG artwork", () => {
+describe("classic card artwork", () => {
+  it("resolves every Classic and six-seat card ID to the correct generated SVG collection", () => {
     for (const [suitCode, suit] of SUITS) {
       for (const rank of [...STANDARD_RANKS, ...EXTRA_RANKS]) {
         const cardId = `${suitCode}_${rank}`;
+        const collection = STANDARD_RANKS.includes(
+          rank as (typeof STANDARD_RANKS)[number],
+        )
+          ? "standard_304"
+          : "variant_extras";
         const artwork = resolveCardArtwork({
           cardId,
           hidden: false,
@@ -24,8 +29,11 @@ describe("Ceylon card artwork", () => {
         });
 
         expect(artwork?.src, cardId).toMatch(
-          new RegExp(`/generated/card-art/cards/.+/svg/${cardId}_`),
+          new RegExp(
+            `/generated/card-art/cards/${collection}/svg/${cardId}_.+\\.svg$`,
+          ),
         );
+        expect(artwork?.src, cardId).not.toContain("/png/");
       }
     }
   });

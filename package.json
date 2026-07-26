@@ -7,6 +7,7 @@
     "node": "24.18.0"
   },
   "scripts": {
+    "generate:card-assets": "node scripts/generate-classic-card-assets.mjs",
     "test": "node --test test/*.test.mjs",
     "test:unit": "pnpm test && pnpm --filter @three-zero-four/gameplay test && pnpm --filter @three-zero-four/room-domain test && pnpm --filter @three-zero-four/tournament-domain test && pnpm --filter @three-zero-four/contracts test && pnpm --filter @three-zero-four/game-service test && pnpm --filter @three-zero-four/web test",
     "typecheck": "pnpm --filter @three-zero-four/gameplay build && pnpm --filter @three-zero-four/gameplay typecheck && pnpm --filter @three-zero-four/room-domain build && pnpm --filter @three-zero-four/room-domain typecheck && pnpm --filter @three-zero-four/tournament-domain build && pnpm --filter @three-zero-four/tournament-domain typecheck && pnpm --filter @three-zero-four/contracts build && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
