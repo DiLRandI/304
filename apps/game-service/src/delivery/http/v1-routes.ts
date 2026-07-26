@@ -12,7 +12,7 @@ import {
   playerId,
   roomId,
 } from "@three-zero-four/room-domain";
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { SubmitGameplayCommandHandler } from "../../contexts/gameplay/application/submit-gameplay-command.js";
 import type { PlayerAccess } from "../../contexts/player-access/application/player-access.js";
@@ -31,6 +31,10 @@ import { DeliveryError } from "../delivery-error.js";
 import type { RequestRateLimiter } from "./request-rate-limiter.js";
 
 export interface GameRuntime {
+  csrf: {
+    csrfToken(cookieValue: string): string;
+    matchesCsrfToken(cookieValue: string, token: string): boolean;
+  };
   gameplayUseCases: {
     readonly submit: Pick<SubmitGameplayCommandHandler, "execute">;
   };
@@ -53,7 +57,35 @@ async function requireSession(
   config: ServiceConfig,
   runtime: GameRuntime,
 ): Promise<AuthenticatedSession> {
-  return runtime.sessions.require(request.cookies[config.SESSION_COOKIE_NAME]);
+  const cookieValue = request.cookies[config.SESSION_COOKIE_NAME];
+  const session = await runtime.sessions.require(cookieValue);
+  if (request.method !== "POST") return session;
+  const csrfToken = request.headers["x-csrf-token"];
+  if (
+    !cookieValue ||
+    typeof csrfToken !== "string" ||
+    !runtime.csrf.matchesCsrfToken(cookieValue, csrfToken)
+  ) {
+    throw new DeliveryError(
+      "CSRF_TOKEN_INVALID",
+      403,
+      "CSRF token is missing or invalid",
+    );
+  }
+  return session;
+}
+
+function issueCsrfHeader(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  config: ServiceConfig,
+  runtime: GameRuntime,
+): void {
+  const cookieValue = request.cookies[config.SESSION_COOKIE_NAME];
+  if (cookieValue) {
+    reply.header("cache-control", "private, no-store");
+    reply.header("x-csrf-token", runtime.csrf.csrfToken(cookieValue));
+  }
 }
 
 async function consumeMutationLimit(
@@ -91,18 +123,23 @@ export async function registerV1Routes(
       httpOnly: true,
       maxAge: config.SESSION_TTL_DAYS * 24 * 60 * 60,
       path: "/",
-      sameSite: "lax",
+      sameSite: config.NODE_ENV === "production" ? "none" : "lax",
       secure: config.NODE_ENV === "production",
     });
+    reply.header("cache-control", "private, no-store");
     return reply.code(201).send({
+      csrfToken: runtime.csrf.csrfToken(created.cookieValue),
       player: { id: created.playerId, displayName: created.displayName },
       expiresAt: created.expiresAt.toISOString(),
     });
   });
 
-  app.get("/v1/session", async (request) => {
-    const session = await requireSession(request, config, runtime);
+  app.get("/v1/session", async (request, reply) => {
+    const cookieValue = request.cookies[config.SESSION_COOKIE_NAME];
+    const session = await runtime.sessions.require(cookieValue);
+    issueCsrfHeader(request, reply, config, runtime);
     return {
+      csrfToken: runtime.csrf.csrfToken(cookieValue ?? ""),
       player: { id: session.playerId, displayName: session.displayName },
       expiresAt: session.expiresAt.toISOString(),
     };
@@ -131,8 +168,9 @@ export async function registerV1Routes(
 
   app.get<{ Params: { roomRef: string } }>(
     "/v1/rooms/:roomRef",
-    async (request) => {
+    async (request, reply) => {
       const session = await requireSession(request, config, runtime);
+      issueCsrfHeader(request, reply, config, runtime);
       return runtime.roomUseCases.get.execute({
         roomReference: request.params.roomRef,
         session,
@@ -219,8 +257,9 @@ export async function registerV1Routes(
 
   app.get<{ Params: { roomId: string } }>(
     "/v1/rooms/:roomId/snapshot",
-    async (request) => {
+    async (request, reply) => {
       const session = await requireSession(request, config, runtime);
+      issueCsrfHeader(request, reply, config, runtime);
       return runtime.roomUseCases.snapshot.execute({
         roomId: request.params.roomId,
         session,

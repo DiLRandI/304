@@ -103,6 +103,97 @@ describe("game service configuration", () => {
 });
 
 describe("game service bootstrap", () => {
+  it("limits credentialed CORS preflights to the trusted mutation surface", async () => {
+    const app = await buildApp({
+      config,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+
+    const response = await app.inject({
+      headers: {
+        origin: "http://127.0.0.1:3000",
+        "access-control-request-headers":
+          "content-type,x-csrf-token,x-untrusted",
+        "access-control-request-method": "POST",
+      },
+      method: "OPTIONS",
+      url: "/v1/rooms",
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      "http://127.0.0.1:3000",
+    );
+    expect(response.headers["access-control-allow-credentials"]).toBe("true");
+    expect(response.headers["access-control-allow-methods"]).toBe(
+      "GET, POST, OPTIONS",
+    );
+    expect(response.headers["access-control-allow-headers"]).toBe(
+      "Content-Type, X-CSRF-Token",
+    );
+    await app.close();
+  });
+
+  it("issues a session-bound CSRF token with a cross-site production cookie", async () => {
+    const cookieValue = `b8fc339d-ee47-45f9-826c-b3477bdb8d51.${"b".repeat(43)}`;
+    const csrfToken = "c".repeat(43);
+    const app = await buildApp({
+      config: loadConfig({ ...baseConfig, NODE_ENV: "production" }),
+      game: {
+        csrf: {
+          csrfToken: vi.fn().mockReturnValue(csrfToken),
+          matchesCsrfToken: vi.fn(),
+        },
+        rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
+        sessions: {
+          create: vi.fn().mockResolvedValue({
+            cookieValue,
+            displayName: "Asha",
+            expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+            playerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+            sessionId: "b8fc339d-ee47-45f9-826c-b3477bdb8d51",
+          }),
+          require: vi.fn().mockResolvedValue({
+            displayName: "Asha",
+            expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+            playerId: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+            sessionId: "b8fc339d-ee47-45f9-826c-b3477bdb8d51",
+          }),
+        },
+      } as unknown as GameRuntime,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+
+    const response = await app.inject({
+      body: { displayName: "Asha" },
+      headers: { origin: "http://127.0.0.1:3000" },
+      method: "POST",
+      url: "/v1/guest-sessions",
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({ csrfToken });
+    expect(response.headers["set-cookie"]).toContain("HttpOnly");
+    expect(response.headers["set-cookie"]).toContain("SameSite=None");
+    expect(response.headers["set-cookie"]).toContain("Secure");
+
+    const restored = await app.inject({
+      headers: {
+        cookie: `g304_session=${cookieValue}`,
+        origin: "http://127.0.0.1:3000",
+      },
+      method: "GET",
+      url: "/v1/session",
+    });
+    expect(restored.statusCode).toBe(200);
+    expect(restored.headers["x-csrf-token"]).toBe(csrfToken);
+    expect(restored.headers["access-control-expose-headers"]).toBe(
+      "X-CSRF-Token",
+    );
+    expect(restored.headers["cache-control"]).toBe("private, no-store");
+    await app.close();
+  });
+
   it("redacts private invite codes from request logs without suppressing route logs", async () => {
     const inviteCode = "304-TestInviteCode_1234";
     const redactedInvite = "[redacted-invite]";

@@ -12,6 +12,68 @@ const roomProjection = {
 };
 
 describe("GameClient", () => {
+  it("sends the session-bound CSRF token on mutations after guest creation", async () => {
+    const csrfToken = "a".repeat(43);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            csrfToken,
+            expiresAt: "2026-08-09T22:43:21.429Z",
+            player: {
+              displayName: "Asha",
+              id: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
+            },
+          }),
+          { status: 201 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(roomProjection), { status: 201 }),
+      );
+    const client = new GameClient("https://api.example.test", fetcher);
+
+    await client.createGuest("Asha");
+    await client.createRoom({ ruleProfileId: "classic_304_4p" });
+
+    expect(fetcher.mock.calls[1]?.[1]?.headers).toEqual({
+      "content-type": "application/json",
+      "x-csrf-token": csrfToken,
+    });
+  });
+
+  it("restores the CSRF token from an authenticated room read before joining", async () => {
+    const csrfToken = "b".repeat(43);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(roomProjection), {
+          headers: { "x-csrf-token": csrfToken },
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...roomProjection,
+            eventVersion: 2,
+            viewerSeatIndex: 1,
+          }),
+          { status: 200 },
+        ),
+      );
+    const client = new GameClient("https://api.example.test", fetcher);
+
+    await client.getRoom(roomProjection.inviteCode);
+    await client.joinRoom(roomProjection.inviteCode, 1);
+
+    expect(fetcher.mock.calls[1]?.[1]?.headers).toEqual({
+      "content-type": "application/json",
+      "x-csrf-token": csrfToken,
+    });
+  });
+
   it("creates an idempotent room request with cookies and validates its projection", async () => {
     const fetcher = vi
       .fn()
@@ -50,6 +112,7 @@ describe("GameClient", () => {
       return Promise.resolve(
         new Response(
           JSON.stringify({
+            csrfToken: "a".repeat(43),
             expiresAt: "2026-08-09T22:43:21.429Z",
             player: {
               displayName: "Asha",

@@ -22,6 +22,7 @@ const config = loadConfig({
 });
 const hostId = playerId("9c9c7530-224f-4d5e-b354-1c78df2f063b");
 const guestId = playerId("28fc47b6-e8ef-4de7-8c43-7e027a41d70f");
+const csrfToken = "a".repeat(43);
 
 describe("join room route cutover", () => {
   it("uses the DDD join use case and preserves the existing wire contract", async () => {
@@ -45,6 +46,10 @@ describe("join room route cutover", () => {
       .fn()
       .mockResolvedValue(projectRoom(joined.room, guestId));
     const game = {
+      csrf: {
+        csrfToken: vi.fn(),
+        matchesCsrfToken: vi.fn().mockReturnValue(true),
+      },
       coordinator: {},
       rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
       roomUseCases: { join: { execute } },
@@ -68,7 +73,11 @@ describe("join room route cutover", () => {
         commandId: "d7c60215-243f-4599-80cb-e8ad78c6ae1f",
         expectedVersion: 1,
       },
-      headers: { origin: "http://127.0.0.1:3000" },
+      headers: {
+        cookie: "g304_session=session-cookie",
+        origin: "http://127.0.0.1:3000",
+        "x-csrf-token": csrfToken,
+      },
       method: "POST",
       url: "/v1/rooms/304-AbCdEfGhIjKl_123/join",
     });

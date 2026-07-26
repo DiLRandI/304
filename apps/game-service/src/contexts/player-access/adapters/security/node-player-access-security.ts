@@ -11,6 +11,7 @@ import type {
 } from "../../application/player-session-ports.js";
 
 const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/i;
+const SHA256_BASE64URL_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export class UuidIdentityProvider implements PlayerIdentityProvider {
   next(): string {
@@ -27,8 +28,22 @@ export class NodeSessionSecrets
     return createHmac("sha256", this.pepper).update(secret).digest("hex");
   }
 
+  csrfToken(cookieValue: string): string {
+    return createHmac("sha256", this.pepper)
+      .update("csrf:")
+      .update(cookieValue)
+      .digest("base64url");
+  }
+
   generate(): string {
     return randomBytes(32).toString("base64url");
+  }
+
+  matchesCsrfToken(cookieValue: string, token: string): boolean {
+    if (!SHA256_BASE64URL_PATTERN.test(token)) return false;
+    const expected = Buffer.from(this.csrfToken(cookieValue));
+    const candidate = Buffer.from(token);
+    return timingSafeEqual(expected, candidate);
   }
 
   matches(secret: string, digest: string): boolean {

@@ -15,6 +15,7 @@ import { SecureGameplayHandShuffler } from "../src/contexts/gameplay/adapters/en
 import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { DomainGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
+import { NodeSessionSecrets } from "../src/contexts/player-access/adapters/security/node-player-access-security.js";
 import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
@@ -48,6 +49,8 @@ const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
 const describeIntegration = databaseUrl && redisUrl ? describe : describe.skip;
 const origin = "http://127.0.0.1:3000";
+const sessionPepper = "test-only-session-pepper-must-be-at-least-32-characters";
+const csrf = new NodeSessionSecrets(sessionPepper);
 const migrationsDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../infra/postgres/migrations",
@@ -103,8 +106,7 @@ async function buildRealApp(): Promise<TestRuntime> {
     REDIS_URL: redisUrl,
     CORS_ORIGINS: origin,
     SESSION_COOKIE_NAME: "g304_session",
-    SESSION_SECRET_PEPPER:
-      "test-only-session-pepper-must-be-at-least-32-characters",
+    SESSION_SECRET_PEPPER: sessionPepper,
   });
   const store = new PostgresRoomStore(database);
   const sessions = createPlayerAccessService(database, {
@@ -171,6 +173,7 @@ async function buildRealApp(): Promise<TestRuntime> {
     config,
     readiness: { database: () => database.health(), redis: async () => true },
     game: {
+      csrf,
       gameplayUseCases: {
         submit: new SubmitGameplayCommandHandler(
           gameplayCommands,
@@ -212,6 +215,15 @@ function cookieFrom(response: {
   const value = Array.isArray(setCookie) ? setCookie[0] : setCookie;
   if (!value) throw new Error("Expected a session cookie");
   return value.split(";", 1)[0] ?? "";
+}
+
+function mutationHeaders(cookie: string): Record<string, string> {
+  const cookieValue = cookie.slice(cookie.indexOf("=") + 1);
+  return {
+    cookie,
+    origin,
+    "x-csrf-token": csrf.csrfToken(cookieValue),
+  };
 }
 
 async function createGuest(app: TestRuntime["app"], displayName: string) {
@@ -308,7 +320,7 @@ async function advanceToHandResult(
       const applied = await currentRuntime.app.inject({
         method: "POST",
         url: `/v1/rooms/${roomId}/commands`,
-        headers: { origin, cookie: activePlayer.cookie },
+        headers: mutationHeaders(activePlayer.cookie),
         payload: {
           action,
           commandId: randomUUID(),
@@ -358,7 +370,7 @@ describeIntegration("durable room HTTP API", () => {
     const createResponse = await runtime.app.inject({
       method: "POST",
       url: "/v1/rooms",
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: { commandId: randomUUID(), ruleProfileId: "classic_304_4p" },
     });
     expect(createResponse.statusCode).toBe(201);
@@ -376,7 +388,7 @@ describeIntegration("durable room HTTP API", () => {
       const joined = await runtime.app.inject({
         method: "POST",
         url: `/v1/rooms/${room.inviteCode}/join`,
-        headers: { origin, cookie: guest.cookie },
+        headers: mutationHeaders(guest.cookie),
         payload: { commandId: randomUUID(), expectedVersion: eventVersion },
       });
       expect(joined.statusCode).toBe(200);
@@ -386,7 +398,7 @@ describeIntegration("durable room HTTP API", () => {
     const started = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/start`,
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: { commandId: randomUUID(), expectedVersion: eventVersion },
     });
     expect(started.statusCode).toBe(200);
@@ -421,14 +433,14 @@ describeIntegration("durable room HTTP API", () => {
     const applied = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/commands`,
-      headers: { origin, cookie: active.cookie },
+      headers: mutationHeaders(active.cookie),
       payload: command,
     });
     expect(applied.statusCode).toBe(200);
     const duplicate = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/commands`,
-      headers: { origin, cookie: active.cookie },
+      headers: mutationHeaders(active.cookie),
       payload: command,
     });
     expect((duplicate.json() as DurableProjection).eventVersion).toBe(
@@ -469,14 +481,14 @@ describeIntegration("durable room HTTP API", () => {
     const room = await runtime.app.inject({
       method: "POST",
       url: "/v1/rooms",
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: { commandId: randomUUID(), ruleProfileId: "classic_304_4p" },
     });
     const projection = room.json() as DurableProjection;
     const malformed = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${projection.roomId}/commands`,
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: {
         commandId: randomUUID(),
         roomId: projection.roomId,
@@ -497,7 +509,7 @@ describeIntegration("durable room HTTP API", () => {
     const created = await runtime.app.inject({
       method: "POST",
       url: "/v1/rooms",
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: {
         commandId: randomUUID(),
         ruleProfileId: "classic_304_4p",
@@ -510,7 +522,7 @@ describeIntegration("durable room HTTP API", () => {
     const started = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/start`,
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: { commandId: randomUUID(), expectedVersion: room.eventVersion },
     });
     expect(started.statusCode).toBe(200);
@@ -539,7 +551,7 @@ describeIntegration("durable room HTTP API", () => {
     const created = await runtime.app.inject({
       method: "POST",
       url: "/v1/rooms",
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: { commandId: randomUUID(), ruleProfileId: "classic_304_4p" },
     });
     expect(created.statusCode).toBe(201);
@@ -547,7 +559,7 @@ describeIntegration("durable room HTTP API", () => {
     const joined = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.inviteCode}/join`,
-      headers: { origin, cookie: guest.cookie },
+      headers: mutationHeaders(guest.cookie),
       payload: { commandId: randomUUID(), expectedVersion: room.eventVersion },
     });
     expect(joined.statusCode).toBe(200);
@@ -559,7 +571,7 @@ describeIntegration("durable room HTTP API", () => {
     const left = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/leave`,
-      headers: { origin, cookie: guest.cookie },
+      headers: mutationHeaders(guest.cookie),
       payload: leave,
     });
     expect(left.statusCode).toBe(200);
@@ -572,7 +584,7 @@ describeIntegration("durable room HTTP API", () => {
     const duplicate = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/leave`,
-      headers: { origin, cookie: guest.cookie },
+      headers: mutationHeaders(guest.cookie),
       payload: leave,
     });
     expect(duplicate.statusCode).toBe(200);
@@ -610,7 +622,7 @@ describeIntegration("durable room HTTP API", () => {
     const created = await runtime.app.inject({
       method: "POST",
       url: "/v1/rooms",
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: { commandId: randomUUID(), ruleProfileId: "classic_304_4p" },
     });
     expect(created.statusCode).toBe(201);
@@ -618,7 +630,7 @@ describeIntegration("durable room HTTP API", () => {
     const joined = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.inviteCode}/join`,
-      headers: { origin, cookie: guest.cookie },
+      headers: mutationHeaders(guest.cookie),
       payload: { commandId: randomUUID(), expectedVersion: room.eventVersion },
     });
     expect(joined.statusCode).toBe(200);
@@ -626,7 +638,7 @@ describeIntegration("durable room HTTP API", () => {
     const hostLeft = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/leave`,
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: {
         commandId: randomUUID(),
         expectedVersion: (joined.json() as DurableProjection).eventVersion,
@@ -649,7 +661,7 @@ describeIntegration("durable room HTTP API", () => {
     const finalLeave = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/leave`,
-      headers: { origin, cookie: guest.cookie },
+      headers: mutationHeaders(guest.cookie),
       payload: {
         commandId: randomUUID(),
         expectedVersion: guestProjection.eventVersion,
@@ -678,7 +690,7 @@ describeIntegration("durable room HTTP API", () => {
     const created = await runtime.app.inject({
       method: "POST",
       url: "/v1/rooms",
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: { commandId: randomUUID(), ruleProfileId: "classic_304_4p" },
     });
     expect(created.statusCode).toBe(201);
@@ -686,14 +698,14 @@ describeIntegration("durable room HTTP API", () => {
     const joined = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.inviteCode}/join`,
-      headers: { origin, cookie: guest.cookie },
+      headers: mutationHeaders(guest.cookie),
       payload: { commandId: randomUUID(), expectedVersion: room.eventVersion },
     });
     expect(joined.statusCode).toBe(200);
     const started = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/start`,
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: {
         commandId: randomUUID(),
         expectedVersion: (joined.json() as DurableProjection).eventVersion,
@@ -713,7 +725,7 @@ describeIntegration("durable room HTTP API", () => {
     const restarted = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/start`,
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: {
         commandId: randomUUID(),
         expectedVersion: hostResult.eventVersion,
@@ -726,7 +738,7 @@ describeIntegration("durable room HTTP API", () => {
     const guestAck = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/commands`,
-      headers: { origin, cookie: guest.cookie },
+      headers: mutationHeaders(guest.cookie),
       payload: {
         action: { type: "ACK_RESULT" },
         commandId: randomUUID(),
@@ -742,7 +754,7 @@ describeIntegration("durable room HTTP API", () => {
     const hostAck = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/commands`,
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: {
         action: { type: "ACK_RESULT" },
         commandId: randomUUID(),
@@ -795,7 +807,7 @@ describeIntegration("durable room HTTP API", () => {
     const created = await runtime.app.inject({
       method: "POST",
       url: "/v1/rooms",
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: {
         botDifficulty: "strong",
         commandId: randomUUID(),
@@ -807,14 +819,14 @@ describeIntegration("durable room HTTP API", () => {
     const joined = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.inviteCode}/join`,
-      headers: { origin, cookie: guest.cookie },
+      headers: mutationHeaders(guest.cookie),
       payload: { commandId: randomUUID(), expectedVersion: room.eventVersion },
     });
     expect(joined.statusCode).toBe(200);
     const secondJoined = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.inviteCode}/join`,
-      headers: { origin, cookie: remainingGuest.cookie },
+      headers: mutationHeaders(remainingGuest.cookie),
       payload: {
         commandId: randomUUID(),
         expectedVersion: (joined.json() as DurableProjection).eventVersion,
@@ -824,7 +836,7 @@ describeIntegration("durable room HTTP API", () => {
     const started = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/start`,
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: {
         commandId: randomUUID(),
         expectedVersion: (secondJoined.json() as DurableProjection)
@@ -843,7 +855,7 @@ describeIntegration("durable room HTTP API", () => {
     const guestLeft = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/leave`,
-      headers: { origin, cookie: guest.cookie },
+      headers: mutationHeaders(guest.cookie),
       payload: {
         commandId: randomUUID(),
         expectedVersion: guestResult.eventVersion,
@@ -884,7 +896,7 @@ describeIntegration("durable room HTTP API", () => {
     const hostLeft = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/leave`,
-      headers: { origin, cookie: host.cookie },
+      headers: mutationHeaders(host.cookie),
       payload: {
         commandId: randomUUID(),
         expectedVersion: recoveredHostResult.eventVersion,
