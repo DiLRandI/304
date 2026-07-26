@@ -27,11 +27,16 @@ const projection = {
   viewerSeatIndex: 0,
   view: { isHost: true },
 } satisfies RoomProjection;
+const csrfToken = "a".repeat(43);
 
 describe("gameplay command route cutover", () => {
   it("uses the Gameplay application command handler", async () => {
     const execute = vi.fn().mockResolvedValue(projection);
     const game = {
+      csrf: {
+        csrfToken: vi.fn(),
+        matchesCsrfToken: vi.fn().mockReturnValue(true),
+      },
       gameplayUseCases: { submit: { execute } },
       rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
       roomUseCases: {},
@@ -51,7 +56,11 @@ describe("gameplay command route cutover", () => {
 
     const response = await app.inject({
       body: command,
-      headers: { origin: "http://127.0.0.1:3000" },
+      headers: {
+        cookie: "g304_session=session-cookie",
+        origin: "http://127.0.0.1:3000",
+        "x-csrf-token": csrfToken,
+      },
       method: "POST",
       url: `/v1/rooms/${projection.roomId}/commands`,
     });

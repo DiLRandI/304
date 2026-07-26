@@ -13,6 +13,7 @@ import { SecureGameplayHandShuffler } from "../src/contexts/gameplay/adapters/en
 import { DomainGameplayCommandExecutor } from "../src/contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { DomainGameplayRecovery } from "../src/contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../src/contexts/gameplay/application/submit-gameplay-command.js";
+import { NodeSessionSecrets } from "../src/contexts/player-access/adapters/security/node-player-access-security.js";
 import { RedisRoomLease } from "../src/contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../src/contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { LobbyRoomProjectionPresenter } from "../src/contexts/rooms/adapters/delivery/lobby-room-presenter.js";
@@ -52,6 +53,8 @@ const databaseUrl = process.env.INTEGRATION_DATABASE_URL ?? "";
 const redisUrl = process.env.INTEGRATION_REDIS_URL ?? "";
 const describeIntegration = databaseUrl && redisUrl ? describe : describe.skip;
 const origin = "http://127.0.0.1:3000";
+const sessionPepper = "test-only-session-pepper-must-be-at-least-32-characters";
+const csrf = new NodeSessionSecrets(sessionPepper);
 const migrationsDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../infra/postgres/migrations",
@@ -102,8 +105,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
     REDIS_URL: redisUrl,
     CORS_ORIGINS: origin,
     SESSION_COOKIE_NAME: "g304_session",
-    SESSION_SECRET_PEPPER:
-      "test-only-session-pepper-must-be-at-least-32-characters",
+    SESSION_SECRET_PEPPER: sessionPepper,
   });
   const store = new PostgresRoomStore(database);
   const sessions = createPlayerAccessService(database, {
@@ -181,6 +183,7 @@ async function buildRealtimeApp(): Promise<TestRuntime> {
     config,
     readiness: { database: () => database.health(), redis: async () => true },
     game: {
+      csrf,
       gameplayUseCases: {
         submit: new SubmitGameplayCommandHandler(
           gameplayCommands,
@@ -231,6 +234,15 @@ function cookieFrom(response: {
   const value = Array.isArray(setCookie) ? setCookie[0] : setCookie;
   if (!value) throw new Error("Expected a session cookie");
   return value.split(";", 1)[0] ?? "";
+}
+
+function mutationHeaders(cookie: string): Record<string, string> {
+  const cookieValue = cookie.slice(cookie.indexOf("=") + 1);
+  return {
+    cookie,
+    origin,
+    "x-csrf-token": csrf.csrfToken(cookieValue),
+  };
 }
 
 function nextMessage(socket: SocketLike): Promise<Buffer> {
@@ -312,7 +324,7 @@ async function createStartedRoom(app: TestRuntime["app"]) {
   const created = await app.inject({
     method: "POST",
     url: "/v1/rooms",
-    headers: { origin, cookie: host.cookie },
+    headers: mutationHeaders(host.cookie),
     payload: { commandId: randomUUID(), ruleProfileId: "classic_304_4p" },
   });
   expect(created.statusCode).toBe(201);
@@ -327,7 +339,7 @@ async function createStartedRoom(app: TestRuntime["app"]) {
     const joined = await app.inject({
       method: "POST",
       url: `/v1/rooms/${room.inviteCode}/join`,
-      headers: { origin, cookie: guest.cookie },
+      headers: mutationHeaders(guest.cookie),
       payload: { commandId: randomUUID(), expectedVersion: eventVersion },
     });
     expect(joined.statusCode).toBe(200);
@@ -336,7 +348,7 @@ async function createStartedRoom(app: TestRuntime["app"]) {
   const started = await app.inject({
     method: "POST",
     url: `/v1/rooms/${room.roomId}/start`,
-    headers: { origin, cookie: host.cookie },
+    headers: mutationHeaders(host.cookie),
     payload: { commandId: randomUUID(), expectedVersion: eventVersion },
   });
   expect(started.statusCode).toBe(200);
@@ -492,7 +504,7 @@ describeIntegration("private room realtime delivery", () => {
     const applied = await runtime.app.inject({
       method: "POST",
       url: `/v1/rooms/${room.roomId}/commands`,
-      headers: { origin, cookie: active.cookie },
+      headers: mutationHeaders(active.cookie),
       payload: {
         commandId: randomUUID(),
         roomId: room.roomId,

@@ -21,6 +21,7 @@ const config = loadConfig({
 });
 const hostId = playerId("9c9c7530-224f-4d5e-b354-1c78df2f063b");
 const sessionId = "b8fc339d-ee47-45f9-826c-b3477bdb8d51";
+const csrfToken = "a".repeat(43);
 
 describe("create room route cutover", () => {
   it("uses the DDD create use case and preserves the existing wire contract", async () => {
@@ -37,6 +38,15 @@ describe("create room route cutover", () => {
     });
     const execute = vi.fn().mockResolvedValue(projectRoom(lobby, hostId));
     const game = {
+      csrf: {
+        csrfToken: vi.fn(),
+        matchesCsrfToken: vi
+          .fn()
+          .mockImplementation(
+            (_cookieValue: string, candidate: string) =>
+              candidate === csrfToken,
+          ),
+      },
       coordinator: {},
       rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
       roomUseCases: { create: { execute } },
@@ -62,7 +72,11 @@ describe("create room route cutover", () => {
         endHandWhenOutcomeCertain: false,
         ruleProfileId: "classic_304_4p",
       },
-      headers: { origin: "http://127.0.0.1:3000" },
+      headers: {
+        cookie: "g304_session=session-cookie",
+        origin: "http://127.0.0.1:3000",
+        "x-csrf-token": csrfToken,
+      },
       method: "POST",
       url: "/v1/rooms",
     });
@@ -86,6 +100,54 @@ describe("create room route cutover", () => {
         endHandWhenOutcomeCertain: false,
       },
     });
+    await app.close();
+  });
+
+  it("rejects a mutation without the session-bound CSRF token", async () => {
+    const execute = vi.fn();
+    const game = {
+      csrf: {
+        csrfToken: vi.fn(),
+        matchesCsrfToken: vi.fn().mockReturnValue(false),
+      },
+      rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
+      roomUseCases: { create: { execute } },
+      sessions: {
+        require: vi.fn().mockResolvedValue({
+          displayName: "Asha",
+          expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+          playerId: hostId,
+          sessionId,
+        }),
+      },
+    } as unknown as GameRuntime;
+    const app = await buildApp({
+      config,
+      game,
+      readiness: { database: async () => true, redis: async () => true },
+    });
+
+    const response = await app.inject({
+      body: {
+        commandId: "d7c60215-243f-4599-80cb-e8ad78c6ae1f",
+        ruleProfileId: "classic_304_4p",
+      },
+      headers: {
+        cookie: "g304_session=session-cookie",
+        origin: "http://127.0.0.1:3000",
+      },
+      method: "POST",
+      url: "/v1/rooms",
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: {
+        code: "CSRF_TOKEN_INVALID",
+        message: "CSRF token is missing or invalid",
+      },
+    });
+    expect(execute).not.toHaveBeenCalled();
     await app.close();
   });
 });

@@ -37,21 +37,25 @@ export class GameClient {
 
   async createGuest(displayName: string): Promise<GuestSession> {
     const input = GuestSessionRequestSchema.parse({ displayName });
-    return this.transport.request(
+    const session = await this.transport.request(
       "/v1/guest-sessions",
       "POST",
       input,
       SessionResponseSchema.parse,
     );
+    this.transport.setCsrfToken(session.csrfToken);
+    return session;
   }
 
   async getSession(): Promise<GuestSession> {
-    return this.transport.request(
+    const session = await this.transport.request(
       "/v1/session",
       "GET",
       undefined,
       SessionResponseSchema.parse,
     );
+    this.transport.setCsrfToken(session.csrfToken);
+    return session;
   }
 
   async createRoom(options: CreateRoomOptions): Promise<RoomProjection> {

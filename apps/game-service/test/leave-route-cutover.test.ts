@@ -14,9 +14,14 @@ const config = loadConfig({
 });
 const playerId = "28fc47b6-e8ef-4de7-8c43-7e027a41d70f";
 const roomId = "12f8e3e8-6729-4c46-b78a-d1a0e804c55a";
+const csrfToken = "a".repeat(43);
 
 function runtime(execute: ReturnType<typeof vi.fn>) {
   return {
+    csrf: {
+      csrfToken: vi.fn(),
+      matchesCsrfToken: vi.fn().mockReturnValue(true),
+    },
     coordinator: {},
     rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
     roomUseCases: { join: { execute: vi.fn() }, leave: { execute } },
@@ -49,7 +54,11 @@ describe("leave room route cutover", () => {
         commandId: "d7c60215-243f-4599-80cb-e8ad78c6ae1f",
         expectedVersion: 2,
       },
-      headers: { origin: "http://127.0.0.1:3000" },
+      headers: {
+        cookie: "g304_session=session-cookie",
+        origin: "http://127.0.0.1:3000",
+        "x-csrf-token": csrfToken,
+      },
       method: "POST",
       url: `/v1/rooms/${roomId}/leave`,
     });
@@ -82,7 +91,11 @@ describe("leave room route cutover", () => {
         commandId: "d7c60215-243f-4599-80cb-e8ad78c6ae1f",
         expectedVersion: 2,
       },
-      headers: { origin: "http://127.0.0.1:3000" },
+      headers: {
+        cookie: "g304_session=session-cookie",
+        origin: "http://127.0.0.1:3000",
+        "x-csrf-token": csrfToken,
+      },
       method: "POST",
       url: "/v1/rooms/not-a-uuid/leave",
     });

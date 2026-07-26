@@ -53,6 +53,7 @@ export const GuestSessionRequestSchema = z
 export const SessionResponseSchema = z
   .object({
     player: z.object({ id: Uuid, displayName: DisplayName }).strict(),
+    csrfToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
     expiresAt: z.string().datetime({ offset: true }),
   })
   .strict();

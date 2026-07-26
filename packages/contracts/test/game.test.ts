@@ -211,9 +211,13 @@ describe("browser service response contracts", () => {
           id: "a0f17a73-c12d-4cbf-9167-09e5a26e73a5",
           displayName: "Asha",
         },
+        csrfToken: "a".repeat(43),
         expiresAt: "2026-07-11T12:00:00.000Z",
       }),
-    ).toMatchObject({ player: { displayName: "Asha" } });
+    ).toMatchObject({
+      csrfToken: "a".repeat(43),
+      player: { displayName: "Asha" },
+    });
     expect(() =>
       SessionResponseSchema.parse({
         player: { id: "not-a-uuid", displayName: "Asha" },

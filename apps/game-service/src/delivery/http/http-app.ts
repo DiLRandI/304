@@ -153,7 +153,10 @@ export async function buildApp({
   });
   await app.register(cookie);
   await app.register(cors, {
+    allowedHeaders: ["Content-Type", "X-CSRF-Token"],
     credentials: true,
+    exposedHeaders: ["X-CSRF-Token"],
+    methods: ["GET", "POST", "OPTIONS"],
     origin: (origin, done) =>
       done(null, !origin || config.corsOrigins.has(origin)),
   });

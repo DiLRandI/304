@@ -6,6 +6,8 @@ export type ClientFetcher = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+const CSRF_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
 function serviceError(body: unknown, status: number): RoomGatewayError {
   const parsed = ServiceErrorResponseSchema.safeParse(body);
   if (parsed.success) {
@@ -32,12 +34,17 @@ export function parseGameServiceOrigin(value: string): URL {
 
 export class GameServiceTransport {
   readonly origin: URL;
+  private csrfToken?: string;
 
   constructor(
     serviceOrigin: string,
     private readonly fetcher: ClientFetcher = globalThis.fetch.bind(globalThis),
   ) {
     this.origin = parseGameServiceOrigin(serviceOrigin);
+  }
+
+  setCsrfToken(token: string): void {
+    this.csrfToken = token;
   }
 
   async request<T>(
@@ -51,7 +58,10 @@ export class GameServiceTransport {
       credentials: "include",
     };
     if (payload !== undefined) {
-      init.headers = { "content-type": "application/json" };
+      init.headers = {
+        "content-type": "application/json",
+        ...(this.csrfToken ? { "x-csrf-token": this.csrfToken } : {}),
+      };
       init.body = JSON.stringify(payload);
     }
 
@@ -67,6 +77,10 @@ export class GameServiceTransport {
         0,
         "The game service could not be reached. Please check your connection.",
       );
+    }
+    const responseCsrfToken = response.headers.get("x-csrf-token");
+    if (responseCsrfToken && CSRF_TOKEN_PATTERN.test(responseCsrfToken)) {
+      this.csrfToken = responseCsrfToken;
     }
 
     let body: unknown;

@@ -22,6 +22,7 @@ const config = loadConfig({
 });
 const hostId = playerId("9c9c7530-224f-4d5e-b354-1c78df2f063b");
 const aggregateId = roomId("12f8e3e8-6729-4c46-b78a-d1a0e804c55a");
+const csrfToken = "a".repeat(43);
 
 describe("start room route cutover", () => {
   it("uses the DDD start use case and returns the active gameplay projection", async () => {
@@ -57,6 +58,10 @@ describe("start room route cutover", () => {
       sessionId: "b8fc339d-ee47-45f9-826c-b3477bdb8d51",
     };
     const game = {
+      csrf: {
+        csrfToken: vi.fn(),
+        matchesCsrfToken: vi.fn().mockReturnValue(true),
+      },
       coordinator: {},
       rateLimiter: { consume: vi.fn().mockResolvedValue(undefined) },
       roomUseCases: { snapshot: { execute: getSnapshot }, start: { execute } },
@@ -73,7 +78,11 @@ describe("start room route cutover", () => {
         commandId: "d7c60215-243f-4599-80cb-e8ad78c6ae1f",
         expectedVersion: 1,
       },
-      headers: { origin: "http://127.0.0.1:3000" },
+      headers: {
+        cookie: "g304_session=session-cookie",
+        origin: "http://127.0.0.1:3000",
+        "x-csrf-token": csrfToken,
+      },
       method: "POST",
       url: `/v1/rooms/${aggregateId}/start`,
     });

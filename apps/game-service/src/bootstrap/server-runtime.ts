@@ -5,6 +5,7 @@ import { SecureGameplayHandShuffler } from "../contexts/gameplay/adapters/entrop
 import { DomainGameplayCommandExecutor } from "../contexts/gameplay/adapters/integration/domain-gameplay-command-executor.js";
 import { DomainGameplayRecovery } from "../contexts/gameplay/adapters/persistence/domain-gameplay-recovery.js";
 import { SubmitGameplayCommandHandler } from "../contexts/gameplay/application/submit-gameplay-command.js";
+import { NodeSessionSecrets } from "../contexts/player-access/adapters/security/node-player-access-security.js";
 import { RedisRoomLease } from "../contexts/rooms/adapters/coordination/redis-room-lease.js";
 import { RedisRoomPresence } from "../contexts/rooms/adapters/coordination/redis-room-presence.js";
 import { LobbyRoomProjectionPresenter } from "../contexts/rooms/adapters/delivery/lobby-room-presenter.js";
@@ -51,6 +52,7 @@ const sessions = createPlayerAccessService(database, {
   pepper: config.SESSION_SECRET_PEPPER,
   ttlDays: config.SESSION_TTL_DAYS,
 });
+const csrf = new NodeSessionSecrets(config.SESSION_SECRET_PEPPER);
 const presence = new RedisRoomPresence(redis, config.PRESENCE_TTL_SECONDS);
 const identities = new NodeRoomIdentityProvider();
 const inviteCodes = new NodeRoomInviteCodeProvider();
@@ -108,6 +110,7 @@ const gameplayCommands = new DomainGameplayCommandExecutor({
 });
 const getRoomSnapshot = new GetRoomSnapshotHandler(roomQueries, roomPresence);
 const game = {
+  csrf,
   gameplayUseCases: {
     submit: new SubmitGameplayCommandHandler(gameplayCommands, roomPresence),
   },
