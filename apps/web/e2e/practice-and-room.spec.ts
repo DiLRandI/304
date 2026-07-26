@@ -343,6 +343,7 @@ test("a guest retries a transient initial room-load failure without reloading", 
   await page.goto("/play");
   await dismissConsent(page);
   await page.getByLabel("Display name").fill(uniqueName("Retry guest"));
+  await page.getByRole("button", { name: "Create" }).click();
   await page.getByRole("button", { name: "Create private room" }).click();
   await expect(page).toHaveURL(/\/room\//);
   await expect(
@@ -426,6 +427,7 @@ test("a transient WebSocket constructor failure reconnects without reloading", a
   await page.goto("/play");
   await dismissConsent(page);
   await page.getByLabel("Display name").fill(uniqueName("Socket retry guest"));
+  await page.getByRole("button", { name: "Create" }).click();
   await page.getByRole("button", { name: "Create private room" }).click();
   await expect(page).toHaveURL(/\/room\//);
   await expect(
@@ -463,6 +465,7 @@ test("a private-room guest gets manual-copy guidance without the Clipboard API",
   await page.goto("/play");
   await dismissConsent(page);
   await page.getByLabel("Display name").fill(uniqueName("Clipboard guest"));
+  await page.getByRole("button", { name: "Create" }).click();
   await page.getByRole("button", { name: "Create private room" }).click();
   await expect(page).toHaveURL(/\/room\//);
   await expect
@@ -573,6 +576,7 @@ test("two private-table guests keep separate hands and recover after a socket re
     await host.goto("/play");
     await dismissConsent(host);
     await host.getByLabel("Display name").fill(uniqueName("Private host"));
+    await host.getByRole("button", { name: "Create" }).click();
     await host.getByRole("button", { name: "Create private room" }).click();
     await expect(host).toHaveURL(/\/room\//);
     await expect(
@@ -584,8 +588,9 @@ test("two private-table guests keep separate hands and recover after a socket re
 
     await guest.goto("/play");
     await dismissConsent(guest);
+    await guest.getByRole("button", { name: "Join" }).click();
     await guest
-      .getByLabel("Name for this room")
+      .getByLabel("Display name")
       .fill(uniqueName("Private guest"));
     await guest.getByLabel("Invite code").fill(inviteCode);
     await guest.getByRole("button", { name: "Join private room" }).click();
@@ -658,6 +663,7 @@ test("a changed second-round winner reselects trump and completes the hand", asy
     await host.goto("/play");
     await dismissConsent(host);
     await host.getByLabel("Display name").fill(uniqueName("Second bid host"));
+    await host.getByRole("button", { name: "Create" }).click();
     await host.getByRole("button", { name: "Create private room" }).click();
     await expect(host).toHaveURL(/\/room\//);
     const inviteCode = await host.locator(".invite-panel code").innerText();
@@ -665,8 +671,9 @@ test("a changed second-round winner reselects trump and completes the hand", asy
     for (const [index, guest] of guests.entries()) {
       await guest.goto("/play");
       await dismissConsent(guest);
+      await guest.getByRole("button", { name: "Join" }).click();
       await guest
-        .getByLabel("Name for this room")
+        .getByLabel("Display name")
         .fill(uniqueName(`Second bid guest ${index + 1}`));
       await guest.getByLabel("Invite code").fill(inviteCode);
       await guest.getByRole("button", { name: "Join private room" }).click();
@@ -788,6 +795,7 @@ test("five browser guests start a six-seat private room with one bot and six all
     await dismissConsent(host);
     await host.getByLabel("Display name").fill(uniqueName("Six-seat host"));
     await host.getByLabel("Rule profile").selectOption("six_304_36");
+    await host.getByRole("button", { name: "Create" }).click();
     await host.getByRole("button", { name: "Create private room" }).click();
     await expect(host).toHaveURL(/\/room\//);
     const inviteCode = await host.locator(".invite-panel code").innerText();
@@ -795,8 +803,9 @@ test("five browser guests start a six-seat private room with one bot and six all
     for (const [index, guest] of guests.entries()) {
       await guest.goto("/play");
       await dismissConsent(guest);
+      await guest.getByRole("button", { name: "Join" }).click();
       await guest
-        .getByLabel("Name for this room")
+        .getByLabel("Display name")
         .fill(uniqueName(`Six-seat guest ${index + 1}`));
       await guest.getByLabel("Invite code").fill(inviteCode);
       await guest.getByRole("button", { name: "Join private room" }).click();

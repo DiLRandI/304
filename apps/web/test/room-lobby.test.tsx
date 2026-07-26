@@ -140,4 +140,19 @@ describe("RoomLobby", () => {
       screen.getByText("End hands early when the outcome is certain"),
     ).toBeTruthy();
   });
+
+  it("gives unnamed bots a stable seat-based fallback name", () => {
+    const projection = lobbyProjection();
+    if (projection.status !== "lobby") throw new Error("expected lobby");
+    const lobby = projection.view.lobby as {
+      seats: Array<{ displayName: string | null }>;
+    };
+    lobby.seats[1].displayName = null;
+
+    render(
+      <RoomLobby leave={vi.fn()} projection={projection} start={vi.fn()} />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Bot 2" })).toBeTruthy();
+  });
 });

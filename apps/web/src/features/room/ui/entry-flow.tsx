@@ -7,8 +7,6 @@ import type {
   GuestSession,
 } from "../api/game-service-client";
 import { RoomGatewayError } from "../application/room-gateway-error";
-import { JoinRoomForm } from "./join-room-form";
-import { StartTableForm } from "./start-table-form";
 
 export interface EntryClient {
   createGuest(displayName: string): Promise<GuestSession>;
@@ -16,7 +14,7 @@ export interface EntryClient {
   startRoom(roomId: string, expectedVersion: number): Promise<RoomProjection>;
 }
 
-type EntryMode = "private" | "practice";
+export type EntryMode = "create" | "join" | "practice";
 
 function safeEntryError(error: unknown): string {
   if (error instanceof RoomGatewayError) return error.message;
@@ -30,6 +28,7 @@ export function EntryFlow({
   client: EntryClient;
   onNavigate(path: string): void;
 }) {
+  const [mode, setMode] = useState<EntryMode>("practice");
   const [displayName, setDisplayName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [ruleProfileId, setRuleProfileId] =
@@ -40,35 +39,26 @@ export function EntryFlow({
     useState(true);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [nameInvalid, setNameInvalid] = useState(false);
   const [inviteCodeInvalid, setInviteCodeInvalid] = useState(false);
-  const [joinNameInvalid, setJoinNameInvalid] = useState(false);
-  const [startNameInvalid, setStartNameInvalid] = useState(false);
+  const displayNameInput = useRef<HTMLInputElement>(null);
   const inviteCodeInput = useRef<HTMLInputElement>(null);
-  const joinNameInput = useRef<HTMLInputElement>(null);
-  const startNameInput = useRef<HTMLInputElement>(null);
 
-  function updateDisplayName(value: string): void {
-    setDisplayName(value);
-    if (value.trim()) {
-      setJoinNameInvalid(false);
-      setStartNameInvalid(false);
-    }
+  function selectMode(nextMode: EntryMode): void {
+    setMode(nextMode);
+    setStatus("");
+    setInviteCodeInvalid(false);
   }
 
-  function updateInviteCode(value: string): void {
-    setInviteCode(value);
-    if (value.trim()) setInviteCodeInvalid(false);
-  }
-
-  async function createTable(mode: EntryMode): Promise<void> {
+  async function createTable(): Promise<void> {
     const name = displayName.trim();
     if (!name) {
-      setStartNameInvalid(true);
+      setNameInvalid(true);
       setStatus("Enter a display name before joining a table.");
-      startNameInput.current?.focus();
+      displayNameInput.current?.focus();
       return;
     }
-    setStartNameInvalid(false);
+    setNameInvalid(false);
     setBusy(true);
     setStatus(
       mode === "practice"
@@ -104,14 +94,14 @@ export function EntryFlow({
     const name = displayName.trim();
     const roomReference = inviteCode.trim();
     if (!name || !roomReference) {
-      setJoinNameInvalid(!name);
+      setNameInvalid(!name);
       setInviteCodeInvalid(!roomReference);
       setStatus("Enter a display name and private invite code to join.");
-      if (!name) joinNameInput.current?.focus();
+      if (!name) displayNameInput.current?.focus();
       else inviteCodeInput.current?.focus();
       return;
     }
-    setJoinNameInvalid(false);
+    setNameInvalid(false);
     setInviteCodeInvalid(false);
     setBusy(true);
     setStatus("Joining the private table…");
@@ -128,56 +118,124 @@ export function EntryFlow({
   return (
     <section aria-labelledby="play-title" className="entry-flow">
       <div className="entry-heading">
-        <p className="eyebrow">Private tables · no account required</p>
+        <p className="eyebrow">No account required</p>
         <h1 id="play-title">Find your next hand.</h1>
         <p>
-          Practice with bots or create a private table for people you know.
-          There is no wagering, public matchmaking, or hidden card sharing.
+          Learn with bots, host friends, or join by invite. Your cards stay
+          private to your seat.
         </p>
       </div>
 
-      <div className="entry-grid">
-        <StartTableForm
-          botDifficulty={botDifficulty}
-          busy={busy}
-          displayName={displayName}
-          displayNameInput={startNameInput}
-          displayNameInvalid={startNameInvalid}
-          endHandWhenOutcomeCertain={endHandWhenOutcomeCertain}
-          onBotDifficultyChange={setBotDifficulty}
-          onCreatePrivate={() => void createTable("private")}
-          onDisplayNameChange={updateDisplayName}
-          onDisplayNameInvalid={() => {
-            setStartNameInvalid(true);
-            setStatus("Enter a display name before joining a table.");
-          }}
-          onEndHandWhenOutcomeCertainChange={setEndHandWhenOutcomeCertain}
-          onRuleProfileChange={setRuleProfileId}
-          onStartPractice={() => void createTable("practice")}
-          ruleProfileId={ruleProfileId}
-        />
+      <form
+        aria-label="Choose a 304 table"
+        className="entry-card entry-card-shared"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (mode === "join") void joinRoom();
+          else void createTable();
+        }}
+      >
+        <label>
+          Display name
+          <input
+            aria-invalid={nameInvalid || undefined}
+            autoComplete="nickname"
+            maxLength={48}
+            onChange={(event) => {
+              setDisplayName(event.target.value);
+              if (event.target.value.trim()) setNameInvalid(false);
+            }}
+            placeholder="How should the table know you?"
+            ref={displayNameInput}
+            value={displayName}
+          />
+        </label>
 
-        <JoinRoomForm
-          busy={busy}
-          displayName={displayName}
-          displayNameInput={joinNameInput}
-          displayNameInvalid={joinNameInvalid}
-          inviteCode={inviteCode}
-          inviteCodeInput={inviteCodeInput}
-          inviteCodeInvalid={inviteCodeInvalid}
-          onDisplayNameChange={updateDisplayName}
-          onDisplayNameInvalid={() => {
-            setJoinNameInvalid(true);
-            setStatus("Enter a display name and private invite code to join.");
-          }}
-          onInviteCodeChange={updateInviteCode}
-          onInviteCodeInvalid={() => {
-            setInviteCodeInvalid(true);
-            setStatus("Enter a display name and private invite code to join.");
-          }}
-          onJoin={() => void joinRoom()}
-        />
-      </div>
+        <div aria-label="Table mode" className="entry-mode-switch">
+          {(["practice", "create", "join"] as const).map((entryMode) => (
+            <button
+              aria-pressed={mode === entryMode}
+              key={entryMode}
+              onClick={() => selectMode(entryMode)}
+              type="button"
+            >
+              {entryMode.slice(0, 1).toUpperCase() + entryMode.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {mode === "join" ? (
+          <div className="entry-settings">
+            <label>
+              Invite code
+              <input
+                aria-invalid={inviteCodeInvalid || undefined}
+                onChange={(event) => {
+                  setInviteCode(event.target.value);
+                  if (event.target.value.trim()) setInviteCodeInvalid(false);
+                }}
+                placeholder="304-…"
+                ref={inviteCodeInput}
+                value={inviteCode}
+              />
+            </label>
+            <p>Use the private code shared by your host.</p>
+          </div>
+        ) : (
+          <div className="entry-settings">
+            <label>
+              Rule profile
+              <select
+                onChange={(event) =>
+                  setRuleProfileId(
+                    event.target
+                      .value as CreateRoomOptions["ruleProfileId"],
+                  )
+                }
+                value={ruleProfileId}
+              >
+                <option value="classic_304_4p">Classic 304 · four seats</option>
+                <option value="six_304_36">304-36 · six seats</option>
+              </select>
+            </label>
+            <label>
+              Bot difficulty
+              <select
+                onChange={(event) =>
+                  setBotDifficulty(
+                    event.target.value as NonNullable<
+                      CreateRoomOptions["botDifficulty"]
+                    >,
+                  )
+                }
+                value={botDifficulty}
+              >
+                <option value="easy">Easy</option>
+                <option value="normal">Normal</option>
+                <option value="strong">Strong</option>
+              </select>
+            </label>
+            <label className="checkbox-control">
+              <input
+                checked={endHandWhenOutcomeCertain}
+                onChange={(event) =>
+                  setEndHandWhenOutcomeCertain(event.target.checked)
+                }
+                type="checkbox"
+              />
+              End hand when outcome is certain
+            </label>
+          </div>
+        )}
+
+        <button disabled={busy} type="submit">
+          {mode === "practice"
+            ? "Start practice"
+            : mode === "create"
+              ? "Create private room"
+              : "Join private room"}
+        </button>
+      </form>
 
       <p aria-live="polite" className="form-status" role="status">
         {status}
