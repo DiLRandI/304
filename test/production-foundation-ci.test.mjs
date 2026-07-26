@@ -115,6 +115,8 @@ test("public-release CI includes browser, scanner, load, and restore gates", () 
   assert.match(loadSmoke, /MAX_CONCURRENCY/);
   assert.match(loadSmoke, /MAX_DURATION_MS/);
   assert.match(loadSmoke, /guest-sessions/);
+  assert.match(loadSmoke, /csrfToken/);
+  assert.match(loadSmoke, /"x-csrf-token"/);
   assert.match(releaseRunbook, /Public-release rehearsal/);
   assert.match(releaseRunbook, /G304_RESTORE_REHEARSAL=1/);
   assert.match(readme, /Public-release rehearsal/);
