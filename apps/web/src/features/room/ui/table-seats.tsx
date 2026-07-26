@@ -1,4 +1,5 @@
 import type { GameRoomView } from "../model/room-view";
+import { seatDisplayName } from "../model/seat-display-name";
 
 export function TableSeats({
   activeSeat,
@@ -19,7 +20,13 @@ export function TableSeats({
       key={seat.index}
     >
       <p className="seat-kicker">{seat.isMe ? "You" : seat.seatLabel}</p>
-      <h2>{seat.displayName}</h2>
+      <h2>
+        {seatDisplayName({
+          displayName: seat.displayName,
+          occupantType: seat.type,
+          seatIndex: seat.index,
+        })}
+      </h2>
       <p>
         Team {seat.team} · {seat.handSize} cards
         {seat.autopilot ? " · Autopilot" : ""}

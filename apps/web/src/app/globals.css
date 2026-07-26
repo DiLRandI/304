@@ -666,6 +666,16 @@ dd[data-state="missing"] {
     linear-gradient(150deg, rgb(17 71 50 / 98%), rgb(4 29 20 / 98%));
 }
 
+.table-action-dock {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.55rem 0.65rem 0;
+  border: 1px solid rgb(224 236 221 / 14%);
+  border-radius: var(--radius-panel);
+  background: rgb(3 26 17 / 76%);
+}
+
 .table-status {
   display: flex;
   align-items: center;
@@ -712,7 +722,7 @@ dd[data-state="missing"] {
 
 .table-board {
   display: grid;
-  min-height: clamp(26rem, 50vw, 40rem);
+  min-height: clamp(20rem, 38vw, 31rem);
   gap: clamp(0.6rem, 1.5vw, 1.2rem);
   align-items: center;
 }
@@ -806,7 +816,7 @@ dd[data-state="missing"] {
   grid-area: center;
   gap: 0.9rem;
   align-self: stretch;
-  padding: clamp(0.85rem, 2vw, 1.5rem);
+  padding: clamp(0.7rem, 1.5vw, 1.15rem);
   border: 1px solid rgb(246 204 103 / 31%);
   border-radius: 1.25rem;
   background:
@@ -819,14 +829,14 @@ dd[data-state="missing"] {
 
 .trick-area {
   display: grid;
-  min-height: 13rem;
+  min-height: 10rem;
   align-content: start;
   gap: 0.75rem;
 }
 
 .trick-cards {
   display: grid;
-  min-height: 10.5rem;
+  min-height: 8rem;
   grid-template-areas:
     ". seat-2 ."
     "seat-1 . seat-3"
@@ -1031,13 +1041,13 @@ dd[data-state="missing"] {
 
 .player-hand {
   display: flex;
-  min-height: 8rem;
+  min-height: 6.75rem;
   gap: clamp(0.35rem, 1vw, 0.8rem);
   align-items: end;
   justify-content: center;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
-  padding: 0.5rem 0.2rem 0.85rem;
+  padding: 0.35rem 0.2rem 0.55rem;
   scrollbar-color: rgb(243 199 95 / 42%) transparent;
 }
 
@@ -1484,7 +1494,7 @@ html[data-contrast="high"] .trick-card[data-suit="diamonds"] {
   }
 
   .table-center {
-    min-height: 18rem;
+    min-height: 13rem;
   }
 
   .hand-result dl {
@@ -1499,14 +1509,8 @@ html[data-contrast="high"] .trick-card[data-suit="diamonds"] {
   }
 
   .player-hand {
-    position: sticky;
-    bottom: 0.3rem;
-    z-index: 2;
     justify-content: start;
     margin-inline: -0.35rem;
-    border: 1px solid rgb(224 236 221 / 12%);
-    border-radius: 0.9rem;
-    background: rgb(3 26 17 / 92%);
     padding: 0.75rem;
   }
 
