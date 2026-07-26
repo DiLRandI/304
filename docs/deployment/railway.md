@@ -157,7 +157,25 @@ Browser -> game API Railway domain (credentials included)
 Game API + worker -> same PostgreSQL and Redis services
 ```
 
-## 5. Verify the deployment
+## 5. Preserve the browser security contract
+
+Railway provides HTTPS transport, but the application owns its CORS, cookie,
+and CSRF policy. In production, the API:
+
+- permits credentialed requests only from exact `CORS_ORIGINS`;
+- uses a `Secure`, `HttpOnly`, `SameSite=None` guest-session cookie;
+- returns a session-bound token through the `X-CSRF-Token` response header;
+- accepts authenticated mutations only when that token is returned in the
+  `X-CSRF-Token` request header; and
+- marks token-bearing responses `Cache-Control: private, no-store`.
+
+The web client handles the CSRF token in memory. Deploy compatible web and API
+revisions together; an older web bundle will not satisfy a newer API's mutation
+contract. Do not store the token in Railway variables, expose the session
+pepper to the web build, or weaken `CORS_ORIGINS` to work around a rejected
+request.
+
+## 6. Verify the deployment
 
 Check the API process and its dependencies:
 
@@ -224,6 +242,18 @@ Set `CORS_ORIGINS` to the browser page's exact origin, such as
 `https://<web-service>.up.railway.app`. Remove paths and trailing slashes, then
 redeploy the API. The API uses credentialed CORS and exact origin checks for
 mutating requests; a wildcard origin is neither needed nor appropriate.
+
+### Browser receives `403 CSRF_TOKEN_INVALID`
+
+Confirm the web and API services deploy compatible commits and that
+`X-CSRF-Token` appears in the API response's exposed headers. The current web
+client reads that token after guest-session creation or an authenticated room
+read and returns it automatically on mutations.
+
+Do not create a static CSRF value or add the token to Railway variables. A
+token is bound to its guest-session cookie; creating a new guest session,
+rotating `SESSION_SECRET_PEPPER`, or mixing different API and web revisions
+requires the browser client to obtain a fresh token.
 
 ### Room loads but bidding stays on “Wait for your turn”
 

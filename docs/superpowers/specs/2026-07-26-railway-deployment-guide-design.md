@@ -28,8 +28,12 @@ The guide must:
 - explain that the worker must use the same PostgreSQL, Redis, and session
   secret as the API, and must not receive a public domain;
 - verify the API live and ready endpoints and the worker's healthy polling;
+- explain the application-owned exact-origin, credentialed-cookie, and
+  session-bound CSRF contract without treating its token as deployment
+  configuration;
 - diagnose monorepo build failures, invalid service configuration, session
-  `401` responses, origin rejection, and bidding that remains on a bot turn;
+  `401` responses, origin or CSRF rejection, and bidding that remains on a bot
+  turn;
 - avoid real credentials, project-specific service IDs, and claims that
   Railway itself supplies application-level CSRF protection.
 

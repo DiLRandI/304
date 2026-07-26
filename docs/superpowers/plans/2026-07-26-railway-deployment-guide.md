@@ -42,9 +42,10 @@ for generated Railway domains and the session secret.
 
 - [ ] **Step 3: Write verification and troubleshooting**
 
-Cover `/livez`, `/readyz`, worker startup/polling, missing internal package
-builds, invalid runtime configuration, CORS/origin mistakes, `401` session
-failures, and bot bidding that does not advance.
+Cover `/livez`, `/readyz`, worker startup/polling, the application-owned
+session-bound CSRF contract, missing internal package builds, invalid runtime
+configuration, CORS/origin mistakes, `401` session failures, CSRF rejection,
+and bot bidding that does not advance.
 
 ### Task 2: Link and verify the guide
 
