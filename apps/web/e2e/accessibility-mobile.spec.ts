@@ -80,8 +80,9 @@ test("the mobile join form keeps its required name field with the join action", 
   await page.goto("/play");
   await dismissConsent(page);
 
-  const joinForm = page.getByRole("form", { name: "Join a private room" });
-  const joinName = joinForm.getByLabel("Name for this room");
+  await page.getByRole("button", { name: "Join" }).click();
+  const joinForm = page.getByRole("form", { name: "Choose a 304 table" });
+  const joinName = joinForm.getByLabel("Display name");
   await joinForm.getByLabel("Invite code").fill("304-mobile-test");
   await joinForm.getByRole("button", { name: "Join private room" }).click();
 
@@ -115,6 +116,7 @@ test("mobile start actions focus their missing display name", async ({
   await expect(displayName).toBeInViewport();
 
   await displayName.fill("   ");
+  await page.getByRole("button", { name: "Create" }).click();
   await page.getByRole("button", { name: "Create private room" }).click();
   await expect(displayName).toBeFocused();
   await expect(displayName).toBeInViewport();
@@ -131,6 +133,7 @@ test("a 320px private lobby contains valid long names and its invite code", asyn
   await dismissConsent(page);
   await page.getByLabel("Display name").fill("M".repeat(48));
   await page.getByLabel("Rule profile").selectOption("six_304_36");
+  await page.getByRole("button", { name: "Create" }).click();
   await page.getByRole("button", { name: "Create private room" }).click();
   await expect(
     page.getByRole("heading", {

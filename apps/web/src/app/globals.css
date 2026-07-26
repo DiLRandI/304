@@ -1,4 +1,19 @@
 :root {
+  --color-bg: #04130e;
+  --color-surface: #092d20;
+  --color-felt: #114732;
+  --color-gold: #f3c75f;
+  --color-text: #f6f2e8;
+  --color-muted: #b8c9bb;
+  --control-min-size: 2.75rem;
+  --focus-ring: 3px solid var(--color-gold);
+  --radius-control: 0.7rem;
+  --radius-panel: 1rem;
+  --space-1: 0.35rem;
+  --space-2: 0.65rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --card-width: clamp(3.65rem, 7vw, 5.3rem);
   color-scheme: dark;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -67,7 +82,7 @@ dd {
 }
 
 :focus-visible {
-  outline: 3px solid #f3c75f;
+  outline: var(--focus-ring);
   outline-offset: 3px;
 }
 
@@ -364,6 +379,56 @@ dd[data-state="missing"] {
   gap: 1rem;
 }
 
+.entry-card-shared {
+  width: min(100%, 42rem);
+}
+
+.entry-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border: 1px solid rgb(231 229 199 / 14%);
+  border-radius: 0.85rem;
+  background: rgb(1 16 10 / 42%);
+}
+
+.entry-mode-switch button {
+  min-height: var(--control-min-size);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: #bcd0c0;
+  font-weight: 760;
+}
+
+.entry-mode-switch button[aria-pressed="true"] {
+  background: linear-gradient(135deg, #e2ac48, #c8862e);
+  color: #201504;
+}
+
+.entry-settings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.entry-settings > p,
+.entry-settings .checkbox-control {
+  grid-column: 1 / -1;
+}
+
+.entry-card .checkbox-control {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.entry-card .checkbox-control input {
+  width: 1.1rem;
+  min-height: 1.1rem;
+  accent-color: var(--color-gold);
+}
+
 .entry-card {
   display: grid;
   align-content: start;
@@ -535,6 +600,19 @@ dd[data-state="missing"] {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.65rem;
+}
+
+.lobby-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.lobby-settings .lobby-profile {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid rgb(220 238 219 / 15%);
+  border-radius: 999px;
+  background: rgb(13 47 33 / 48%);
 }
 
 .lobby-actions > .form-status {
@@ -973,7 +1051,7 @@ dd[data-state="missing"] {
 
 .card-button {
   display: grid;
-  width: clamp(3.65rem, 7vw, 5.3rem);
+  width: var(--card-width);
   min-width: 3.65rem;
   aspect-ratio: 0.68;
   place-items: center;
@@ -992,18 +1070,7 @@ dd[data-state="missing"] {
 }
 
 .card-button > .card-face {
-  display: grid;
-  width: 100%;
-  height: 100%;
-  place-items: center;
-}
-
-.card-artwork {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 0.42rem;
-  object-fit: cover;
+  display: contents;
 }
 
 .card-button:not(:disabled):hover {
@@ -1370,6 +1437,10 @@ html[data-contrast="high"] .trick-card[data-suit="diamonds"] {
   }
 
   .readiness-list {
+    grid-template-columns: 1fr;
+  }
+
+  .entry-settings {
     grid-template-columns: 1fr;
   }
 

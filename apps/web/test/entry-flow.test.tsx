@@ -14,6 +14,32 @@ import {
 describe("EntryFlow", () => {
   afterEach(cleanup);
 
+  it("uses one shared name and exposes Practice, Create, and Join as pressed modes", async () => {
+    const user = userEvent.setup();
+    const client = {
+      createGuest: vi.fn(),
+      createRoom: vi.fn(),
+      startRoom: vi.fn(),
+    };
+
+    render(<EntryFlow client={client} onNavigate={vi.fn()} />);
+
+    expect(screen.getAllByLabelText("Display name")).toHaveLength(1);
+    expect(
+      screen.getByRole("button", { name: "Practice" }).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("true");
+    expect(screen.queryByLabelText("Invite code")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Join" }));
+    expect(
+      screen.getByRole("button", { name: "Join" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(screen.getByLabelText("Invite code")).toBeTruthy();
+    expect(screen.queryByLabelText("Bot difficulty")).toBeNull();
+  });
+
   it("creates a guest and starts a private bot practice table", async () => {
     const user = userEvent.setup();
     const onNavigate = vi.fn();
@@ -68,6 +94,7 @@ describe("EntryFlow", () => {
     );
     expect((earlySettlement as HTMLInputElement).checked).toBe(true);
     await user.click(earlySettlement);
+    await user.click(screen.getByRole("button", { name: "Create" }));
     await user.click(
       screen.getByRole("button", { name: "Create private room" }),
     );
@@ -98,7 +125,8 @@ describe("EntryFlow", () => {
 
     render(<EntryFlow client={client} onNavigate={onNavigate} />);
 
-    await user.type(screen.getByLabelText("Name for this room"), "  Nila  ");
+    await user.click(screen.getByRole("button", { name: "Join" }));
+    await user.type(screen.getByLabelText("Display name"), "  Nila  ");
     await user.type(
       screen.getByLabelText("Invite code"),
       "304-room one{Enter}",
@@ -128,6 +156,7 @@ describe("EntryFlow", () => {
     expect(document.activeElement).toBe(displayName);
     expect(displayName.getAttribute("aria-invalid")).toBe("true");
 
+    await user.click(screen.getByRole("button", { name: "Create" }));
     await user.click(
       screen.getByRole("button", { name: "Create private room" }),
     );
@@ -147,16 +176,14 @@ describe("EntryFlow", () => {
 
     render(<EntryFlow client={client} onNavigate={vi.fn()} />);
 
-    const startName = screen.getByLabelText("Display name");
-    const joinName = screen.getByLabelText("Name for this room");
+    await user.click(screen.getByRole("button", { name: "Join" }));
+    const joinName = screen.getByLabelText("Display name");
     const inviteCode = screen.getByLabelText("Invite code");
     await user.type(joinName, "   ");
     await user.type(inviteCode, "304-room");
     await user.click(screen.getByRole("button", { name: "Join private room" }));
     expect(document.activeElement).toBe(joinName);
     expect(joinName.getAttribute("aria-invalid")).toBe("true");
-    expect(startName.getAttribute("aria-invalid")).toBe(null);
-
     await user.clear(joinName);
     await user.type(joinName, "Nila");
     await user.clear(inviteCode);

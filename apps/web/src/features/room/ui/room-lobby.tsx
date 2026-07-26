@@ -3,6 +3,7 @@
 import type { RoomProjection } from "@three-zero-four/contracts";
 import { useState } from "react";
 import { readLobbyRoomView } from "../model/lobby-view";
+import { seatDisplayName } from "../model/seat-display-name";
 
 export function RoomLobby({
   leave,
@@ -44,8 +45,7 @@ export function RoomLobby({
         <p className="eyebrow">Private room</p>
         <h1 id="lobby-title">Set the table before the first hand.</h1>
         <p>
-          Share this invite only with people you want at the table. The game
-          service keeps cards and turn validation private to each seat.
+          Share the invite, check the seats, then start when you are ready.
         </p>
       </div>
 
@@ -60,32 +60,6 @@ export function RoomLobby({
         </p>
       </section>
 
-      <section aria-label="Lobby seats" className="lobby-seats">
-        {view.lobby.seats.map((seat) => (
-          <article data-seat-type={seat.occupantType} key={seat.seatIndex}>
-            <p>Seat {seat.seatIndex + 1}</p>
-            <h2>{seat.displayName ?? "Open seat"}</h2>
-            <p>
-              {seat.occupantType === "bot"
-                ? `Bot · ${seat.botDifficulty ?? "easy"}`
-                : seat.occupantType === "human"
-                  ? "Player connected"
-                  : "Waiting for a player or bot"}
-            </p>
-          </article>
-        ))}
-      </section>
-
-      <p className="lobby-profile">
-        {view.lobby.ruleProfileId === "six_304_36"
-          ? "Six-seat 304-36 variant"
-          : "Classic four-seat 304"}
-      </p>
-      <p className="lobby-profile">
-        {view.lobby.endHandWhenOutcomeCertain
-          ? "End hands early when the outcome is certain"
-          : "Play every hand to the final trick"}
-      </p>
       <div className="lobby-actions">
         {isHost ? (
           <button className="primary-action" onClick={start} type="button">
@@ -99,6 +73,35 @@ export function RoomLobby({
         <button className="leave-table" onClick={leave} type="button">
           Leave table
         </button>
+      </div>
+
+      <section aria-label="Lobby seats" className="lobby-seats">
+        {view.lobby.seats.map((seat) => (
+          <article data-seat-type={seat.occupantType} key={seat.seatIndex}>
+            <p>Seat {seat.seatIndex + 1}</p>
+            <h2>{seatDisplayName(seat)}</h2>
+            <p>
+              {seat.occupantType === "bot"
+                ? `Bot · ${seat.botDifficulty ?? "easy"}`
+                : seat.occupantType === "human"
+                  ? "Player connected"
+                  : "Waiting for a player or bot"}
+            </p>
+          </article>
+        ))}
+      </section>
+
+      <div aria-label="Room settings" className="lobby-settings">
+        <p className="lobby-profile">
+          {view.lobby.ruleProfileId === "six_304_36"
+            ? "Six-seat 304-36 variant"
+            : "Classic four-seat 304"}
+        </p>
+        <p className="lobby-profile">
+          {view.lobby.endHandWhenOutcomeCertain
+            ? "End hands early when the outcome is certain"
+            : "Play every hand to the final trick"}
+        </p>
       </div>
     </section>
   );

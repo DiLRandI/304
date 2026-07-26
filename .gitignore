@@ -15,7 +15,6 @@ coverage/
 test-results/
 playwright-report/
 .worktrees/
-apps/web/public/generated/
 .superpowers/
 *.log
 postgres-data/
