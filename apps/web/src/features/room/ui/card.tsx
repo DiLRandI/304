@@ -1,7 +1,6 @@
 "use client";
 
 import type { GameAction } from "@three-zero-four/contracts";
-import { resolveCardArtwork } from "../model/card-artwork";
 import type { ProjectedCard } from "../model/card-view";
 
 const SUIT_SYMBOLS: Record<string, string> = {
@@ -40,7 +39,6 @@ export function cardLabel(card: ProjectedCard): string {
 
 export function CardFace({ card }: { card: ProjectedCard }) {
   const isHidden = card.hidden || !card.rank || !card.suit;
-  const artwork = resolveCardArtwork(card);
 
   return (
     <span
@@ -49,9 +47,7 @@ export function CardFace({ card }: { card: ProjectedCard }) {
       data-hidden={isHidden || undefined}
       data-suit={card.suit ?? undefined}
     >
-      {artwork ? (
-        <img alt="" className="card-artwork" src={artwork.src} />
-      ) : isHidden ? (
+      {isHidden ? (
         <span aria-hidden="true" className="card-back">
           304
         </span>
