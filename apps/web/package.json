@@ -4,8 +4,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node ../../scripts/sync-web-card-assets.mjs",
     "dev": "next dev",
+    "prebuild": "node ../../scripts/sync-web-card-assets.mjs",
     "build": "next build",
+    "sync:card-assets": "node ../../scripts/sync-web-card-assets.mjs",
     "start": "next start",
     "test": "node --test test/*.test.mjs && vitest run",
     "e2e": "playwright test",
