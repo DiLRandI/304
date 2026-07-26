@@ -123,13 +123,16 @@ Seat 2                                      Seat 5
 
 Mobile should prioritize:
 
-1. Current trick
-2. Action prompt
+1. Action prompt
+2. Legal actions
 3. Player hand
-4. Compact seat carousel
-5. Score/trump drawer
+4. Current trick
+5. Compact seat chips
 
-Use collapsible panels to avoid crowding.
+The shipped table keeps bid, trump, tokens, turn, and connection status
+persistent. Rules, display preferences, and exit information use compact
+disclosures. At 390x844, the prompt, a legal action, and hand rail are visible
+without initial scrolling.
 
 ## 5. Card UI
 
@@ -143,6 +146,25 @@ Use collapsible panels to avoid crowding.
 | Trump indicator | Face-down card in trump zone |
 | Face-down trick card | Card back in trick area |
 | Revealed trump | Suit badge and revealed card |
+
+The web client renders the repository Ceylon SVG pack for all Classic and
+six-seat card IDs. Generated public copies are build artifacts and are not
+committed. Hidden cards always use the shared Ceylon back and never derive an
+asset path from concealed identity.
+
+## 5.1 Entry and lobby
+
+`/play` has one shared display name and pressed-state Practice, Create, and
+Join modes. Practice is selected by default and only the active mode's
+settings are exposed. The lobby places its invite and host start control before
+the seat list, uses compact settings badges, and provides deterministic names
+for unnamed bots.
+
+## 5.2 Rules help
+
+Rules and card values open in a viewport-bounded native modal dialog. The
+dialog scrolls internally, receives focus when opened, closes by button or
+Escape, and returns focus to its trigger.
 
 ### Card labels
 

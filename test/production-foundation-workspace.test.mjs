@@ -82,6 +82,7 @@ test("declares the pinned production workspace toolchain", () => {
     "!**/dist",
     "!**/.next",
     "!**/coverage",
+    "!**/public/generated",
     "!**/test-results",
     "!**/playwright-report",
   ]);

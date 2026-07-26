@@ -219,6 +219,23 @@ Use Playwright or Cypress.
 4. Reconnect same session.
 5. Confirm same hand and correct private cards.
 
+### E2E: Responsive playability and keyboard
+
+- At 1440x900 and 390x844, confirm the prompt, one legal action, and the hand
+  rail are visible before scrolling.
+- At 320x568, with six seats, long names, large cards, and 200% zoom, confirm
+  the document has no horizontal overflow.
+- Complete entry, bidding, card play, rules help, and display-preference
+  changes with the keyboard.
+- Confirm the rules dialog is bounded and internally scrollable, closes with
+  Escape, and restores trigger focus.
+- Exercise Classic and six-seat practice, private create/join, lobby, trick
+  pause, results, reconnect, storage failure, high contrast, and reduced
+  motion without unexpected browser console or network failures.
+
+Automated checks and the implementation screenshot audit improve confidence;
+they are not a claim of full WCAG conformance.
+
 ## 10. Accessibility tests
 
 - Cards have ARIA labels.

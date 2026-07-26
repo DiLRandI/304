@@ -21,7 +21,7 @@ function sessionCookie(response) {
   return cookie.split(";", 1)[0];
 }
 
-async function request(path, { body, cookie, method = "GET" } = {}) {
+async function request(path, { body, cookie, csrfToken, method = "GET" } = {}) {
   const startedAt = performance.now();
   let response;
   try {
@@ -30,6 +30,7 @@ async function request(path, { body, cookie, method = "GET" } = {}) {
       headers: {
         ...(body ? { "content-type": "application/json" } : {}),
         ...(cookie ? { cookie } : {}),
+        ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         origin,
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
@@ -45,39 +46,41 @@ async function request(path, { body, cookie, method = "GET" } = {}) {
 }
 
 async function createGuest(label) {
-  const { response } = await request("/v1/guest-sessions", {
+  const { body, response } = await request("/v1/guest-sessions", {
     method: "POST",
     body: { displayName: `Release smoke ${label}` },
   });
-  return sessionCookie(response);
+  if (typeof body.csrfToken !== "string")
+    throw new Error("Guest session response did not include a CSRF token");
+  return { cookie: sessionCookie(response), csrfToken: body.csrfToken };
 }
 
 async function exercisePublicApi(iteration) {
-  const hostCookie = await createGuest(`host ${iteration}`);
+  const host = await createGuest(`host ${iteration}`);
   const { body: room } = await request("/v1/rooms", {
     method: "POST",
-    cookie: hostCookie,
+    ...host,
     body: {
       commandId: randomUUID(),
       ruleProfileId: "classic_304_4p",
       botDifficulty: "easy",
     },
   });
-  const guestCookie = await createGuest(`guest ${iteration}`);
+  const guest = await createGuest(`guest ${iteration}`);
   const { body: roomForGuest } = await request(
     `/v1/rooms/${encodeURIComponent(room.inviteCode)}`,
-    { cookie: guestCookie },
+    guest,
   );
   await request(`/v1/rooms/${encodeURIComponent(room.roomId)}/join`, {
     method: "POST",
-    cookie: guestCookie,
+    ...guest,
     body: {
       commandId: randomUUID(),
       expectedVersion: roomForGuest.eventVersion,
     },
   });
   await request(`/v1/rooms/${encodeURIComponent(room.roomId)}/snapshot`, {
-    cookie: guestCookie,
+    ...guest,
   });
 }
 
