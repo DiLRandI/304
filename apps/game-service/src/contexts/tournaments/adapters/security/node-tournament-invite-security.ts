@@ -1,10 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-
-export interface TournamentInviteSecurity {
-  createToken(): string;
-  digest(token: string): string;
-  verify(token: string, digest: string): boolean;
-}
+import type { TournamentInviteSecurity } from "../../application/create-tournament.js";
 
 export class NodeTournamentInviteSecurity implements TournamentInviteSecurity {
   constructor(private readonly secret: string) {
