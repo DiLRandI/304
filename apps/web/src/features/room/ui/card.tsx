@@ -50,6 +50,9 @@ export function CardFace({ card }: { card: ProjectedCard }) {
       data-suit={card.suit ?? undefined}
     >
       {artwork ? (
+        // Biome's Next Image recommendation does not apply to deterministic
+        // same-origin SVG game pieces with intrinsic sizing from their card shell.
+        // biome-ignore lint/performance/noImgElement: card artwork is already optimized SVG
         <img alt="" className="card-artwork" src={artwork.src} />
       ) : isHidden ? (
         <span aria-hidden="true" className="card-back">

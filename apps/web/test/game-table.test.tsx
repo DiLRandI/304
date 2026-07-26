@@ -29,9 +29,9 @@ describe("GameTable", () => {
     const dock = container.querySelector(".table-action-dock");
     const board = container.querySelector(".table-board");
     expect(table).not.toBeNull();
-    expect(dock?.contains(screen.getByRole("region", { name: "Your hand" }))).toBe(
-      true,
-    );
+    expect(
+      dock?.contains(screen.getByRole("region", { name: "Your hand" })),
+    ).toBe(true);
     expect(
       prompt?.compareDocumentPosition(dock as Node) &
         Node.DOCUMENT_POSITION_FOLLOWING,

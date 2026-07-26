@@ -26,9 +26,9 @@ describe("EntryFlow", () => {
 
     expect(screen.getAllByLabelText("Display name")).toHaveLength(1);
     expect(
-      screen.getByRole("button", { name: "Practice" }).getAttribute(
-        "aria-pressed",
-      ),
+      screen
+        .getByRole("button", { name: "Practice" })
+        .getAttribute("aria-pressed"),
     ).toBe("true");
     expect(screen.queryByLabelText("Invite code")).toBeNull();
 

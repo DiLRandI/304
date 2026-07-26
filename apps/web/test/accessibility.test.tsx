@@ -136,6 +136,35 @@ describe("browser accessibility", () => {
     expect(screen.getByText("Nine · 20 points")).toBeTruthy();
   });
 
+  it("focuses the native rules dialog, closes it with Escape, and restores the trigger", async () => {
+    const user = userEvent.setup();
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={activeProjection()}
+        submit={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", {
+      name: "Rules and card values",
+    });
+    await user.click(trigger);
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Rules and card values",
+    }) as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    expect(document.activeElement).toBe(dialog);
+
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("dialog", { name: "Rules and card values" }),
+    ).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it("applies explicit display preferences through document data attributes", async () => {
     const user = userEvent.setup();
 

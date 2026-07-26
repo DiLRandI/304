@@ -391,6 +391,8 @@ dd[data-state="missing"] {
   border: 1px solid rgb(231 229 199 / 14%);
   border-radius: 0.85rem;
   background: rgb(1 16 10 / 42%);
+  margin: 0;
+  min-inline-size: 0;
 }
 
 .entry-mode-switch button {
@@ -1214,19 +1216,19 @@ dd[data-state="missing"] {
 }
 
 .public-page h2,
-.rules-popover h2 {
+.rules-dialog h2 {
   color: #fbf5e9;
   font-size: 1.08rem;
 }
 
-.rules-popover h3 {
+.rules-dialog h3 {
   margin: 0;
   color: #f7efd7;
   font-size: 0.9rem;
 }
 
 .public-page p,
-.rules-popover p,
+.rules-dialog p,
 .card-values {
   color: #c0d0c2;
   line-height: 1.6;
@@ -1247,7 +1249,7 @@ dd[data-state="missing"] {
 }
 
 .rules-drawer > button,
-.rules-popover > button {
+.rules-dialog-close {
   min-height: 2.55rem;
   padding: 0.62rem 0.85rem;
   border: 1px solid rgb(222 238 222 / 22%);
@@ -1257,28 +1259,45 @@ dd[data-state="missing"] {
   font-weight: 720;
 }
 
-.rules-popover {
-  position: absolute;
-  z-index: 4;
-  right: 0;
-  bottom: calc(100% + 0.65rem);
-  display: grid;
-  width: min(24rem, calc(100vw - 2.5rem));
+.rules-dialog {
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: min(44rem, calc(100dvh - 2rem));
+  margin: auto;
+  overflow: hidden;
+  color: var(--color-text);
   gap: 0.8rem;
-  padding: 1rem;
+  padding: 0;
   border: 1px solid rgb(243 199 95 / 42%);
-  border-radius: 0.9rem;
+  border-radius: var(--radius-panel);
   background: #092d20;
   box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 40%);
 }
 
-.rules-popover section {
+.rules-dialog::backdrop {
+  background: rgb(0 10 6 / 76%);
+  backdrop-filter: blur(0.2rem);
+}
+
+.rules-dialog-content {
+  display: grid;
+  max-height: calc(100dvh - 7rem);
+  gap: 0.8rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem 1rem 0;
+}
+
+.rules-dialog section {
   display: grid;
   gap: 0.3rem;
 }
 
-.rules-popover section p {
+.rules-dialog section p {
   margin: 0;
+}
+
+.rules-dialog-close {
+  margin: 1rem;
 }
 
 .site-footer {
@@ -1411,7 +1430,7 @@ html[data-contrast="high"] .seat-panel,
 html[data-contrast="high"] .hand-result,
 html[data-contrast="high"] .public-page > section,
 html[data-contrast="high"] .consent-banner,
-html[data-contrast="high"] .rules-popover,
+html[data-contrast="high"] .rules-dialog,
 html[data-contrast="high"] .accessibility-preferences fieldset {
   border-color: #fff;
   background: #000;
@@ -1599,11 +1618,6 @@ html[data-contrast="high"] .trick-card[data-suit="diamonds"] {
 
   .site-nav a:nth-child(n + 3) {
     display: none;
-  }
-
-  .rules-popover {
-    right: auto;
-    left: 0;
   }
 }
 
