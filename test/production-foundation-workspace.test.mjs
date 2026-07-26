@@ -66,7 +66,7 @@ test("declares the pinned production workspace toolchain", () => {
   );
   assert.equal(
     packageJson.scripts.typecheck,
-    "pnpm --filter @three-zero-four/gameplay build && pnpm --filter @three-zero-four/gameplay typecheck && pnpm --filter @three-zero-four/room-domain build && pnpm --filter @three-zero-four/room-domain typecheck && pnpm --filter @three-zero-four/contracts build && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
+    "pnpm --filter @three-zero-four/gameplay build && pnpm --filter @three-zero-four/gameplay typecheck && pnpm --filter @three-zero-four/room-domain build && pnpm --filter @three-zero-four/room-domain typecheck && pnpm --filter @three-zero-four/tournament-domain build && pnpm --filter @three-zero-four/tournament-domain typecheck && pnpm --filter @three-zero-four/contracts build && pnpm --filter @three-zero-four/contracts typecheck && pnpm --filter @three-zero-four/game-service typecheck && pnpm --filter @three-zero-four/web typecheck",
   );
   assert.match(workspace, /packages:\n\s+- apps\/\*/);
   assert.match(workspace, /\s+- packages\/\*/);

@@ -12,6 +12,7 @@ const architectureDocument = path.join(
 const sourceRoots = [
   "packages/gameplay/src",
   "packages/room-domain/src",
+  "packages/tournament-domain/src",
   "apps/game-service/src/contexts",
   "apps/web/src",
 ];
@@ -74,7 +75,8 @@ function assertAllowedImport(filename, specifier) {
   const normalized = filename.split(path.sep).join("/");
   const pureDomain =
     normalized.startsWith("packages/gameplay/src/") ||
-    normalized.startsWith("packages/room-domain/src/");
+    normalized.startsWith("packages/room-domain/src/") ||
+    normalized.startsWith("packages/tournament-domain/src/");
   if (pureDomain) {
     assert.ok(
       specifier.startsWith("."),
@@ -143,6 +145,7 @@ function assertAllowedImport(filename, specifier) {
         "@three-zero-four/game-engine",
         "@three-zero-four/gameplay",
         "@three-zero-four/room-domain",
+        "@three-zero-four/tournament-domain",
       ].some(
         (domainPackage) =>
           specifier === domainPackage ||
