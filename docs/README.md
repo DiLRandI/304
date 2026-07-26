@@ -46,5 +46,5 @@ Use this folder as the first page before development starts.
 
 ## Resources
 
-- `docs/resources/card_list.csv` — CSV view of deck IDs, suits, ranks, and points
-- `assets/card_manifest.json` — JSON manifest with image paths and metadata
+- `docs/resources/card_list.csv` — data-only CSV view of deck IDs, suits,
+  ranks, and points used by the documented rule profiles
