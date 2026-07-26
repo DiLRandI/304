@@ -14,6 +14,54 @@ import {
 describe("GameTable", () => {
   afterEach(cleanup);
 
+  it("places the prompt and action dock before the bounded playfield", () => {
+    const { container } = render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={activeProjection()}
+        submit={vi.fn()}
+      />,
+    );
+
+    const table = container.querySelector(".game-table");
+    const prompt = container.querySelector(".turn-prompt");
+    const dock = container.querySelector(".table-action-dock");
+    const board = container.querySelector(".table-board");
+    expect(table).not.toBeNull();
+    expect(dock?.contains(screen.getByRole("region", { name: "Your hand" }))).toBe(
+      true,
+    );
+    expect(
+      prompt?.compareDocumentPosition(dock as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      dock?.compareDocumentPosition(board as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("gives an unnamed active bot a seat-based fallback", () => {
+    const projection = activeProjection();
+    if (projection.status === "lobby") throw new Error("expected active room");
+    const publicState = projection.view.publicState as {
+      seats: Array<{ displayName: string }>;
+    };
+    publicState.seats[1].displayName = "";
+
+    render(
+      <GameTable
+        connection="live"
+        leave={vi.fn()}
+        projection={projection}
+        submit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Bot 2" })).toBeTruthy();
+  });
+
   it("offers table exit only after the active hand finishes", async () => {
     const activeRender = render(
       <GameTable

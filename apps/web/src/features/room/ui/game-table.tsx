@@ -82,26 +82,12 @@ export function GameTable({
         </p>
       </header>
 
-      <div className="table-board" data-seat-count={publicState.seatCount}>
-        <TableSeats
-          activeSeat={publicState.activeSeat}
-          seats={publicState.seats}
-        />
-
-        <div className="table-center">
-          <CurrentTrick
-            seatCount={publicState.seatCount}
-            trick={publicState.trick}
-          />
-
-          <TableMetrics
-            bidderOwner={bidderOwner}
-            publicState={publicState}
-            trumpIndicatorLabel={trumpIndicatorLabel}
-            trumpLabel={trumpLabel}
-          />
-        </div>
-      </div>
+      <TableMetrics
+        bidderOwner={bidderOwner}
+        publicState={publicState}
+        trumpIndicatorLabel={trumpIndicatorLabel}
+        trumpLabel={trumpLabel}
+      />
 
       <TablePrompt
         connection={connection}
@@ -121,20 +107,37 @@ export function GameTable({
         />
       ) : null}
 
-      <CommandActions
-        actions={commandActions}
-        currentBid={publicState.bid}
-        hand={view.privateSeat.hand}
-        handResult={publicState.handResult}
-        onSelect={submit}
-      />
+      <div className="table-action-dock">
+        <CommandActions
+          actions={commandActions}
+          currentBid={publicState.bid}
+          hand={view.privateSeat.hand}
+          handResult={publicState.handResult}
+          onSelect={submit}
+        />
 
-      <PlayerHand
-        hand={view.privateSeat.hand}
-        isPlayersTurn={isPlayersTurn}
-        legalActions={view.legalActions}
-        onSelect={submit}
-      />
+        <PlayerHand
+          hand={view.privateSeat.hand}
+          isPlayersTurn={isPlayersTurn}
+          legalActions={view.legalActions}
+          onSelect={submit}
+        />
+      </div>
+
+      <div className="table-board" data-seat-count={publicState.seatCount}>
+        <TableSeats
+          activeSeat={publicState.activeSeat}
+          seats={publicState.seats}
+        />
+
+        <div className="table-center">
+          <CurrentTrick
+            seatCount={publicState.seatCount}
+            trick={publicState.trick}
+          />
+        </div>
+      </div>
+
       <RulesDrawer profileId={publicState.profileId} />
       <div className="table-exit">
         {projection.status === "hand_result" ? (
