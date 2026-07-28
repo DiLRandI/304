@@ -44,9 +44,7 @@ export function RoomLobby({
       <div className="lobby-heading">
         <p className="eyebrow">Private room</p>
         <h1 id="lobby-title">Set the table before the first hand.</h1>
-        <p>
-          Share the invite, check the seats, then start when you are ready.
-        </p>
+        <p>Share the invite, check the seats, then start when you are ready.</p>
       </div>
 
       <section aria-label="Room invite" className="invite-panel">
@@ -91,7 +89,7 @@ export function RoomLobby({
         ))}
       </section>
 
-      <div aria-label="Room settings" className="lobby-settings">
+      <section aria-label="Room settings" className="lobby-settings">
         <p className="lobby-profile">
           {view.lobby.ruleProfileId === "six_304_36"
             ? "Six-seat 304-36 variant"
@@ -102,7 +100,7 @@ export function RoomLobby({
             ? "End hands early when the outcome is certain"
             : "Play every hand to the final trick"}
         </p>
-      </div>
+      </section>
     </section>
   );
 }

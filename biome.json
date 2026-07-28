@@ -7,6 +7,7 @@
       "!**/dist",
       "!**/.next",
       "!**/coverage",
+      "!**/public/generated",
       "!**/test-results",
       "!**/playwright-report"
     ]

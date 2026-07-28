@@ -151,7 +151,8 @@ export function EntryFlow({
           />
         </label>
 
-        <div aria-label="Table mode" className="entry-mode-switch">
+        <fieldset className="entry-mode-switch">
+          <legend className="sr-only">Table mode</legend>
           {(["practice", "create", "join"] as const).map((entryMode) => (
             <button
               aria-pressed={mode === entryMode}
@@ -162,7 +163,7 @@ export function EntryFlow({
               {entryMode.slice(0, 1).toUpperCase() + entryMode.slice(1)}
             </button>
           ))}
-        </div>
+        </fieldset>
 
         {mode === "join" ? (
           <div className="entry-settings">
@@ -188,8 +189,7 @@ export function EntryFlow({
               <select
                 onChange={(event) =>
                   setRuleProfileId(
-                    event.target
-                      .value as CreateRoomOptions["ruleProfileId"],
+                    event.target.value as CreateRoomOptions["ruleProfileId"],
                   )
                 }
                 value={ruleProfileId}

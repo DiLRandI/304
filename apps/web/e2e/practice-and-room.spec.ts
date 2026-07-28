@@ -589,9 +589,7 @@ test("two private-table guests keep separate hands and recover after a socket re
     await guest.goto("/play");
     await dismissConsent(guest);
     await guest.getByRole("button", { name: "Join" }).click();
-    await guest
-      .getByLabel("Display name")
-      .fill(uniqueName("Private guest"));
+    await guest.getByLabel("Display name").fill(uniqueName("Private guest"));
     await guest.getByLabel("Invite code").fill(inviteCode);
     await guest.getByRole("button", { name: "Join private room" }).click();
     await expect(guest).toHaveURL(/\/room\//);
