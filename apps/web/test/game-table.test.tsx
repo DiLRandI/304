@@ -14,7 +14,7 @@ import {
 describe("GameTable", () => {
   afterEach(cleanup);
 
-  it("places the prompt and action dock before the bounded playfield", () => {
+  it("places the table before the hand and supporting information", () => {
     const { container } = render(
       <GameTable
         connection="live"
@@ -25,19 +25,19 @@ describe("GameTable", () => {
     );
 
     const table = container.querySelector(".game-table");
-    const prompt = container.querySelector(".turn-prompt");
-    const dock = container.querySelector(".table-action-dock");
     const board = container.querySelector(".table-board");
+    const dock = container.querySelector(".table-action-dock");
+    const information = container.querySelector(".table-information");
+    const hand = screen.getByRole("region", { name: "Your hand" });
+
     expect(table).not.toBeNull();
+    expect(dock?.contains(hand)).toBe(true);
     expect(
-      dock?.contains(screen.getByRole("region", { name: "Your hand" })),
-    ).toBe(true);
-    expect(
-      prompt?.compareDocumentPosition(dock as Node) &
+      board?.compareDocumentPosition(dock as Node) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      dock?.compareDocumentPosition(board as Node) &
+      dock?.compareDocumentPosition(information as Node) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
