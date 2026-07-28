@@ -249,10 +249,7 @@ function chooseTrumpMode(
   const closed = legal.find((command) => command.type === "TRUMP_CLOSE");
   if (!open) return closed ?? null;
   if (!closed) return open;
-  if (
-    preferClosedTrumpBelow250 &&
-    (hand.bidding.currentBid ?? 0) < 250
-  ) {
+  if (preferClosedTrumpBelow250 && (hand.bidding.currentBid ?? 0) < 250) {
     return closed;
   }
   if ((hand.bidding.currentBid ?? 0) >= 250 && randomValue(random) > 0.4) {

@@ -773,6 +773,42 @@ describe("gameplay bot policy", () => {
     });
   });
 
+  it("keeps trump closed below 250 when practice policy prefers it", () => {
+    const actor = seatIndex(0, 4);
+    const hand: GameplayHand = {
+      ...start(),
+      activeSeat: actor,
+      bidding: { ...start().bidding, currentBid: bidAmount(160) },
+      phase: "trump-choice",
+      trump: {
+        ...start().trump,
+        indicator: card("S_7"),
+        maker: actor,
+        suit: "spades",
+      },
+    };
+
+    expect(
+      chooseGameplayBotCommand(hand, actor, {
+        difficulty: "easy",
+        preferClosedTrumpBelow250: true,
+        random: random(0.2),
+      }),
+    ).toEqual({
+      actor: 0,
+      type: "TRUMP_CLOSE",
+    });
+    expect(
+      chooseGameplayBotCommand(hand, actor, {
+        difficulty: "easy",
+        random: random(0.2),
+      }),
+    ).toEqual({
+      actor: 0,
+      type: "TRUMP_OPEN",
+    });
+  });
+
   it("does not let a non-maker choice depend on hidden trump identity", () => {
     const actor = seatIndex(1, 4);
     const probe = (indicatorId: "D_9" | "H_9"): GameplayHand => ({

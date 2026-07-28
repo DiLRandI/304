@@ -17,6 +17,7 @@ import {
 } from "../src/contexts/gameplay/adapters/persistence/gameplay-snapshot-codec.js";
 import {
   pausedTrickGameplayHand,
+  selectedTrumpGameplayHand,
   startedGameplayHand,
 } from "./support/gameplay-hand-fixture.js";
 
@@ -40,6 +41,20 @@ function seats(
       playerId: `player-${seatIndex}`,
       seatIndex,
       ...target,
+    }),
+  );
+}
+
+function practiceSeats(targetSeatIndex: number): AutomationJobSeat[] {
+  const humanSeatIndex = (targetSeatIndex + 1) % 4;
+  return Array.from(
+    { length: 4 },
+    (_, seatIndex): AutomationJobSeat => ({
+      botDifficulty: seatIndex === humanSeatIndex ? null : "easy",
+      connectionStatus: "online",
+      occupantType: seatIndex === humanSeatIndex ? "human" : "bot",
+      playerId: seatIndex === humanSeatIndex ? `player-${seatIndex}` : null,
+      seatIndex,
     }),
   );
 }
@@ -197,6 +212,50 @@ describe("DomainGameplayAutomationExecutor", () => {
       expect.objectContaining({ eventVersion: room.eventVersion + 1 }),
       expect.objectContaining({
         state: expect.objectContaining({ seats: expect.any(Array) }),
+      }),
+    );
+  });
+
+  it("keeps trump closed below 250 for a bot in single-player practice", async () => {
+    const hand = selectedTrumpGameplayHand(160);
+    const maker = hand.trump.maker;
+    if (maker === null) throw new Error("Expected a trump maker");
+    const { appendEventAndSnapshot, executor } = harness({
+      hand,
+      seats: practiceSeats(maker),
+    });
+
+    await expect(executor.run(job(maker))).resolves.toBe("completed");
+
+    expect(appendEventAndSnapshot).toHaveBeenCalledWith(
+      expect.any(Symbol),
+      expect.objectContaining({
+        payload: {
+          action: { type: "TRUMP_CLOSE" },
+          seatIndex: maker,
+        },
+      }),
+    );
+  });
+
+  it("preserves open trump below 250 for a bot in multiplayer", async () => {
+    const hand = selectedTrumpGameplayHand(160);
+    const maker = hand.trump.maker;
+    if (maker === null) throw new Error("Expected a trump maker");
+    const { appendEventAndSnapshot, executor } = harness({
+      hand,
+      seats: seats(maker),
+    });
+
+    await expect(executor.run(job(maker))).resolves.toBe("completed");
+
+    expect(appendEventAndSnapshot).toHaveBeenCalledWith(
+      expect.any(Symbol),
+      expect.objectContaining({
+        payload: {
+          action: { type: "TRUMP_OPEN" },
+          seatIndex: maker,
+        },
       }),
     );
   });
