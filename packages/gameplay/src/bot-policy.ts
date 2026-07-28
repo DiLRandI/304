@@ -10,6 +10,7 @@ export type GameplayBotDifficulty = "easy" | "normal" | "strong";
 
 export interface GameplayBotOptions {
   readonly difficulty: GameplayBotDifficulty;
+  readonly preferClosedTrumpBelow250?: boolean;
   readonly random: RandomSource;
 }
 
@@ -241,12 +242,19 @@ function chooseTrump(
 function chooseTrumpMode(
   hand: GameplayHand,
   legal: readonly GameplayCommand[],
+  preferClosedTrumpBelow250: boolean,
   random: RandomSource,
 ): GameplayCommand | null {
   const open = legal.find((command) => command.type === "TRUMP_OPEN");
   const closed = legal.find((command) => command.type === "TRUMP_CLOSE");
   if (!open) return closed ?? null;
   if (!closed) return open;
+  if (
+    preferClosedTrumpBelow250 &&
+    (hand.bidding.currentBid ?? 0) < 250
+  ) {
+    return closed;
+  }
   if ((hand.bidding.currentBid ?? 0) >= 250 && randomValue(random) > 0.4) {
     return closed;
   }
@@ -281,7 +289,7 @@ export function chooseGameplayBotCommand(
   actor: SeatIndex,
   options: GameplayBotOptions,
 ): GameplayCommand | null {
-  const { difficulty, random } = options;
+  const { difficulty, preferClosedTrumpBelow250 = false, random } = options;
   const legal = legalGameplayCommands(hand, actor);
   if (legal.length === 0) return null;
 
@@ -297,7 +305,11 @@ export function chooseGameplayBotCommand(
     return chooseTrump(hand, actor, legal) ?? legal[0] ?? null;
   }
   if (hand.phase === "trump-choice") {
-    return chooseTrumpMode(hand, legal, random) ?? legal[0] ?? null;
+    return (
+      chooseTrumpMode(hand, legal, preferClosedTrumpBelow250, random) ??
+      legal[0] ??
+      null
+    );
   }
   if (hand.phase === "trick-play") {
     return chooseCard(hand, actor, legal) ?? legal[0] ?? null;

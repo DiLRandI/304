@@ -80,6 +80,15 @@ function isGameplayBotDifficulty(
   return value === "easy" || value === "normal" || value === "strong";
 }
 
+function isSinglePlayerPractice(
+  seats: readonly AutomationJobSeat[],
+): boolean {
+  return (
+    seats.filter((seat) => seat.occupantType === "human").length === 1 &&
+    seats.every((seat) => seat.occupantType !== "empty")
+  );
+}
+
 export function gameplayBotOptionsForSeat(seat: AutomationJobSeat): {
   readonly difficulty: GameplayBotDifficulty;
 } {
@@ -208,6 +217,9 @@ export class DomainGameplayAutomationExecutor {
       const actor = seatIndex(job.targetSeatIndex, hand.profile.seatCount);
       const command = chooseGameplayBotCommand(hand, actor, {
         ...gameplayBotOptionsForSeat(storedSeat),
+        preferClosedTrumpBelow250:
+          storedSeat.occupantType === "bot" &&
+          isSinglePlayerPractice(seats),
         random: this.dependencies.random,
       });
       if (!command || command.type === "ACK_RESULT") return "stale";
