@@ -33,7 +33,6 @@ html {
 }
 
 body {
-  min-width: 20rem;
   min-height: 100vh;
   margin: 0;
   background:
@@ -678,6 +677,12 @@ dd[data-state="missing"] {
   background: rgb(3 26 17 / 76%);
 }
 
+.table-information {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
 .table-status {
   display: flex;
   align-items: center;
@@ -1043,6 +1048,9 @@ dd[data-state="missing"] {
 
 .player-hand {
   display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 6.75rem;
   gap: clamp(0.35rem, 1vw, 0.8rem);
   align-items: end;
@@ -1518,8 +1526,7 @@ html[data-contrast="high"] .trick-card[data-suit="diamonds"] {
 
   .player-hand {
     justify-content: start;
-    margin-inline: -0.35rem;
-    padding: 0.75rem;
+    padding: 0.75rem 0.35rem;
   }
 
   .site-footer {
@@ -1606,6 +1613,12 @@ html[data-contrast="high"] .trick-card[data-suit="diamonds"] {
   }
 
   .site-nav a:nth-child(n + 3) {
+    display: none;
+  }
+}
+
+@media (max-width: 24rem) {
+  .site-nav a:nth-child(n + 2) {
     display: none;
   }
 }

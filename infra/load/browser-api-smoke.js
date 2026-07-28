@@ -50,6 +50,8 @@ async function createGuest(label) {
     method: "POST",
     body: { displayName: `Release smoke ${label}` },
   });
+  if (typeof body.csrfToken !== "string")
+    throw new Error("Guest session response did not include a CSRF token");
   return { cookie: sessionCookie(response), csrfToken: body.csrfToken };
 }
 

@@ -21,7 +21,7 @@ async function startPractice(
   await expect(page.locator('[aria-label="304 game table"]')).toBeVisible();
 }
 
-test("six-seat mobile play keeps the prompt, legal action, and private hand reachable", async ({
+test("responsive six-seat play keeps actions reachable without page overflow", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -32,11 +32,28 @@ test("six-seat mobile play keeps the prompt, legal action, and private hand reac
   const hand = page.locator('[aria-label="Your hand"]');
 
   for (const locator of [prompt, action, hand]) {
-    await locator.scrollIntoViewIfNeeded();
     await expect(locator).toBeVisible();
     await expect(locator).toBeInViewport();
   }
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const locator of [prompt, action, hand]) {
+    await expect(locator).toBeInViewport();
+  }
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.locator("summary").click();
+  await page.getByLabel("Card size").selectOption("large");
+  // This 320 CSS-pixel reflow width is equivalent to a 640-pixel viewport at
+  // 200% browser zoom, without relying on non-standard CSS zoom behavior.
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -180,6 +197,17 @@ test("keyboard action controls and display preferences work without pointer-only
     "data-reduced-motion",
     "true",
   );
+
+  const rulesTrigger = page.getByRole("button", {
+    name: "Rules and card values",
+  });
+  await rulesTrigger.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("dialog", { name: "Rules and card values" }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(rulesTrigger).toBeFocused();
 
   const action = page.locator('[aria-label="Legal actions"] button').first();
   await expect(action).toBeVisible();
