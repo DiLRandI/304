@@ -59,7 +59,8 @@ async function exercisePublicApi(iteration) {
   const host = await createGuest(`host ${iteration}`);
   const { body: room } = await request("/v1/rooms", {
     method: "POST",
-    ...host,
+    cookie: host.cookie,
+    csrfToken: host.csrfToken,
     body: {
       commandId: randomUUID(),
       ruleProfileId: "classic_304_4p",
@@ -69,18 +70,19 @@ async function exercisePublicApi(iteration) {
   const guest = await createGuest(`guest ${iteration}`);
   const { body: roomForGuest } = await request(
     `/v1/rooms/${encodeURIComponent(room.inviteCode)}`,
-    guest,
+    { cookie: guest.cookie },
   );
   await request(`/v1/rooms/${encodeURIComponent(room.roomId)}/join`, {
     method: "POST",
-    ...guest,
+    cookie: guest.cookie,
+    csrfToken: guest.csrfToken,
     body: {
       commandId: randomUUID(),
       expectedVersion: roomForGuest.eventVersion,
     },
   });
   await request(`/v1/rooms/${encodeURIComponent(room.roomId)}/snapshot`, {
-    ...guest,
+    cookie: guest.cookie,
   });
 }
 

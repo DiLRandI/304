@@ -6,8 +6,6 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages ./packages
 COPY apps ./apps
-COPY assets ./assets
-COPY scripts ./scripts
 
 ARG NEXT_PUBLIC_GAME_SERVICE_URL
 ENV NEXT_PUBLIC_GAME_SERVICE_URL=$NEXT_PUBLIC_GAME_SERVICE_URL

@@ -1084,18 +1084,7 @@ dd[data-state="missing"] {
 }
 
 .card-button > .card-face {
-  display: grid;
-  width: 100%;
-  height: 100%;
-  place-items: center;
-}
-
-.card-artwork {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 0.42rem;
-  object-fit: cover;
+  display: contents;
 }
 
 .card-button:not(:disabled):hover {

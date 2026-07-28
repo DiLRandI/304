@@ -12,6 +12,8 @@ Use this folder as the first page before development starts.
 
 ## Feature design docs
 
+- `docs/superpowers/specs/2026-07-26-private-live-tournaments-design.md` —
+  approved private tournament product and architecture contract
 - `docs/features/04_ROOM_MATCHMAKING_AND_BOT_FILL.md`
 - `docs/features/05_GAMEPLAY_ENGINE.md`
 - `docs/features/06_BIDDING_TRUMP_AND_SCORING.md`
@@ -34,6 +36,8 @@ Use this folder as the first page before development starts.
 
 ## Deployment guides
 
+- `docs/deployment/railway.md` — Railway web, API, worker, PostgreSQL, and Redis
+  deployment, verification, and troubleshooting
 - `docs/deployment/vercel-supabase-development.md` — local workflow, Supabase
   development database, Vercel preview and promotion release process
 - `docs/deployment/aws-mumbai-production-cost-first.md` — initial AWS Mumbai
@@ -42,5 +46,5 @@ Use this folder as the first page before development starts.
 
 ## Resources
 
-- `docs/resources/card_list.csv` — CSV view of deck IDs, suits, ranks, and points
-- `assets/card_manifest.json` — JSON manifest with image paths and metadata
+- `docs/resources/card_list.csv` — data-only CSV view of deck IDs, suits,
+  ranks, and points used by the documented rule profiles

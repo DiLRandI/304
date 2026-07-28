@@ -30,3 +30,20 @@ export {
   type VersionedPrivateView,
   VersionedPrivateViewSchema,
 } from "./game.js";
+export {
+  type CreateTournamentRequest,
+  CreateTournamentRequestSchema,
+  type JoinTournamentInviteRequest,
+  JoinTournamentInviteRequestSchema,
+  type PublicTournamentBoard,
+  PublicTournamentBoardSchema,
+  type TournamentAction,
+  TournamentActionSchema,
+  TournamentBotSettingsSchema,
+  type TournamentCommandRequest,
+  TournamentCommandRequestSchema,
+  TournamentProfileSchema,
+  TournamentSeriesFormatSchema,
+  type TournamentStatus,
+  TournamentStatusSchema,
+} from "./tournament.js";

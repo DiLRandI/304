@@ -126,6 +126,8 @@ importers:
 
   packages/room-domain: {}
 
+  packages/tournament-domain: {}
+
 packages:
 
   '@asamuzakjp/css-color@5.1.11':
