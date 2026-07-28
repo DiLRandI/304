@@ -26,6 +26,8 @@
 | Bot unfairness | Bot sees all hidden hands | Bot information-state boundary |
 | Collusion | Users share hidden info externally | Ranked detection later; cannot fully prevent in private rooms |
 | Account abuse | Bad usernames/chat | Moderation, filters, reports if chat exists |
+| Tournament invite leak | Raw team token appears in logs or storage | URL fragment exchange, immediate removal, body submission, HMAC-only storage |
+| Board identity leak | Public board reveals participants or room entry | Explicit sanitized projection and negative privacy tests |
 
 ## 4. Hidden information policy
 
@@ -78,6 +80,19 @@ Example test cases:
 - Provide account deletion/export if user accounts persist data.
 
 ## 7. Authorization rules
+
+### Tournament authorization
+
+- Organizers act through their authenticated guest session and cannot forge a
+  captain or roster member identity.
+- Captains control only their own pre-lock team and fixture lineup.
+- A raw team invite is accepted only in a protected request body and is never
+  stored, logged, emitted, or included in a board.
+- Rotation invalidates the prior digest. Comparisons use constant-time checks.
+- Public projections use a dedicated allowlist and exclude player/session IDs,
+  access links, room IDs/codes, card data, IP data, and private activity.
+- All administrative changes are audited, while public activity contains only
+  action kind, team name when safe, and time.
 
 | Action | Required authorization |
 |---|---|

@@ -27,6 +27,10 @@ import {
 import { JoinRoomHandler } from "../contexts/rooms/application/join-room.js";
 import { LeaveRoomHandler } from "../contexts/rooms/application/leave-room.js";
 import { StartRoomHandler } from "../contexts/rooms/application/start-room.js";
+import { PostgresTournamentRepository } from "../contexts/tournaments/adapters/persistence/postgres-tournament-repository.js";
+import { NodeTournamentIdentityProvider } from "../contexts/tournaments/adapters/security/node-tournament-identity-provider.js";
+import { NodeTournamentInviteSecurity } from "../contexts/tournaments/adapters/security/node-tournament-invite-security.js";
+import { CreateTournamentHandler } from "../contexts/tournaments/application/create-tournament.js";
 import { buildApp } from "../delivery/http/http-app.js";
 import { RoomSocketHub } from "../delivery/realtime/room-socket-hub.js";
 import { OutboxPublisher } from "../delivery/workers/outbox-publisher.js";
@@ -126,6 +130,13 @@ const game = {
     leave: new LeaveRoomHandler(roomCommands, presence),
     snapshot: getRoomSnapshot,
     start: new StartRoomHandler(roomCommands, presence),
+  },
+  tournamentUseCases: {
+    create: new CreateTournamentHandler({
+      identities: new NodeTournamentIdentityProvider(),
+      invites: new NodeTournamentInviteSecurity(config.SESSION_SECRET_PEPPER),
+      repository: new PostgresTournamentRepository(database),
+    }),
   },
   sessions,
   rateLimiter: new RateLimiter(redis),

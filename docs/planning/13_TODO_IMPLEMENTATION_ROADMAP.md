@@ -14,6 +14,15 @@ Recommended build order:
 8. UI polish and tutorial
 9. Six-seat variant
 10. Beta/release readiness
+11. Private live tournaments
+
+## Private live tournament delivery
+
+The implementation contract is the
+[approved dated design](../superpowers/specs/2026-07-26-private-live-tournaments-design.md).
+Delivery is intentionally stacked: documentation; pure tournament domain;
+contracts and persistence; workflows; room/result integration; projections and
+web; then retention, observability, and release acceptance.
 
 ## 2. Phase 0: Product and project setup
 

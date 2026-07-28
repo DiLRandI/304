@@ -1,5 +1,6 @@
 import {
   CreateRoomRequestSchema,
+  CreateTournamentRequestSchema,
   GameCommandSchema,
   GuestSessionRequestSchema,
   JoinRoomRequestSchema,
@@ -26,6 +27,7 @@ import type {
 import type { JoinRoomHandler } from "../../contexts/rooms/application/join-room.js";
 import type { LeaveRoomHandler } from "../../contexts/rooms/application/leave-room.js";
 import type { StartRoomHandler } from "../../contexts/rooms/application/start-room.js";
+import type { CreateTournamentHandler } from "../../contexts/tournaments/application/create-tournament.js";
 import type { ServiceConfig } from "../../platform/config/service-config.js";
 import { DeliveryError } from "../delivery-error.js";
 import type { RequestRateLimiter } from "./request-rate-limiter.js";
@@ -45,6 +47,9 @@ export interface GameRuntime {
     readonly leave: Pick<LeaveRoomHandler, "execute">;
     readonly snapshot: Pick<GetRoomSnapshotHandler, "execute">;
     readonly start: Pick<StartRoomHandler, "execute">;
+  };
+  tournamentUseCases?: {
+    readonly create: Pick<CreateTournamentHandler, "execute">;
   };
   sessions: PlayerAccess;
   rateLimiter: RequestRateLimiter;
@@ -165,6 +170,26 @@ export async function registerV1Routes(
     });
     return reply.code(201).send(presentLobbyRoom(projection));
   });
+
+  if (runtime.tournamentUseCases) {
+    app.post("/v1/tournaments", async (request, reply) => {
+      const session = await requireSession(request, config, runtime);
+      await consumeMutationLimit(
+        request,
+        runtime,
+        session,
+        "tournament-create",
+        3,
+        60,
+      );
+      const input = CreateTournamentRequestSchema.parse(request.body);
+      const created = await runtime.tournamentUseCases?.create.execute({
+        ...input,
+        actorPlayerId: session.playerId,
+      });
+      return reply.code(201).send(created);
+    });
+  }
 
   app.get<{ Params: { roomRef: string } }>(
     "/v1/rooms/:roomRef",
