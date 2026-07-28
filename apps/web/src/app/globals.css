@@ -677,6 +677,12 @@ dd[data-state="missing"] {
   background: rgb(3 26 17 / 76%);
 }
 
+.table-information {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
 .table-status {
   display: flex;
   align-items: center;

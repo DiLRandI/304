@@ -82,48 +82,6 @@ export function GameTable({
         </p>
       </header>
 
-      <TableMetrics
-        bidderOwner={bidderOwner}
-        publicState={publicState}
-        trumpIndicatorLabel={trumpIndicatorLabel}
-        trumpLabel={trumpLabel}
-      />
-
-      <TablePrompt
-        connection={connection}
-        isPlayersTurn={isPlayersTurn}
-        prompt={view.prompt}
-        trickCardCount={view.publicState.trick.length}
-        trump={publicState.trump}
-        trumpRevealReason={publicState.trumpRevealReason}
-      />
-
-      {publicState.handResult ? (
-        <HandResult
-          bidderOwner={bidderOwner}
-          bidderSeatTeam={bidderSeat?.team ?? null}
-          result={publicState.handResult}
-          trumpLabel={trumpLabel}
-        />
-      ) : null}
-
-      <div className="table-action-dock">
-        <CommandActions
-          actions={commandActions}
-          currentBid={publicState.bid}
-          hand={view.privateSeat.hand}
-          handResult={publicState.handResult}
-          onSelect={submit}
-        />
-
-        <PlayerHand
-          hand={view.privateSeat.hand}
-          isPlayersTurn={isPlayersTurn}
-          legalActions={view.legalActions}
-          onSelect={submit}
-        />
-      </div>
-
       <div className="table-board" data-seat-count={publicState.seatCount}>
         <TableSeats
           activeSeat={publicState.activeSeat}
@@ -138,17 +96,61 @@ export function GameTable({
         </div>
       </div>
 
-      <RulesDrawer profileId={publicState.profileId} />
-      <div className="table-exit">
-        {projection.status === "hand_result" ? (
-          <button className="leave-table" onClick={leave} type="button">
-            Leave table
-          </button>
-        ) : (
-          <p className="table-exit-note">
-            You can leave after this hand finishes.
-          </p>
-        )}
+      <div className="table-action-dock">
+        <PlayerHand
+          hand={view.privateSeat.hand}
+          isPlayersTurn={isPlayersTurn}
+          legalActions={view.legalActions}
+          onSelect={submit}
+        />
+      </div>
+
+      <div className="table-information">
+        <CommandActions
+          actions={commandActions}
+          currentBid={publicState.bid}
+          hand={view.privateSeat.hand}
+          handResult={publicState.handResult}
+          onSelect={submit}
+        />
+
+        <TablePrompt
+          connection={connection}
+          isPlayersTurn={isPlayersTurn}
+          prompt={view.prompt}
+          trickCardCount={view.publicState.trick.length}
+          trump={publicState.trump}
+          trumpRevealReason={publicState.trumpRevealReason}
+        />
+
+        {publicState.handResult ? (
+          <HandResult
+            bidderOwner={bidderOwner}
+            bidderSeatTeam={bidderSeat?.team ?? null}
+            result={publicState.handResult}
+            trumpLabel={trumpLabel}
+          />
+        ) : null}
+
+        <TableMetrics
+          bidderOwner={bidderOwner}
+          publicState={publicState}
+          trumpIndicatorLabel={trumpIndicatorLabel}
+          trumpLabel={trumpLabel}
+        />
+
+        <RulesDrawer profileId={publicState.profileId} />
+        <div className="table-exit">
+          {projection.status === "hand_result" ? (
+            <button className="leave-table" onClick={leave} type="button">
+              Leave table
+            </button>
+          ) : (
+            <p className="table-exit-note">
+              You can leave after this hand finishes.
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );
