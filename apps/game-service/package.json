@@ -19,7 +19,7 @@
     "@three-zero-four/contracts": "workspace:*",
     "@three-zero-four/gameplay": "workspace:*",
     "@three-zero-four/room-domain": "workspace:*",
-    "fastify": "5.10.0",
+    "fastify": "5.12.1",
     "pg": "8.22.0",
     "prom-client": "15.1.3",
     "redis": "6.1.0",
